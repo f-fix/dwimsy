@@ -74,7 +74,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 | **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`) | `[ ] TODO` | Milestone 1 |
 | **`cli.dwimsy`** | Central CLI (`convert`, `restore`, `split`, `join`, `inspect`) | `[ ] TODO` | Milestone 1 |
 | **`cli.filters.*`** | Netpbm-style filter entry points (`t882wav`, `wav2t88`, etc.) | `[ ] TODO` | Milestone 1 |
-| **`core.charsets`** | Unicode $\leftrightarrow$ JIS X 0201 / NEC / MSX / KOI-7 | `[ ] TODO` | Milestone 2 |
+| **`core.charsets`** | Unicode ↔ JIS X 0201 / NEC / MSX / KOI-7 | `[ ] TODO` | Milestone 2 |
 | **`core.fs`** | Filename sanitizer & `link_or_copy` hardlinker/copier | `[ ] TODO` | Milestone 2 |
 | **`disk.d88`** | D88 sector container reader & writer | `[ ] TODO` | Milestone 2 |
 | **`disk.fat8`** | FAT8 filesystem parser & injector | `[ ] TODO` | Milestone 2 |
@@ -149,15 +149,15 @@ Layer            Default Flavor (Untagged)     Tagged Variant Sibling
 Layer 1 (Audio)  capture.flac                  capture [re-synthesized].wav
 Layer 2 (Cont.)  game (Japan).t88 / .tsx       game (Japan) [canonical-timing].tsx
 Layer 3 (Stream) game (Japan).p6 / .cas / .cmt game (Japan) [untrimmed].p6 / [pad8].cas
-Layer 4 (Payload)game (Japan).bin / .rom       game (Japan) [alt-load].bin
+Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
 ```
-Pairing Rules
+### Pairing Rules
 
 1.  PC-6001 (.p6 and .p6t Aligned Pairs):
-      - game (Japan).p6 \leftrightarrow game (Japan).p6t: Clean stream trimmed
+      - game (Japan).p6 ↔ game (Japan).p6t: Clean stream trimmed
         at verified BASIC 0x0000 EOF / MON :00 terminator for standard emulator
         compatibility.
-      - game (Japan) [untrimmed].p6 \leftrightarrow game (Japan)
+      - game (Japan) [untrimmed].p6 ↔ game (Japan)
         [untrimmed].p6t: Raw stream retaining physical trailing flush padding.
 2.  MSX (.cas Unaligned vs. 8-Byte Aligned Pairs):
       - game (Japan).cas: Clean unpadded byte stream (No-Intro / OpenMSX
@@ -167,15 +167,15 @@ Pairing Rules
       - game (Japan).tsx: Physical timing container with KCS Block 0x4B and
         Turbo Block 0x11.
 3.  PC-88 / PC-80 (.t88 and .cmt Pairs):
-      - game (Japan).cmt \leftrightarrow game (Japan).t88: Canonical
+      - game (Japan).cmt ↔ game (Japan).t88: Canonical
         DumpListEditor / c2t mastering timing.
-      - game (Japan) [untrimmed].cmt \leftrightarrow game (Japan)
+      - game (Japan) [untrimmed].cmt ↔ game (Japan)
         [untrimmed].t88: Raw physical stream retaining trailing carrier
         overshoot.
 
 ## 6. CLI & Interface Conventions
 
-Main CLI Verbs [ ] TODO
+### Main CLI Verbs `[ ] TODO`
 ```bash
 # Convert between any pair of formats (inferred from extensions)
 dwimsy convert input.flac output.t88
@@ -196,7 +196,7 @@ dwimsy join ./extracted_tracks/ -o master.wav
 # Inspect structure, metadata, baud rates, and timing
 dwimsy inspect input.t88
 ```
-Positional Per-Input Options (SoX / FFmpeg Model) [ ] TODO
+### Positional Per-Input Options (SoX / FFmpeg Model) `[ ] TODO`
 
 Options placed immediately before an input file act as scoped overrides:
 ```bash
@@ -206,7 +206,7 @@ dwimsy join \
     --baud 600      loader.cmt \
     -o master.wav --wave tape --volume 0.85
 ```
-File Linking & Paired Naming [ ] TODO
+### File Linking & Paired Naming `[ ] TODO`
 
   - dwimsy emits both a compact CLI name (crazy_a.p6) and an extended No-Intro
     long name (Crazy Newton (Japan) (PC-6001 32K Mode 2 Pages 2)
@@ -218,7 +218,7 @@ File Linking & Paired Naming [ ] TODO
 
 ## 7. Metadata, Checksums & Archival Packaging
 
-Multi-Level Hash Registry [ ] TODO
+### Multi-Level Hash Registry `[ ] TODO`
 
 Every file entry across manifests, README.md, and inspection reports provides
 the complete hash suite (Size in bytes, CRC32, MD5, SHA1, SHA256) to enable
@@ -261,7 +261,7 @@ hashes:
       sha1: "7c211433f02071597741e6ff5a8ea34789abbf43"
       sha256: "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
 ```
-Trailing Byte Trimming & Motor Coasting Ledger [ ] TODO
+### Trailing Byte Trimming & Motor Coasting Ledger `[ ] TODO`
 
 When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD
 ignores during motor coast:
@@ -273,31 +273,31 @@ ignores during motor coast:
 
 ## 8. Forensic DSP & Restoration Engines
 
-  - Time-Base Correction (TBC): [ ] TODO Tracks carrier frequency to normalize
+  - Time-Base Correction (TBC): `[ ] TODO` Tracks carrier frequency to normalize
     playback speed drift into standard 4,800 ticks/sec container time.
-  - Zero-Gap Demodulation: [ ] TODO Snaps post-DATA carrier start ticks to the
+  - Zero-Gap Demodulation: `[ ] TODO` Snaps post-DATA carrier start ticks to the
     exact end tick of the preceding data block
-    (T_{\text{end}} = T_{\text{start}} + N_{\text{bytes}} \times \text{ticks\_per\_byte}).
-  - Multi-Copy & Multi-Revolution Consensus (Disks & Tapes): [ ] TODO Merges
+    (`T_end = T_start + N_bytes × ticks_per_byte`).
+  - Multi-Copy & Multi-Revolution Consensus (Disks & Tapes): `[ ] TODO` Merges
     multiple physical copies or multi-revolution dumps (floppy SCP/A2R/D88 or
     tape takes) using CRC-verified block/sector consensus.
-  - Non-Linear Time Harmonization & Print-Through Recovery: [ ] TODO Dynamic
-    Time Warping on pulse transitions (\Delta t) to align time-reversed ghost
+  - Non-Linear Time Harmonization & Print-Through Recovery: `[ ] TODO` Dynamic
+    Time Warping on pulse transitions (Δt) to align time-reversed ghost
     signals from opposite tape sides and repair dropouts.
-  - Context-Aware Semantic Recovery (ZX81): [ ] TODO Uses BASIC line link
+  - Context-Aware Semantic Recovery (ZX81): `[ ] TODO` Uses BASIC line link
     pointers, token tables, and disassembly branches to solve ambiguous pulse
     dropouts.
-  - Dual-Track Concurrent Stereo: [ ] TODO Independent channel classification
+  - Dual-Track Concurrent Stereo: `[ ] TODO` Independent channel classification
     and crosstalk bleed rejection (Sega AI Computer, Atari 8-bit, Famicom
     StudyBox).
-  - Virtual Sanyo PHC-DRIII Shaper & 2x Doubler: [ ] TODO Software
+  - Virtual Sanyo PHC-DRIII Shaper & 2x Doubler: `[ ] TODO` Software
     differentiator (d/dt), phase equalizer, and adaptive Schmitt slicer
     (cmt_filter), with octave-doubled fast audio synthesis
-    (2400/4800\text{ Hz}).
+    (2400/4800 Hz).
 
 ## 9. Multi-Phase Implementation Roadmap
 
-Phase 1: Core Foundation & Unix Filters [ ] TODO
+### Phase 1: Core Foundation & Unix Filters `[ ] TODO`
 
 Tasks:
 
@@ -309,9 +309,9 @@ Tasks:
 4.  [ ] TODO Implement Netpbm filters: t882wav, wav2t88, cas2wav, wav2cas,
     flac2wav, t88clean (t2t), wavclean (w2w).
 5.  [ ] TODO Implement dwimsy CLI with convert, restore, split, join, inspect.
-    Verification: [ ] TODO Bit-exact roundtrip on input01.t88 and casan.flac.
+    Verification: `[ ] TODO` Bit-exact roundtrip on input01.t88 and casan.flac.
 
-Phase 2: Semantics, Disk Subsystems, QuickDisk / FDS & Flavor Matrix [ ] TODO
+### Phase 2: Semantics, Disk Subsystems, QuickDisk / FDS & Flavor Matrix `[ ] TODO`
 
 Tasks:
 
@@ -328,12 +328,12 @@ Tasks:
 6.  [ ] TODO Implement dwimsy archive bundle generator with manifest.yaml and
     README.md.
 
-Phase 3: Extended Tape Containers (TSX, P6T, UEF, Sord, Sega) [ ] TODO
+### Phase 3: Extended Tape Containers (TSX, P6T, UEF, Sord, Sega) `[ ] TODO`
 
 Tasks:
 
 1.  [ ] TODO Implement dwimsy.tape.tsx (TZX 1.20 + Block #4B KCS FSK)
-    \rightarrow enables Amstrad CPC .cdt and ZX Spectrum .tzx.
+    → enables Amstrad CPC .cdt and ZX Spectrum .tzx.
 2.  [ ] TODO Implement dwimsy.tape.p6t and dwimsy.tape.p6 with BIOS CSAVE
     padding trimmer.
 3.  [ ] TODO Integrate dwimsy.tape.bbc (BBC Micro Model B .uef via cas2uef).
@@ -341,7 +341,7 @@ Tasks:
 5.  [ ] TODO Add auto-sniffing for .cas flavor disambiguation and multi-platform
     compilation splitting (Tape Login multiplexer).
 
-Phase 4: Mixed-Mode Media, Dual-Track Stereo & Audio Discs [ ] TODO
+### Phase 4: Mixed-Mode Media, Dual-Track Stereo & Audio Discs `[ ] TODO`
 
 Tasks:
 
@@ -351,9 +351,9 @@ Tasks:
     Atari 8-bit, Famicom StudyBox).
 3.  [ ] TODO Add non-magnetic modulated audio disc support (PiO magazine
     flexidiscs, Starpath Supercharger / MSX CD-DA audio tracks).
-4.  [ ] TODO Implement companion <basename>.cue generator and cue-driven join.
+4.  [ ] TODO Implement companion `<basename>.cue` generator and cue-driven join.
 
-Phase 5: Advanced Modulations, Vintage 16-Bit Systems & Packaging [ ] TODO
+### Phase 5: Advanced Modulations, Vintage 16-Bit Systems & Packaging `[ ] TODO`
 
 Tasks:
 
@@ -382,15 +382,15 @@ Tasks:
 | **MSX (Sanyo 2x Fast)**    | Octave FSK       | 4800 Hz (2 cyc)                              | 2400 Hz (1 cyc)                               | 2400 baud                         | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
 | **MSX (European Turbo)**   | PWM / Pulse      | Short edge pair                              | Long edge pair                                | 2000–4000+ baud                   | Raw bitstream, zero stop bits         |
 | **BBC Micro Model B**      | FSK (KCS)        | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 / 300 baud                   | 1 Start (0), 8 Data (LSB), 1 Stop (1) |
-| **Amstrad CPC (Standard)** | 2-Tone PWM       | $\approx 667\text{ Hz}$ ($750\ \mu\text{s}$) | $\approx 1333\text{ Hz}$ ($375\ \mu\text{s}$) | $\approx 1000 / 2000\text{ baud}$ | 2KB data blocks + 16-bit CRC          |
+| **Amstrad CPC (Standard)** | 2-Tone PWM       | ≈667 Hz (750 μs)                             | ≈1333 Hz (375 μs)                             | ≈1000 / 2000 baud                 | 2KB data blocks + 16-bit CRC          |
 | **Sord M5 / Sega SC-3000** | FSK              | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 baud                         | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
 | **Sega AI Computer**       | Dual FSK/Audio   | Right: 2400/1200 FSK                         | Left: Speech audio                            | 1200 baud                         | Synchronized concurrent stereo        |
-| **Atari 8-bit (POKEY)**    | Dual FSK/Audio   | Right: $\approx 4\text{ kHz}$                | Left: Voice audio                             | 600 baud                          | 1 Start, 8 Data, 1 Stop, 128B blocks  |
-| **IBM PC 5150**            | Tone Pulse       | 2000 Hz ($500\ \mu\text{s}$)                 | 1000 Hz ($1000\ \mu\text{s}$)                 | $\approx 1500\text{ baud}$        | 256B blocks + CRC16                   |
-| **Elektronika BK-0010**    | Pulse Interval   | 2 pulses ($500\ \mu\text{s}$)                | 1 pulse ($1000\ \mu\text{s}$)                 | $\approx 1200\text{ baud}$        | 16B header + PDP-11 memory image      |
-| **Famicom StudyBox**       | Dual MFM/Audio   | Right: MFM Stream                            | Left: Speech audio                            | High-density MFM                  | $1T / 1.5T / 2T$ cell transitions     |
+| **Atari 8-bit (POKEY)**    | Dual FSK/Audio   | Right: ≈4 kHz                                | Left: Voice audio                             | 600 baud                          | 1 Start, 8 Data, 1 Stop, 128B blocks  |
+| **IBM PC 5150**            | Tone Pulse       | 2000 Hz (500 μs)                             | 1000 Hz (1000 μs)                             | ≈1500 baud                        | 256B blocks + CRC16                   |
+| **Elektronika BK-0010**    | Pulse Interval   | 2 pulses (500 μs)                            | 1 pulse (1000 μs)                             | ≈1200 baud                        | 16B header + PDP-11 memory image      |
+| **Famicom StudyBox**       | Dual MFM/Audio   | Right: MFM Stream                            | Left: Speech audio                            | High-density MFM                  | 1T / 1.5T / 2T cell transitions       |
 | **Coleco Adam DDP**        | High-Speed Pulse | 80 ips continuous                            | Bi-directional                                | High-speed DDP                    | 512B blocks + CRC                     |
-| **Starpath Supercharger**  | High-Speed FSK   | $\approx 8.4\text{ kHz}$ carrier             | Phase transitions                             | 8400 baud                         | 2KB multi-load banks                  |
+| **Starpath Supercharger**  | High-Speed FSK   | ≈8.4 kHz carrier                             | Phase transitions                             | 8400 baud                         | 2KB multi-load banks                  |
 
 ### Container Signatures Reference
 ```text
