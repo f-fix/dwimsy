@@ -123,6 +123,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 │   • Raw Pulse Flux : Applesauce (.a2r), Greaseweazle   │
 │   • Physical DSP   : Time-Base Correction, AGC, Slicer │
 └────────────────────────────────────────────────────────┘
+```
 
 5. Systematic Flavor Taxonomy & No-Intro Naming
 
