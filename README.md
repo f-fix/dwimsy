@@ -3,6 +3,7 @@ dwimsy - retrocomputing media preservation, demodulation, restoration, and maste
 
 grandiose version: (currently 0% implemented)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear
+> 
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
 > [!WARNING]
