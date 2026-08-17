@@ -5,6 +5,18 @@ grandiose version: (currently 0% implemented)
 > **D**ata **W**ith **I**nherent **M**agnetism **S**ounds **Y**ummy  
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
+> [!WARNING]
+> **Nothing in this repository is implemented yet.** Every row in the [status matrix](#3-component-implementation-status-matrix) below reads `[ ] TODO`. There is no `dwimsy` CLI, no `core.*` library, and no filters here yet — this repo is currently a specification for how several existing, working tools will be unified. If you need to actually convert or restore media today, use the standalone tools linked below instead.
+
+### For now, see:
+
+- **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** — working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three already have self-test suites and stdin/stdout piping. This is the most complete preview of dwimsy's planned pipeline, and its logic is the intended source for `core.fsk`, `cli.filters.t882wav`/`wav2t88`, and part of `cli.dwimsy analyze`/`inspect` (Milestone 1). It doesn't yet implement dwimsy's flavor taxonomy (Section 5) — there's no trimmed/untrimmed pairing or No-Intro-style naming — and there's no shared `core.audio`/`core.pulse` library, since each script is self-contained.
+- **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk`, `core.audio` (`flac2wav`), `dsp.filter` (`cmt_filter`), and `dsp.modeler` (`cassette_model`) in Milestone 1. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that.
+- **[`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool)** — a working D88/FAT8 extractor, tested against PC-6001/PC-6001mkII/PC-6001mkIISR, PC-8801, PC-98, and even a Pasopia disk image, including PC-88/PC-98 obfuscated-save deobfuscation and JIS-adjacent character mapping. It's the intended source for `disk.d88`, `disk.fat8`, and part of `core.charsets` (Milestone 2) and `core.fs` filename sanitization. The author's own README is candid that the code "started in ChatGPT" and "is uglier than sin" pending cleanup — a good example of a real candidate for dwimsy's promised readable, documented conversion steps. Tokenized-BASIC detokenization and RBYTE encode/decode are still separate, unintegrated pieces.
+- **[`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload)** — two working unpackers, `nontama_to_bload.py` (PC-6001mkII NONTAMA loader tapes, verified against ~18 released games) and `mload_to_bload.py` (MSX "M"-loader tapes), plus `mkrom.py` for building bootable cartridges from the results. Maps to `platforms.unpack` (Milestone 2). Each unpacker is a standalone script today; dwimsy's plan is to route their output through the shared Layer 3/4 stream and payload handling rather than writing `.bin` directly.
+- **[`f-fix/cas2uef`](https://github.com/f-fix/cas2uef)** — a working, narrowly-scoped `cas2uef.py` that converts "compact" (unpadded, non-8-byte-aligned) MSX CAS from DumpListEditor directly into BBC Micro `.uef`. The author's own README flags that the result isn't archival-quality, since CAS carries no timing data and the tool heuristically inserts pauses at detected file-header boundaries. This is the intended basis for `tape.bbc` (Milestone 3), though in dwimsy it's planned to route through the shared logical-stream layer instead of converting directly, so the heuristic pause-insertion can eventually be replaced with real timing where available.
+- **[`f-fix/bin2fds`](https://github.com/f-fix/bin2fds)** — a working but self-described "super ugly" **Python 2** script that converts raw `.bin` to Famicom Disk System `.fds`, including multi-side images. Slated for a straight Python 3 port as `disk.fds` (Milestone 2); until then it's the odd one out in this list, since it isn't even Python 3 yet.
+
 ---
 
 ## Table of Contents
@@ -358,9 +370,9 @@ Tasks:
 6.  [ ] TODO Finalize pyproject.toml, docstrings, and test suite for pip
     packaging.
 
-10. Format & Protocol Technical Reference Guide
+## 10. Format & Protocol Technical Reference Guide
 
-Physical Modulation Reference Table
+### Physical Modulation Reference Table
 
 | Platform / System          | Modulation Type  | Mark / 1 Frequency                           | Space / 0 Frequency                           | Baud / Data Rate                  | Bit Framing                           |
 | :------------------------- | :--------------- | :------------------------------------------- | :-------------------------------------------- | :-------------------------------- | :------------------------------------ |
@@ -380,7 +392,7 @@ Physical Modulation Reference Table
 | **Coleco Adam DDP**        | High-Speed Pulse | 80 ips continuous                            | Bi-directional                                | High-speed DDP                    | 512B blocks + CRC                     |
 | **Starpath Supercharger**  | High-Speed FSK   | $\approx 8.4\text{ kHz}$ carrier             | Phase transitions                             | 8400 baud                         | 2KB multi-load banks                  |
 
-Container Signatures Reference
+### Container Signatures Reference
 ```text
 Format      Extension   Header Signature / Magic Bytes
 ─────────────────────────────────────────────────────────────────────────────
@@ -407,4 +419,4 @@ Parts of this code were written (including some initial ones that began in other
 
 ## How did I end up using those? Don't I dislike slop?
 
-Yes, I hate it. This project began because I wanted tape image conversion tools where the conversion steps were all clearly documented and readable code, but which also performed well enough in terms of accuracy to actually be the tool I use. I started out writing the tools myself, but my manual attempts hadn't yielded comparable accuracy to existing closed-source tools for some steps, so I started using the tools to help find the bugs and suggest improvements, and IMO the result is now good enough to actually be useful in some scenarios. In terms of slop, the tool-generated code doesn't closely resemble any existing solutions I have found. Rather it's a fairly passable translation of my requests into Python.
+Yes, I hate slop. This project began because I wanted tape image conversion tools where the conversion steps were all clearly documented and readable code, but which also performed well enough in terms of accuracy to actually be the tool I use. I started out writing the tools myself, but my manual attempts hadn't yielded comparable accuracy to existing closed-source tools for some steps, so I started using the tools to help find the bugs and suggest improvements, and IMO the result is now good enough to actually be useful in some scenarios. In terms of slop, the tool-generated code doesn't closely resemble any existing solutions I have found. Rather it's a fairly passable translation of my requests into Python.
