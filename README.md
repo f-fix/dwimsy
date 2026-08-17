@@ -2,7 +2,7 @@
 dwimsy - retrocomputing media preservation, demodulation, restoration, and mastering
 
 grandiose version: (currently 0% implemented)
-> **D**ata **W**ith **I**nherent **M**agnetism **S**ounds **Y**ummy  
+> **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
 > [!WARNING]
