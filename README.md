@@ -125,20 +125,20 @@ It is designed to grow incrementally, adding support for new computer platforms,
 └────────────────────────────────────────────────────────┘
 ```
 
-5. Systematic Flavor Taxonomy & No-Intro Naming
+## 5. Systematic Flavor Taxonomy & No-Intro Naming
 
 To prevent tool-name pollution and keep filenames concise while maintaining 100%
 hash correlation against No-Intro, TOSEC, and MAME Software Lists, dwimsy
 defines a canonical default flavor (no extra tag) for each layer, alongside
 explicitly tagged variant siblings.
-
+```text
 Layer            Default Flavor (Untagged)     Tagged Variant Sibling
 ──────────────────────────────────────────────────────────────────────────
 Layer 1 (Audio)  capture.flac                  capture [re-synthesized].wav
 Layer 2 (Cont.)  game (Japan).t88 / .tsx       game (Japan) [canonical-timing].tsx
 Layer 3 (Stream) game (Japan).p6 / .cas / .cmt game (Japan) [untrimmed].p6 / [pad8].cas
 Layer 4 (Payload)game (Japan).bin / .rom       game (Japan) [alt-load].bin
-
+```
 Pairing Rules
 
 1.  PC-6001 (.p6 and .p6t Aligned Pairs):
@@ -161,10 +161,10 @@ Pairing Rules
         [untrimmed].t88: Raw physical stream retaining trailing carrier
         overshoot.
 
-6. CLI & Interface Conventions
+## 6. CLI & Interface Conventions
 
 Main CLI Verbs [ ] TODO
-
+```bash
 # Convert between any pair of formats (inferred from extensions)
 dwimsy convert input.flac output.t88
 dwimsy convert game.d88 game.wav --target-tape-type t88
@@ -183,17 +183,17 @@ dwimsy join ./extracted_tracks/ -o master.wav
 
 # Inspect structure, metadata, baud rates, and timing
 dwimsy inspect input.t88
-
+```
 Positional Per-Input Options (SoX / FFmpeg Model) [ ] TODO
 
 Options placed immediately before an input file act as scoped overrides:
-
+```bash
 dwimsy join \
     --channel left  deck_a.flac \
     --channel right deck_b.flac \
     --baud 600      loader.cmt \
     -o master.wav --wave tape --volume 0.85
-
+```
 File Linking & Paired Naming [ ] TODO
 
   - dwimsy emits both a compact CLI name (crazy_a.p6) and an extended No-Intro
@@ -204,14 +204,14 @@ File Linking & Paired Naming [ ] TODO
   - Input capture files are linked/copied directly inside output bundles under
     standard names.
 
-7. Metadata, Checksums & Archival Packaging
+## 7. Metadata, Checksums & Archival Packaging
 
 Multi-Level Hash Registry [ ] TODO
 
 Every file entry across manifests, README.md, and inspection reports provides
 the complete hash suite (Size in bytes, CRC32, MD5, SHA1, SHA256) to enable
 cross-referencing against MAME Software Lists, TOSEC, and No-Intro:
-
+```text
 hashes:
   # Layer 1: Raw Analog Capture (Matches MAME Softlist / CHD hashing)
   layer1_analog_audio:
@@ -248,7 +248,7 @@ hashes:
       md5: "ad0234829205b9033196ba818f7a872b"
       sha1: "7c211433f02071597741e6ff5a8ea34789abbf43"
       sha256: "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
-
+```
 Trailing Byte Trimming & Motor Coasting Ledger [ ] TODO
 
 When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD
@@ -259,7 +259,7 @@ ignores during motor coast:
   - Byte Offset & Reason: Stored in manifest metadata to allow reversible
     reconstruction.
 
-8. Forensic DSP & Restoration Engines
+## 8. Forensic DSP & Restoration Engines
 
   - Time-Base Correction (TBC): [ ] TODO Tracks carrier frequency to normalize
     playback speed drift into standard 4,800 ticks/sec container time.
@@ -283,7 +283,7 @@ ignores during motor coast:
     (cmt_filter), with octave-doubled fast audio synthesis
     (2400/4800\text{ Hz}).
 
-9. Multi-Phase Implementation Roadmap
+## 9. Multi-Phase Implementation Roadmap
 
 Phase 1: Core Foundation & Unix Filters [ ] TODO
 
@@ -381,7 +381,7 @@ Physical Modulation Reference Table
 | **Starpath Supercharger**  | High-Speed FSK   | $\approx 8.4\text{ kHz}$ carrier             | Phase transitions                             | 8400 baud                         | 2KB multi-load banks                  |
 
 Container Signatures Reference
-
+```text
 Format      Extension   Header Signature / Magic Bytes
 ─────────────────────────────────────────────────────────────────────────────
 PC-88 T88   .t88        50 43 2D 38 38 30 31 20 54 61 70 65 20 49 6D 61 67 65 28 54 38 38 29 00
@@ -397,6 +397,7 @@ FDS Image   .fds        46 44 53 1A ("FDS\x1a") or Block 1 '\x01*NINTENDO-HVC*'
 Applesauce  .woz / .a2r 57 4F 5A 31 / 57 4F 5A 32 | 41 32 52 32 ("A2R2")
 Greaseweazle.scp        53 43 50 ("SCP")
 C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CARTRIDGE   ")
+```
 
 ---
 
