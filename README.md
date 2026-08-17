@@ -12,11 +12,11 @@ grandiose version: (currently 0% implemented)
 ### For now, see:
 
 - **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** — working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three already have self-test suites and stdin/stdout piping. This is the most complete preview of dwimsy's planned pipeline, and its logic is the intended source for `core.fsk`, `cli.filters.t882wav`/`wav2t88`, and part of `cli.dwimsy analyze`/`inspect` (Milestone 1). It doesn't yet implement dwimsy's flavor taxonomy (Section 5) — there's no trimmed/untrimmed pairing or No-Intro-style naming — and there's no shared `core.audio`/`core.pulse` library, since each script is self-contained.
-- **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk`, `core.audio` (`flac2wav`), `dsp.filter` (`cmt_filter`), and `dsp.modeler` (`cassette_model`) in Milestone 1. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that.
-- **[`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool)** — a working D88/FAT8 extractor, tested against PC-6001/PC-6001mkII/PC-6001mkIISR, PC-8801, PC-98, and even a Pasopia disk image, including PC-88/PC-98 obfuscated-save deobfuscation and JIS-adjacent character mapping. It's the intended source for `disk.d88`, `disk.fat8`, and part of `core.charsets` (Milestone 2) and `core.fs` filename sanitization. The author's own README is candid that the code "started in ChatGPT" and "is uglier than sin" pending cleanup — a good example of a real candidate for dwimsy's promised readable, documented conversion steps. Tokenized-BASIC detokenization and RBYTE encode/decode are still separate, unintegrated pieces.
-- **[`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload)** — two working unpackers, `nontama_to_bload.py` (PC-6001mkII NONTAMA loader tapes, verified against ~18 released games) and `mload_to_bload.py` (MSX "M"-loader tapes), plus `mkrom.py` for building bootable cartridges from the results. Maps to `platforms.unpack` (Milestone 2). Each unpacker is a standalone script today; dwimsy's plan is to route their output through the shared Layer 3/4 stream and payload handling rather than writing `.bin` directly.
+- **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk`, `core.audio` (`flac2wav`), `dsp.filter` (`cmt_filter`), and `dsp.modeler` (`cassette_model`) in Milestone 1. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that so all tape tools operate as continuous Unix streaming filters.
+- **[`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool)** — a working D88/FAT8 extractor, tested against PC-6001/PC-6001mkII/PC-6001mkIISR, PC-8801, PC-98, and even a Pasopia disk image, including PC-88/PC-98 obfuscated-save deobfuscation (N88-BASIC bit rotation and PC-88 143-byte combined XOR key recovery) and JIS-adjacent / PC-6001 semigraphics character mapping. It includes dedicated streaming line-by-line character set conversion modes (`--pc98-8bit-to-utf8`, `--pc6001-8bit-to-utf8`, `--utf8-to-pc98-8bit`, `--utf8-to-pc6001-8bit`) which will form a dedicated `dwimsy charset` verb and filter applet (`dwimsy-conv`). It's the intended source for `disk.d88`, `disk.fat8`, `core.charsets` (Milestone 2), and `core.fs` filename sanitization. The author's own README is candid that the code "started in ChatGPT" and "is uglier than sin" pending cleanup — a good example of a real candidate for dwimsy's promised readable, documented conversion steps. Tokenized-BASIC detokenization and RBYTE encode/decode (`rbyte.py`, `rbyte88.py`, `rbyte_enc.py`, `rbyte88_enc.py`) are still separate, unintegrated pieces.
+- **[`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload)** — two working unpackers, `nontama_to_bload.py` (PC-6001mkII NONTAMA rolling-XOR loader tapes, verified against ~18 released games) and `mload_to_bload.py` (MSX "M"-loader rolling-XOR tapes with bitsum verification), plus `mkrom.py` for building bootable cartridges from the results (handling PC-6001mkII port 0xF0 bank switching and Beluga port 0x7F). Maps to `platforms.unpack` (Milestone 2). Each unpacker is a standalone script today; dwimsy's plan is to route their output through the shared Layer 3/4 stream and payload handling rather than writing `.bin` directly.
 - **[`f-fix/cas2uef`](https://github.com/f-fix/cas2uef)** — a working, narrowly-scoped `cas2uef.py` that converts "compact" (unpadded, non-8-byte-aligned) MSX CAS from DumpListEditor directly into BBC Micro `.uef`. The author's own README flags that the result isn't archival-quality, since CAS carries no timing data and the tool heuristically inserts pauses at detected file-header boundaries. This is the intended basis for `tape.bbc` (Milestone 3), though in dwimsy it's planned to route through the shared logical-stream layer instead of converting directly, so the heuristic pause-insertion can eventually be replaced with real timing where available.
-- **[`f-fix/bin2fds`](https://github.com/f-fix/bin2fds)** — a working but self-described "super ugly" **Python 2** script that converts raw `.bin` to Famicom Disk System `.fds`, including multi-side images. Slated for a straight Python 3 port as `disk.fds` (Milestone 2); until then it's the odd one out in this list, since it isn't even Python 3 yet.
+- **[`f-fix/bin2fds`](https://github.com/f-fix/bin2fds)** — a working but self-described "super ugly" **Python 2** script that converts raw `.bin` (such as FDSStick dumps) to Famicom Disk System `.fds`, including multi-side images. Slated for a straight Python 3 port as `disk.fds` (Milestone 2); until then it's the odd one out in this list, since it isn't even Python 3 yet.
 
 ---
 
@@ -31,6 +31,7 @@ grandiose version: (currently 0% implemented)
 8. [Forensic DSP & Restoration Engines](#8-forensic-dsp--restoration-engines)
 9. [Multi-Phase Implementation Roadmap](#9-multi-phase-implementation-roadmap)
 10. [Format & Protocol Technical Reference Guide](#10-format--protocol-technical-reference-guide)
+11. [Note on the code and the tools used to write it](#note-on-the-code-and-the-tools-used-to-write-it)
 
 ---
 
@@ -41,8 +42,8 @@ grandiose version: (currently 0% implemented)
 It is designed to grow incrementally, adding support for new computer platforms, physical media types, modulations, filesystems, and recovery scenarios over time.
 
 ### Core Design Principles
-* **Composable Unix Filters + Shared Core**: Individual tools (`t882wav`, `wav2t88`, `flac2wav`, `cas2wav`, `bin2fds`, etc.) can be piped together in standard shells or called through a central CLI (`dwimsy`). All tools share a common internal library.
-* **Zero Required Dependencies**: Built on Python 3.9+ standard library (`math`, `struct`, `array`, `io`, `sys`, `shutil`, `os`). Acceleration libraries (like NumPy) are strictly optional.
+* **Composable Unix Filters + Shared Core**: Individual tools (`t882wav`, `wav2t88`, `flac2wav`, `cas2wav`, `bin2fds`, `dwimsy-conv`, etc.) can be piped together in standard shells (`stdin`/`stdout` streaming with `-`) or called through a central CLI (`dwimsy`). All tools share a common internal library.
+* **Zero Required Dependencies**: Built on Python 3.9+ standard library (`math`, `struct`, `array`, `io`, `sys`, `shutil`, `os`, `argparse`). Acceleration libraries (like NumPy/SciPy) are strictly optional and auto-detected.
 * **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean No-Intro naming for all long names. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
 * **Systematic Flavor Defaults**: Each layer has an untagged canonical default flavor. Non-default variants (untrimmed raw streams, 8-byte padded CAS) receive standard No-Intro qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
 * **Self-Contained Archival Bundles**: Input capture files are linked/copied directly inside output bundles alongside full hash suites (Size, CRC32, MD5, SHA1, SHA256) at every abstraction layer.
@@ -57,8 +58,8 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 * [`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools): NEC PC-8001 / PC-8801 `.t88` container state machines, `.cmt` stream extraction, and `t882wav` / `wav2t88` streaming FSK audio converters.
 * [`f-fix/wav2cas`](https://github.com/f-fix/wav2cas): MSX FSK demodulation (`wav2cas`), audio synthesis (`cas2wav`), streaming FLAC decoding (`flac2wav`), analog signal conditioning (`cmt_filter`), and physical cassette channel simulation (`cassette_modeler`).
-* [`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool): NEC PC-8801 / PC-8001 D88 floppy disk container parsing, FAT8 filesystem extraction/injection, JIS X 0201 / NEC semigraphics character tables, and deterministic OS filename sanitization.
-* [`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload): PC-6001mkII NONTAMA loader and MSX "M"-loader unpackers, MSX Japanese character mappings, and `mkrom` cartridge builder.
+* [`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool): NEC PC-8801 / PC-8001 / PC-98 / PC-6001 / Pasopia D88 floppy disk container parsing, FAT8 filesystem extraction/injection, JIS X 0201 / NEC / PC-6001 semigraphics character transcoding filters, N88-BASIC / PC-88 obfuscation engines, and deterministic OS filename sanitization.
+* [`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload): PC-6001mkII NONTAMA loader and MSX "M"-loader unpackers, PC-6001 and MSX Japanese character mappings, and `mkrom` cartridge builder.
 * [`f-fix/cas2uef`](https://github.com/f-fix/cas2uef): MSX `.cas` to BBC Micro Model B `.uef` timing container converter.
 * [`f-fix/bin2fds`](https://github.com/f-fix/bin2fds): Raw binary to Nintendo Famicom Disk System / Mitsumi Quick Disk `.fds` image generator.
 
@@ -74,8 +75,8 @@ It is designed to grow incrementally, adding support for new computer platforms,
 | **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`) | `[ ] TODO` | Milestone 1 |
 | **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`) | `[ ] TODO` | Milestone 1 |
 | **`cli.dwimsy`** | Central CLI (`convert`, `restore`, `split`, `join`, `inspect`) | `[ ] TODO` | Milestone 1 |
-| **`cli.filters.*`** | Netpbm-style filter entry points (`t882wav`, `wav2t88`, etc.) | `[ ] TODO` | Milestone 1 |
-| **`core.charsets`** | Unicode ↔ JIS X 0201 / NEC / MSX / KOI-7 | `[ ] TODO` | Milestone 2 |
+| **`cli.filters.*`** | Netpbm-style filter entry points (`t882wav`, `wav2t88`, `dwimsy-conv`, etc.) | `[ ] TODO` | Milestone 1 |
+| **`core.charsets`** | Unicode ↔ JIS X 0201 / NEC / MSX / KOI-7 streaming transcoder | `[ ] TODO` | Milestone 2 |
 | **`core.fs`** | Filename sanitizer & `link_or_copy` hardlinker/copier | `[ ] TODO` | Milestone 2 |
 | **`disk.d88`** | D88 sector container reader & writer | `[ ] TODO` | Milestone 2 |
 | **`disk.fat8`** | FAT8 filesystem parser & injector | `[ ] TODO` | Milestone 2 |
@@ -196,7 +197,26 @@ dwimsy join ./extracted_tracks/ -o master.wav
 
 # Inspect structure, metadata, baud rates, and timing
 dwimsy inspect input.t88
+
+# Stream character set conversion (JIS X 0201 / NEC / PC-6001 / MSX -> UTF-8 / ASCII)
+dwimsy charset --from=pc98 --to=utf8 < input.txt > output.txt
 ```
+
+### Streaming Pipes & Filters `[ ] TODO`
+All single-purpose conversion filters support continuous stdin/stdout streaming using `-`:
+```bash
+# Stream tape audio through bandpass/CMT filter, demodulate to CAS, and extract payload
+cat capture.flac \
+    | dwimsy-flac2wav - - \
+    | dwimsy-cmt-filter - - --mode input \
+    | dwimsy-wav2cas - - \
+    | dwimsy-cas-extract -
+
+# Extract file from D88 image and pipe through streaming character converter to UTF-8
+dwimsy-fat8-extract game.d88 README.TXT - \
+    | dwimsy-conv --pc98-8bit-to-utf8 - -
+```
+
 ### Positional Per-Input Options (SoX / FFmpeg Model) `[ ] TODO`
 
 Options placed immediately before an input file act as scoped overrides:
@@ -274,8 +294,23 @@ ignores during motor coast:
 
 ## 8. Forensic DSP & Restoration Engines
 
-  - Time-Base Correction (TBC): `[ ] TODO` Tracks carrier frequency to normalize
-    playback speed drift into standard 4,800 ticks/sec container time.
+  - Physical Tape Channel Modeling: `[ ] TODO` Physical and magneto-electric
+    tape-head interface simulation (`cassette_model.py`):
+      * Wallace Gap Loss: High-frequency spatial attenuation
+        `L_gap(f) = 20*log10(|sin(pi*g/lambda)/(pi*g/lambda)|)` for head gap `g`
+        (~1.5 µm) at tape speed `v` (4.76 cm/s, `lambda = v/f`).
+      * IEC Type I Equalization: Standard record pre-emphasis and playback
+        de-emphasis (`tau_1 = 3180 µs`, `tau_2 = 120 µs`, `tau_3 = 12 µs`),
+        balancing write demagnetization `H_demag(s) = 1 / (1 + s*tau_120)`.
+      * Faraday Induction & Saturation: Induced voltage `e(t) = -N * dPhi/dt`
+        (+6 dB/octave slope) with anhysteretic `M(H) = tanh(k*H)` saturation.
+  - Time-Base Correction (TBC): `[ ] TODO` Tracks carrier frequency (2400 Hz
+    Mark / 1200 Hz Space) to normalize playback speed drift and wow/flutter
+    into standard 4,800 ticks/sec container time.
+  - Adaptive Midpoint FSK Slicer: `[ ] TODO` Fast edge detection with
+    Schmitt-trigger dynamic hysteresis and midpoint cycle discrimination
+    (`N_mid = (Fs/4) * (1/f0 + 1/f1)`), using local envelope tracking (AGC
+    attack/release) to ride out fading and dropouts.
   - Zero-Gap Demodulation: `[ ] TODO` Snaps post-DATA carrier start ticks to the
     exact end tick of the preceding data block
     (`T_end = T_start + N_bytes × ticks_per_byte`).
@@ -291,10 +326,16 @@ ignores during motor coast:
   - Dual-Track Concurrent Stereo: `[ ] TODO` Independent channel classification
     and crosstalk bleed rejection (Sega AI Computer, Atari 8-bit, Famicom
     StudyBox).
-  - Virtual Sanyo PHC-DRIII Shaper & 2x Doubler: `[ ] TODO` Software
-    differentiator (d/dt), phase equalizer, and adaptive Schmitt slicer
-    (cmt_filter), with octave-doubled fast audio synthesis
-    (2400/4800 Hz).
+  - Virtual Sanyo PHC-DRIII Shaper & Circuit Simulation: `[ ] TODO` Software
+    differentiator (d/dt), phase equalizer, and exact circuit transfer
+    functions (`cmt_filter.py`):
+      * CMT-IN Input Shaping: 2-pole bandpass `H_in(s)` tuned to ~2263 Hz
+        (C31=0.1 µF, R21=2.7 kΩ, R20=12 kΩ, C29=1.5 nF) with diode clamping
+        and Schmitt trigger comparator (JRC-311B).
+      * CMT-OUT Output Shaping: Inverter (74LS14), AC coupling (C31=3.3 µF),
+        LP edge smoothing (R41=1.2 kΩ, C32=22 nF, fc ≈ 6028 Hz), and
+        attenuator divider (R40=4.7 kΩ, R39=100 Ω, -33.6 dB).
+      * Octave-doubled fast audio synthesis (2400/4800 Hz).
 
 ## 9. Multi-Phase Implementation Roadmap
 
@@ -317,9 +358,9 @@ Tasks:
 Tasks:
 
 1.  [ ] TODO Integrate dwimsy.core.charsets (JIS X 0201, NEC semigraphics, MSX
-    Katakana, ASCII).
+    Katakana, ASCII, streaming CLI filter applet).
 2.  [ ] TODO Integrate dwimsy.disk.d88 and dwimsy.disk.fat8 (d882fat8, fat82d88,
-    d882t88).
+    d882t88, d88_explode).
 3.  [ ] TODO Port bin2fds.py to Python 3 in dwimsy.disk.fds (bin2fds filter).
 4.  [ ] TODO Implement NONTAMA and MSX M-loader unpackers to standard BLOAD
     binaries (mkrom).
@@ -411,6 +452,30 @@ Applesauce  .woz / .a2r 57 4F 5A 31 / 57 4F 5A 32 | 41 32 52 32 ("A2R2")
 Greaseweazle.scp        53 43 50 ("SCP")
 C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CARTRIDGE   ")
 ```
+
+### Consulted Literature & Technical Specifications Reference
+
+1. **IEC Standard 60094-4 & 60094-5**: *"Magnetic Tape Sound Recording and Reproducing Systems"* — Standard equalization time constants for Type I cassettes (3180 µs, 120 µs, 12 µs).
+   * URL: https://webstore.iec.ch/publication/723
+   * Wayback Machine: https://web.archive.org/web/20220601/https://webstore.iec.ch/publication/723
+2. **Wallace, R. L. (1951)**: *"The Reproduction of Magnetically Recorded Signals"*, *Bell System Technical Journal*, 30(4), pp. 1145–1173 (Gap and spacing loss equations).
+   * URL: https://doi.org/10.1002/j.1538-7305.1951.tb03700.x
+3. **Jiles, D. C., & Atherton, D. L. (1986)**: *"Theory of Ferromagnetic Hysteresis"*, *Journal of Magnetism and Magnetic Materials*, 61(1-2), pp. 48–60 (Anhysteretic tape magnetization and AC bias linearization models).
+   * URL: https://doi.org/10.1016/0304-8853(86)90066-1
+4. **Yamaha Corporation (1984)**: *"Yamaha CX5M / YIS-503 Music Computer Service Manual"*,
+   * Fig. 5-5-9: CMT-IN Cassette Interface Input Shaping Circuit (C31, R21, R20, C29, D1/D2, R33, JRC-311B comparator $\to$ PSG IOA7).
+   * Fig. 5-4-10: PPI PC5 $\to$ CMT OUT Cassette Interface Output Shaping Circuit (PPI PC5 $\to$ 74LS14 4B inverter, C31, R41, C32, R40/R39 attenuator).
+   * URL: https://archive.org/details/yamaha_cx5mu_service-manual
+5. **ASCII Corporation / MSX Licensing Corporation (1983)**: *"MSX Technical Data Handbook / MSX BIOS Specification"*,
+   * PSG (AY-3-8910 / YM2149) Register 14 (I/O Port A), Bit 7: Cassette Data Input (CMT IN).
+   * PPI (8255) Register C (I/O Port C), Bit 5: Cassette Data Output (CMT OUT).
+   * URL: https://web.archive.org/web/20230330/http://map.grauw.nl/resources/msx_io_ports.php
+6. **UEF Format Specification**:
+   * URL: https://mdfs.net/Docs/Comp/BBC/FileFormat/UEFSpecs.htm
+7. **CAS File Format Definition**:
+   * URL: https://www.msx.org/forum/semi-msx-talk/emulation/how-do-exactly-works-cas-format
+8. **Protected BASIC File Format (PC-BASIC Specification)**:
+   * URL: https://robhagemans.github.io/pcbasic/doc/2.0/#protected-file-format
 
 ---
 
