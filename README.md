@@ -7,25 +7,53 @@ grandiose version: (currently 0% implemented)
 
 ---
 
-## 1. Overview
+## Table of Contents
+1. [Overview & Approach](#1-overview--approach)
+2. [Existing Project Lineage & Asset Repositories](#2-existing-project-lineage--asset-repositories)
+3. [Component Implementation Status Matrix](#3-component-implementation-status-matrix)
+4. [The 4-Layer Architecture](#4-the-4-layer-architecture)
+5. [Systematic Flavor Taxonomy & No-Intro Naming](#5-systematic-flavor-taxonomy--no-intro-naming)
+6. [CLI & Interface Conventions](#6-cli--interface-conventions)
+7. [Metadata, Checksums & Archival Packaging](#7-metadata-checksums--archival-packaging)
+8. [Forensic DSP & Restoration Engines](#8-forensic-dsp--restoration-engines)
+9. [Multi-Phase Implementation Roadmap](#9-multi-phase-implementation-roadmap)
+10. [Format & Protocol Technical Reference Guide](#10-format--protocol-technical-reference-guide)
+
+---
+
+## 1. Overview & Approach
 
 `dwimsy` is a modular Python toolkit for decoding, restoring, converting, and analyzing vintage computer media (cassette audio, disk images, ROM cartridges, and stream dumps). 
 
 It is designed to grow incrementally, adding support for new computer platforms, physical media types, modulations, filesystems, and recovery scenarios over time.
 
-### Core Approach
+### Core Design Principles
 * **Composable Unix Filters + Shared Core**: Individual tools (`t882wav`, `wav2t88`, `flac2wav`, `cas2wav`, `bin2fds`, etc.) can be piped together in standard shells or called through a central CLI (`dwimsy`). All tools share a common internal library.
-* **Zero Required Dependencies**: Built on Python 3.9+ standard library (`math`, `struct`, `array`, `io`, `sys`, `shutil`, `os`). Acceleration libraries (like NumPy) are optional.
+* **Zero Required Dependencies**: Built on Python 3.9+ standard library (`math`, `struct`, `array`, `io`, `sys`, `shutil`, `os`). Acceleration libraries (like NumPy) are strictly optional.
 * **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean No-Intro naming for all long names. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
 * **Systematic Flavor Defaults**: Each layer has an untagged canonical default flavor. Non-default variants (untrimmed raw streams, 8-byte padded CAS) receive standard No-Intro qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
 * **Self-Contained Archival Bundles**: Input capture files are linked/copied directly inside output bundles alongside full hash suites (Size, CRC32, MD5, SHA1, SHA256) at every abstraction layer.
 * **Layered Architecture & Cross-Copy Consensus**: Multi-copy differential recovery and consensus voting operate at signal, flux, container, and logical sector/record layers for both disks and tapes.
+* **Fault-Tolerant Automation (`fsck` Model)**: Non-interactive conversions process valid data and isolate corrupted sections with diagnostic logs rather than crashing. An offline interactive recovery mode assists with manual bit/pulse repairs.
 
 ---
 
-## 2. Implementation Status Matrix
+## 2. Existing Project Lineage & Asset Repositories
 
-| Subsystem / Module | Description | Status | Milestone |
+`dwimsy` integrates and unifies code, tables, and DSP algorithms from several existing repositories:
+
+* [`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools): NEC PC-8001 / PC-8801 `.t88` container state machines, `.cmt` stream extraction, and `t882wav` / `wav2t88` streaming FSK audio converters.
+* [`f-fix/wav2cas`](https://github.com/f-fix/wav2cas): MSX FSK demodulation (`wav2cas`), audio synthesis (`cas2wav`), streaming FLAC decoding (`flac2wav`), analog signal conditioning (`cmt_filter`), and physical cassette channel simulation (`cassette_modeler`).
+* [`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool): NEC PC-8801 / PC-8001 D88 floppy disk container parsing, FAT8 filesystem extraction/injection, JIS X 0201 / NEC semigraphics character tables, and deterministic OS filename sanitization.
+* [`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload): PC-6001mkII NONTAMA loader and MSX "M"-loader unpackers, MSX Japanese character mappings, and `mkrom` cartridge builder.
+* [`f-fix/cas2uef`](https://github.com/f-fix/cas2uef): MSX `.cas` to BBC Micro Model B `.uef` timing container converter.
+* [`f-fix/bin2fds`](https://github.com/f-fix/bin2fds): Raw binary to Nintendo Famicom Disk System / Mitsumi Quick Disk `.fds` image generator.
+
+---
+
+## 3. Component Implementation Status Matrix
+
+| Subsystem / Module | Description | Status | Target Milestone |
 | :--- | :--- | :---: | :---: |
 | **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), AGC | `[ ] TODO` | Milestone 1 |
 | **`core.audio`** | Streaming WAV/FLAC I/O, lossless PCM frame slicing (`flac2wav`) | `[ ] TODO` | Milestone 1 |
@@ -33,16 +61,16 @@ It is designed to grow incrementally, adding support for new computer platforms,
 | **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`) | `[ ] TODO` | Milestone 1 |
 | **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`) | `[ ] TODO` | Milestone 1 |
 | **`cli.dwimsy`** | Central CLI (`convert`, `restore`, `split`, `join`, `inspect`) | `[ ] TODO` | Milestone 1 |
-| **`cli.filters.*`** | Filter entry points (`t882wav`, `wav2t88`, `cas2wav`, `wav2cas`, etc.) | `[ ] TODO` | Milestone 1 |
+| **`cli.filters.*`** | Netpbm-style filter entry points (`t882wav`, `wav2t88`, etc.) | `[ ] TODO` | Milestone 1 |
 | **`core.charsets`** | Unicode $\leftrightarrow$ JIS X 0201 / NEC / MSX / KOI-7 | `[ ] TODO` | Milestone 2 |
 | **`core.fs`** | Filename sanitizer & `link_or_copy` hardlinker/copier | `[ ] TODO` | Milestone 2 |
 | **`disk.d88`** | D88 sector container reader & writer | `[ ] TODO` | Milestone 2 |
 | **`disk.fat8`** | FAT8 filesystem parser & injector | `[ ] TODO` | Milestone 2 |
 | **`disk.fds`** | FDS / QuickDisk container engine (`bin2fds` Python 3 port) | `[ ] TODO` | Milestone 2 |
-| **`platforms.unpack`** | NONTAMA & MSX M-Loader binary unpackers | `[ ] TODO` | Milestone 2 |
+| **`platforms.unpack`** | NONTAMA & MSX M-Loader binary unpackers (`mkrom`) | `[ ] TODO` | Milestone 2 |
 | **`metadata.archive`** | Archival bundle exporter & `README.md` generator | `[ ] TODO` | Milestone 2 |
-| **`tape.variants`** | Side-by-side flavor generator (Trimmed/Untrimmed, CAS Pad8, P6/P6T pairs) | `[ ] TODO` | Milestone 2 |
-| **`tape.tsx`** | TSX / TZX 1.20 container (MSX FSK & Turbo blocks) | `[ ] TODO` | Milestone 3 |
+| **`tape.variants`** | Multi-flavor generator (Trimmed/Untrimmed, CAS Pad8, P6/P6T pairs) | `[ ] TODO` | Milestone 2 |
+| **`tape.tsx`** | TSX / TZX 1.20 container (MSX FSK & Turbo blocks, CDT/TZX) | `[ ] TODO` | Milestone 3 |
 | **`tape.p6t`** | PC-6001 `.p6t` container (footer sync) & `.p6` stream trimmer | `[ ] TODO` | Milestone 3 |
 | **`tape.bbc`** | BBC Micro Model B `.uef` reader/writer (`cas2uef`) | `[ ] TODO` | Milestone 3 |
 | **`tape.sord_sega`** | Sord M5 & Sega SC-3000 `.cas` adapters | `[ ] TODO` | Milestone 3 |
@@ -52,7 +80,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 | **`platforms.sega_ai`** | Sega AI Computer concurrent stereo engine | `[ ] TODO` | Milestone 4 |
 | **`platforms.atari8`** | Atari 8-bit POKEY/Audio concurrent stereo engine | `[ ] TODO` | Milestone 4 |
 | **`media.audio_disc`** | Audio-carrier formats (Flexidiscs, CD-DA modulated tracks) | `[ ] TODO` | Milestone 4 |
-| **`dsp.harmonize`** | Non-linear time harmonization & reverse print-through echo recovery | `[ ] TODO` | Milestone 4 |
+| **`dsp.harmonize`** | Non-linear time harmonization & reverse print-through recovery | `[ ] TODO` | Milestone 4 |
 | **`core.pulse_slicer`**| PWM / Turbo pulse slicer (MSX Turbo, Amstrad Speedlock) | `[ ] TODO` | Milestone 5 |
 | **`platforms.studybox`**| Famicom StudyBox dual-track voice + MFM stream decoder | `[ ] TODO` | Milestone 5 |
 | **`platforms.adam_ddp`**| Coleco Adam DDP (80 ips high-speed tape) decoder | `[ ] TODO` | Milestone 5 |
@@ -63,71 +91,79 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ---
 
-## 3. Architecture Layers
+## 4. The 4-Layer Architecture
 
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ Layer 4: Semantic File & Payload Layer [ ] TODO │ │ • Executable Binaries
-(BLOAD, Load/Exec address memory images) │ │ • Detokenized Plaintext Source
-(N-BASIC, MSX BASIC, FOCAL) │ │ • Unicode Charsets (JIS X 0201, NEC
-semigraphics, MSX, KOI-7, ASCII) │
-└─────────────────────────────────────┬───────────────────────────────────────┘
-│
-┌─────────────────────────────────────▼───────────────────────────────────────┐
-│ Layer 3: Filesystem & Protocol Framing Layer (Pluggable) [ ] TODO │ │ ├──
-Block / Sector Filesystems : FAT8, FAT12, CP/M, Coleco DDP │ │ ├── Unified
-Header Formats : Sharp MZ 128-byte header (Tape/QD/Disk) │ │ ├── ROM Stream
-Protocols : PC-88 (0xD3/0x24/0x9C), MSX BIOS (1F A6) │ │ └── Custom Loaders /
-Booters : NONTAMA, Speedlock, PWM Turbo Loaders │
-└─────────────────────────────────────┬───────────────────────────────────────┘
-│
-┌─────────────────────────────────────▼───────────────────────────────────────┐
-│ Layer 2: Physical Timing & Sector Containers [ ] TODO │ │ ├── Tape Timing
-Containers : .t88, .tsx, .p6t, .uef, .cdt, .tzx │ │ ├── Floppy Sector Images :
-.d88, .dsk (MSX sector stream ≡ floppy CMT) │ │ ├── Spiral QuickDisk Image :
-.fds, .qd, .qdf │ │ └── Cartridge Containers : .rom, .crt (MSX AB headers, C64
-mappers) │
-└─────────────────────────────────────┬───────────────────────────────────────┘
-│
-┌─────────────────────────────────────▼───────────────────────────────────────┐
-│ Layer 1: Physical Carrier & Raw Signal Layer [ ] TODO │ │ ├── Audio Signals :
-WAV, FLAC, Vinyl Flexidiscs, Modulated CD Tracks │ │ ├── Raw Pulse Flux :
-Applesauce (.a2r/.woz), Greaseweazle (.scp/.raw) │ │ └── Physical DSP :
-Time-Base Correction, AGC, Hysteresis, DC-Blocker │
-└─────────────────────────────────────────────────────────────────────────────┘
+```text
+┌────────────────────────────────────────────────────────┐
+│ Layer 4: Semantic File & Payload Layer        [ ] TODO │
+│   • Executable Binaries (BLOAD, Load/Exec RAM images)  │
+│   • Detokenized Plaintext Source (N-BASIC, MSX, FOCAL) │
+│   • Unicode Charsets (JIS X 0201, NEC, MSX, KOI-7)     │
+└───────────────────────────┬────────────────────────────┘
+                            │
+┌───────────────────────────▼────────────────────────────┐
+│ Layer 3: Filesystem & Protocol Layer          [ ] TODO │
+│   • Sector FS: FAT8, FAT12, CP/M, Coleco DDP           │
+│   • Unified Headers: Sharp MZ 128-byte (Tape/QD/Disk)  │
+│   • Stream Protocols: PC-88 (D3/24/9C), MSX (1F A6)    │
+│   • Custom Loaders: NONTAMA, Speedlock, PWM Turbo      │
+└───────────────────────────┬────────────────────────────┘
+                            │
+┌───────────────────────────▼────────────────────────────┐
+│ Layer 2: Physical Timing & Sector Containers  [ ] TODO │
+│   • Tape Containers: .t88, .tsx, .p6t, .uef, .cdt, .tzx│
+│   • Floppy Images  : .d88, .dsk (MSX sectors == CMT)   │
+│   • Spiral Disks   : .fds, .qd, .qdf                   │
+│   • ROM Cartridges : .rom, .crt (MSX AB, C64 mappers)  │
+└───────────────────────────┬────────────────────────────┘
+                            │
+┌───────────────────────────▼────────────────────────────┐
+│ Layer 1: Physical Carrier & Raw Signal Layer  [ ] TODO │
+│   • Audio Signals  : WAV, FLAC, Flexidiscs, CD Tracks  │
+│   • Raw Pulse Flux : Applesauce (.a2r), Greaseweazle   │
+│   • Physical DSP   : Time-Base Correction, AGC, Slicer │
+└────────────────────────────────────────────────────────┘
 
+5. Systematic Flavor Taxonomy & No-Intro Naming
 
----
+To prevent tool-name pollution and keep filenames concise while maintaining 100%
+hash correlation against No-Intro, TOSEC, and MAME Software Lists, dwimsy
+defines a canonical default flavor (no extra tag) for each layer, alongside
+explicitly tagged variant siblings.
 
-## 4. Systematic Flavor Taxonomy & No-Intro Naming
+Layer            Default Flavor (Untagged)     Tagged Variant Sibling
+──────────────────────────────────────────────────────────────────────────
+Layer 1 (Audio)  capture.flac                  capture [re-synthesized].wav
+Layer 2 (Cont.)  game (Japan).t88 / .tsx       game (Japan) [canonical-timing].tsx
+Layer 3 (Stream) game (Japan).p6 / .cas / .cmt game (Japan) [untrimmed].p6 / [pad8].cas
+Layer 4 (Payload)game (Japan).bin / .rom       game (Japan) [alt-load].bin
 
-To prevent tool-name pollution and keep filenames concise while maintaining 100% hash correlation against [No-Intro](https://wiki.no-intro.org/index.php?title=Naming_Convention), TOSEC, and MAME Software Lists, `dwimsy` defines a **canonical default flavor** (no extra tag) for each layer, alongside explicitly tagged variant siblings.
+Pairing Rules
 
-Layer Default Flavor (Untagged) Tagged Variant Sibling
-──────────────────────────────────────────────────────────────────────────────────────────────────
-Layer 1 (Audio) capture.flac capture [re-synthesized].wav Layer 2 (Container)
-game (Japan).t88 / .tsx game (Japan) [canonical-timing].tsx Layer 3 (Stream)
-game (Japan).p6 / .cas / .cmt game (Japan) [untrimmed].p6 / [pad8].cas Layer 4
-(Payload) game (Japan).bin / .rom game (Japan) [alt-load].bin
+1.  PC-6001 (.p6 and .p6t Aligned Pairs):
+      - game (Japan).p6 \leftrightarrow game (Japan).p6t: Clean stream trimmed
+        at verified BASIC 0x0000 EOF / MON :00 terminator for standard emulator
+        compatibility.
+      - game (Japan) [untrimmed].p6 \leftrightarrow game (Japan)
+        [untrimmed].p6t: Raw stream retaining physical trailing flush padding.
+2.  MSX (.cas Unaligned vs. 8-Byte Aligned Pairs):
+      - game (Japan).cas: Clean unpadded byte stream (No-Intro / OpenMSX
+        standard).
+      - game (Japan) [pad8].cas: Chunks padded to 8-byte boundaries (legacy
+        TOSEC / fMSX match).
+      - game (Japan).tsx: Physical timing container with KCS Block 0x4B and
+        Turbo Block 0x11.
+3.  PC-88 / PC-80 (.t88 and .cmt Pairs):
+      - game (Japan).cmt \leftrightarrow game (Japan).t88: Canonical
+        DumpListEditor / c2t mastering timing.
+      - game (Japan) [untrimmed].cmt \leftrightarrow game (Japan)
+        [untrimmed].t88: Raw physical stream retaining trailing carrier
+        overshoot.
 
+6. CLI & Interface Conventions
 
-### Pairing Rules
-1. **PC-6001 (`.p6` and `.p6t` Aligned Pairs)**:
-   - `game (Japan).p6` $\leftrightarrow$ `game (Japan).p6t`: Clean stream trimmed at verified BASIC `0x0000` EOF / MON `:00` terminator for standard emulator compatibility.
-   - `game (Japan) [untrimmed].p6` $\leftrightarrow$ `game (Japan) [untrimmed].p6t`: Raw stream retaining physical trailing flush padding.
-2. **MSX (`.cas` Unaligned vs. 8-Byte Aligned Pairs)**:
-   - `game (Japan).cas`: Clean unpadded byte stream (No-Intro / OpenMSX standard).
-   - `game (Japan) [pad8].cas`: Chunks padded to 8-byte boundaries (legacy TOSEC / fMSX match).
-   - `game (Japan).tsx`: Physical timing container with KCS Block `0x4B` and Turbo Block `0x11`.
-3. **PC-88 / PC-80 (`.t88` and `.cmt` Pairs)**:
-   - `game (Japan).cmt` $\leftrightarrow$ `game (Japan).t88`: Canonical DumpListEditor / `c2t` mastering timing.
-   - `game (Japan) [untrimmed].cmt` $\leftrightarrow$ `game (Japan) [untrimmed].t88`: Raw physical stream retaining trailing carrier overshoot.
+Main CLI Verbs [ ] TODO
 
----
-
-## 5. CLI & Interface Conventions
-
-### Main CLI Verbs `[ ] TODO`
-```bash
 # Convert between any pair of formats (inferred from extensions)
 dwimsy convert input.flac output.t88
 dwimsy convert game.d88 game.wav --target-tape-type t88
@@ -167,7 +203,7 @@ File Linking & Paired Naming [ ] TODO
   - Input capture files are linked/copied directly inside output bundles under
     standard names.
 
-6. Metadata, Checksums & Archival Packaging
+7. Metadata, Checksums & Archival Packaging
 
 Multi-Level Hash Registry [ ] TODO
 
@@ -222,7 +258,7 @@ ignores during motor coast:
   - Byte Offset & Reason: Stored in manifest metadata to allow reversible
     reconstruction.
 
-7. Forensic DSP & Restoration Engines
+8. Forensic DSP & Restoration Engines
 
   - Time-Base Correction (TBC): [ ] TODO Tracks carrier frequency to normalize
     playback speed drift into standard 4,800 ticks/sec container time.
@@ -245,17 +281,6 @@ ignores during motor coast:
     differentiator (d/dt), phase equalizer, and adaptive Schmitt slicer
     (cmt_filter), with octave-doubled fast audio synthesis
     (2400/4800\text{ Hz}).
-
-8. Inventory of Existing Assets to Adopt
-
-| Repository             | Source Files                                                                | Integrated `dwimsy` Component                                               | Status     |
-| :--------------------- | :-------------------------------------------------------------------------- | :-------------------------------------------------------------------------- | :--------: |
-| **`pc88_tape_tools`**  | `t882wav.py`, `wav2t88.py`, `pc88_tape_tools.py`                            | `dwimsy.tape.pc88`, `dwimsy.core.pulse`, `t882wav`, `wav2t88`               | `[ ] TODO` |
-| **`wav2cas`**          | `flac2wav`, `cassette_modeler.py`, `cmt_filter`, `wav2cas.py`, `cas2wav.py` | `dwimsy.core.audio`, `dwimsy.dsp`, `dwimsy.tape.msx`, `flac2wav`, `cas2wav` | `[ ] TODO` |
-| **`fat8_d88_tool`**    | `d88` parser, `FAT8` engine, `charsets.py`, filename sanitizer              | `dwimsy.disk.d88`, `dwimsy.disk.fat8`, `dwimsy.core.charsets`, `d882fat8`   | `[ ] TODO` |
-| **`nontama_to_bload`** | NONTAMA / M-loader unpackers, MSX JIS tables, `mkrom`                       | `dwimsy.platforms.unpackers`, `dwimsy.platforms.rom`, `mkrom`               | `[ ] TODO` |
-| **`cas2uef`**          | `cas2uef.py`                                                                | `dwimsy.tape.bbc`, `cas2uef` filter                                         | `[ ] TODO` |
-| **`bin2fds`**          | `bin2fds.py`                                                                | `dwimsy.disk.fds`, `bin2fds` filter (Python 3 port)                         | `[ ] TODO` |
 
 9. Multi-Phase Implementation Roadmap
 
