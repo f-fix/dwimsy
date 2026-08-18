@@ -28,7 +28,7 @@ grandiose version: (currently 0% implemented)
    - [Hardware Transducer & Tri-Directional Control Gateway ("DWIMSY Box")](#hardware-transducer--tri-directional-control-gateway-dwimsy-box)
    - [Transport Automation Spectrum: From Manual Relays to Fully Logic-Controlled Decks](#transport-automation-spectrum-from-manual-relays-to-fully-logic-controlled-decks)
    - [Runtime Media Management, Adaptive Modes & Content-Aware Transport](#runtime-media-management-adaptive-modes--content-aware-transport)
-   - [Fresh Blank Media Creation, Auto-Naming & Instant Insertion](#fresh-blank-media-creation-auto-naming--instant-insertion)
+   - [Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage](#fresh-blank-media-creation-auto-naming--out-of-band-storage)
    - [ROM Cartridges as Tape Containers & BIOS Hook Injections](#rom-cartridges-as-tape-containers--bios-hook-injections)
    - [Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry](#physical-cassette-shell-profiling--nominal-whole-tape-geometry)
    - [Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
@@ -50,15 +50,20 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ### Core Design Principles
 * **Composable Unix Filters + Shared Core**: Individual tools (`t882wav`, `wav2t88`, `flac2wav`, `cas2wav`, `bin2fds`, `dwimsy-conv`, etc.) can be piped together in standard shells (`stdin`/`stdout` streaming with `-`) or called through a central CLI (`dwimsy`). All tools share a common internal library.
-* **Zero Required Dependencies**: Built on Python 3.9+ standard library (`math`, `struct`, `array`, `io`, `sys`, `shutil`, `os`, `argparse`). Pure-Python biquad/IIR direct form filter engines provide full DSP functionality out-of-the-box. Acceleration libraries (like NumPy/SciPy) are strictly optional and auto-detected for high-throughput batch processing.
-* **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean No-Intro naming for all long names. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
-* **Systematic Flavor Defaults**: Each layer has an untagged canonical default flavor. Non-default variants (untrimmed raw streams, 8-byte padded CAS) receive standard No-Intro qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
+* **Zero Required Dependencies & Standalone Operation**: Built on Python 3.9+ standard library (`math`, `struct`, `array`, `io`, `sys`, `shutil`, `os`, `argparse`). Pure-Python biquad/IIR direct form filter engines provide full DSP functionality out-of-the-box. Acceleration libraries (like NumPy/SciPy) are strictly optional and auto-detected for high-throughput batch processing.
+* **Offline Operation (No Network & No Embedded DBs)**: `dwimsy` contains no embedded software lists and performs no network lookups. Extended No-Intro metadata is applied when explicitly provided by the user (via CLI options or input filenames); otherwise, standard clean filenames based on the input basename or tape header preambles are used directly without friction.
+* **Empty Tape Deck Mode**: Can be launched with zero initial media inputs, operating as an unpopulated virtual cassette transport ready to record software from scratch over `CMT-OUT` or mount images via the 2-line LCD browser.
+* **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts ($15\text{–}25\text{ dB}$ step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
+* **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean naming for all output files. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
+* **Systematic Flavor Defaults**: Each layer has an untagged canonical default flavor (e.g. standard 8-byte padded `.cas` for MSX, trimmed `.cmt` for PC-88). Non-default variants (untrimmed raw streams, compact unpadded CAS) receive standard qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
+* **Canonical Default Collapsing**: `dwimsy` automatically emits both explicit long names and collapsed canonical default slugs (e.g., `door_door_a.t88` and `door_door.t88` linked to Side A; `salad1_1a.cas` linked to primary part) via non-destructive hardlinking (`os.link`).
+* **Contrasting Audio Representation**: Long names treat the raw capture as default (`.flac`) and tag synthesized audio as `[REGENERATED].wav`; short CLI slugs treat usable synthesized audio as default (`.wav`) and qualify raw captures with `_orig.flac`.
 * **Self-Contained Archival Bundles**: Input capture files are linked/copied directly inside output bundles alongside full hash suites (Size, CRC32, MD5, SHA1, SHA256) at every abstraction layer.
 * **Layered Architecture & Cross-Copy Consensus**: Multi-copy differential recovery and consensus voting operate at signal, flux, container, and logical sector/record layers for both disks and tapes.
 * **Fault-Tolerant Automation (`fsck` Model)**: Non-interactive conversions process valid data and isolate corrupted sections with diagnostic logs rather than crashing. An offline interactive recovery mode assists with manual bit/pulse repairs.
 * **The Archival Rule (No Premature Inference)**: Never infer structure when the container or physical capture explicitly provides structure (e.g. D88 track offset tables).
 * **Information Conservation**: A transformation cannot recover information that its input representation does not contain (e.g., CAS → UEF necessarily invents timing, which must be explicitly marked as `synthetic` / `heuristic`).
-* **Non-Destructive Write Overlays & Fresh Media Generation**: Saving to virtual or physical media never overwrites the pristine master capture; updates are recorded as time/tape-counter-indexed non-destructive differential audio/sector overlays, or directed to dynamically generated and auto-named fresh blank tapes/disks.
+* **Non-Destructive Write Overlays & Hash-Indexed Media Creation**: Saving to virtual or physical media never overwrites pristine captures. Overlays are stored out-of-band in `~/.cache/dwimsy/overlays/<SHA1>/`, while newly created save media is placed in `~/.local/share/dwimsy/created/<SHA1>/` (associated with the initial tape hash, or `da39a3ee5e6b4b0d3255bfef95601890afd80709` for empty sessions).
 
 ---
 
@@ -91,6 +96,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 | **`core.fs`** | Filename sanitizer & `link_or_copy` hardlinker/copier | `[ ] TODO` | Milestone 2 |
 | **`core.transport`** | Transport automation engine: Tier 1 manual, Tier 2 relay, Tier 3 solenoid logic | `[ ] TODO` | Milestone 2 |
 | **`transport.changer`**| Media changer, auto-naming, blank media generator & jukebox policies | `[ ] TODO` | Milestone 2 |
+| **`transport.browser`**| LCD 2-line virtual image root browser with type-to-navigate & context tracking | `[ ] TODO` | Milestone 2 |
 | **`transport.seeker`** | Content-aware smart seek (file/block/marker navigation & cueing) | `[ ] TODO` | Milestone 2 |
 | **`dsp.router`**       | Dynamic mode & modulation router (pilot sniff, auto-turbo switch) | `[ ] TODO` | Milestone 2 |
 | **`platforms.cart_hooks`**| ROM cartridge tape containers, BIOS hook extractors & `cas2rom` packagers | `[ ] TODO` | Milestone 2 |
@@ -100,17 +106,17 @@ It is designed to grow incrementally, adding support for new computer platforms,
 | **`disk.fds`** | FDS / QuickDisk container engine (`bin2fds` Python 3 port) | `[ ] TODO` | Milestone 2 |
 | **`platforms.unpack`** | NONTAMA & MSX M-Loader binary unpackers (`mkrom`) | `[ ] TODO` | Milestone 2 |
 | **`metadata.archive`** | Archival bundle exporter & `README.md` generator | `[ ] TODO` | Milestone 2 |
-| **`tape.variants`** | Multi-flavor generator (Trimmed/Untrimmed, CAS Pad8, P6/P6T pairs) | `[ ] TODO` | Milestone 2 |
+| **`tape.variants`** | Multi-flavor generator (Trimmed/Untrimmed, CAS unpadded, P6/P6T pairs) | `[ ] TODO` | Milestone 2 |
 | **`tape.geometry`** | Physical cassette shell profiling (C-10..C-90, custom lengths, hub math) | `[ ] TODO` | Milestone 2 |
 | **`tape.sharp_family`**| Sharp MZ & Famicom Family BASIC PWM/MZT stream decoder | `[ ] TODO` | Milestone 3 |
 | **`tape.casio`** | Casio PV-2000 & Casio FP-1100 FSK/PWM tape codec | `[ ] TODO` | Milestone 3 |
 | **`tape.tsx`** | TSX / TZX 1.20 container (MSX FSK & Turbo blocks, CDT/TZX) | `[ ] TODO` | Milestone 3 |
-| **`tape.p6t`** | PC-6001 `.p6t` container (footer sync) & `.p6` stream trimmer | `[ ] TODO` | Milestone 3 |
+| **`tape.p6t`** | PC-6001 `.p6t` container (footer sync, autoboot metadata & `mk2mon` labels) | `[ ] TODO` | Milestone 3 |
 | **`tape.bbc`** | BBC Micro Model B `.uef` reader/writer (`cas2uef`) | `[ ] TODO` | Milestone 3 |
 | **`tape.sord_sega`** | Sord M5 & Sega SC-3000 `.cas` adapters | `[ ] TODO` | Milestone 3 |
-| **`tape.multiplex`** | Multi-platform compilation splitter (*Tape Login*) | `[ ] TODO` | Milestone 3 |
+| **`tape.multiplex`** | Multi-platform compilation splitter (*Tape Login*, *Tank Battle*) | `[ ] TODO` | Milestone 3 |
 | **`cue.engine`** | Companion `<basename>.cue` generator & reader | `[ ] TODO` | Milestone 3 |
-| **`dsp.classifier`** | FSK carrier vs. broadband speech/music classifier | `[ ] TODO` | Milestone 4 |
+| **`dsp.classifier`** | FSK carrier vs. broadband speech/music classifier & leader detector | `[ ] TODO` | Milestone 4 |
 | **`platforms.sega_ai`** | Sega AI Computer concurrent stereo engine | `[ ] TODO` | Milestone 4 |
 | **`platforms.atari8`** | Atari 8-bit POKEY/Audio concurrent stereo engine | `[ ] TODO` | Milestone 4 |
 | **`media.audio_disc`** | Audio-carrier formats (Flexidiscs, CD-DA modulated tracks, GCX CD) | `[ ] TODO` | Milestone 4 |
@@ -166,32 +172,31 @@ It is designed to grow incrementally, adding support for new computer platforms,
 `dwimsy` operates as a real-time hardware appliance and bridge between retrocomputing systems, physical media transports, modern sound cards, emulators, and human operators:
 
 ```text
-                           ┌──────────────────────────────────────────────────────────┐
-                           │                 TRI-DIRECTIONAL CONTROL PLANE            │
-                           │                                                          │
-   [1] UPSTREAM HOST       │  • Host Motor Handshake & Relay Sense (REMOTE)           │   [2] DOWNSTREAM TRANSPORT
-  (Retrocomputer / Emu) ◄──┼──►  Parallel / Serial / IEC / Shugart / Solenoid Engine ◄──┼──► (Physical Deck / Drive)
-                           │  • Full Solenoid Logic Control (StudyBox, GCX, MZ, Adam) │    (Relays, Solenoids, Tacho,
-                           │  • Writable Media Tracking & Non-Destructive Overlays    │     Greaseweazle, EOT Optical)
-                           │                             │                            │
-                           │                     Synchronized Event                   │
-                           │                         Timeline                         │
-                           │                             ▼                            │
-                           │  [3] OPERATOR / SUPERVISOR CONTROL & TELEMETRY PLANE     │
-                           │  • Inbound Controls: Keystrokes, Buttons, IPC Commands   │
-                           │  • Outbound Telemetry: Live VU, Motor RPM, Track, Events │
-                           │  • Interfaces: stderr ANSI LCD, Unix Socket, WebSockets  │
-                           │                             │                            │
-                           │  DATA PLANE (FULL-DUPLEX AUDIO & FLUX)                   │
-  Host Audio (CMT OUT) ───►│  • Independent Raw Archival Capture Tee (FLAC / Flux)    │─────► Deck Input (MIC/LINE)
-  Host Audio (CMT IN)  ◄───│  • Demodulation / Decoding / Canonicalization / Codecs   │◄──── Deck Output (EAR/HEAD)
-  (or Sound Card I/O)      │  • Physical Cassette Emulation (`cassette_model`)        │       (or Greaseweazle)
-                           └─────────────────────────────┬────────────────────────────┘
-                                                         │
-                                         ┌───────────────┴───────────────┐
-                                         ▼                               ▼
-                                 Local CLI / LCD / TTY            Phone / Web Dashboard
-                                 (Keystrokes, stderr, GPIO)      (Spectrogram, Disk Swap)
+                  ┌───────────────────────────────────────────────┐
+                  │          TRI-DIRECTIONAL CONTROL PLANE        │
+                  │                                               │
+ [1] UPSTREAM     │ • Host Motor Handshake & Relay Sense (REMOTE) │ [2] DOWNSTREAM
+ (Host / Emu) ◄───┼─► Parallel / Serial / IEC / Solenoid Engine   ◄───┼─► (Deck/Drive)
+                  │ • Writable Media Non-Destructive Overlays     │   (Relays, Tacho,
+                  │                       │                       │    Greaseweazle)
+                  │               Synchronized Event              │
+                  │                    Timeline                   │
+                  │                       ▼                       │
+                  │ [3] OPERATOR / SUPERVISOR TELEMETRY PLANE     │
+                  │ • Inbound: Keystrokes, Buttons, IPC Commands  │
+                  │ • Outbound: Live VU, Motor RPM, Track, Events │
+                  │ • Interfaces: stderr ANSI LCD, Sockets        │
+                  │                       │                       │
+                  │ DATA PLANE (FULL-DUPLEX AUDIO & FLUX)         │
+ Host CMT OUT ───►│ • Independent Raw Capture Tee (FLAC / Flux)   │──► Deck Line IN
+ Host CMT IN  ◄───│ • Demodulation / Decoding / Canonicalization  │◄─── Deck Line OUT
+ (or Soundcard)   │ • Cassette Emulation (`cassette_model`)       │   (or Greaseweazle)
+                  └───────────────────────┬───────────────────────┘
+                                          │
+                          ┌───────────────┴───────────────┐
+                          ▼                               ▼
+                  Local CLI / LCD / TTY          Phone / Web Dashboard
+                  (Keystrokes, stderr)          (Spectrogram, Swaps)
 ```
 
 #### Tri-Directional Control Mechanics
@@ -226,34 +231,59 @@ For Tier 3 systems (Famicom StudyBox, Gakken Manabu-kun GCX, Sharp MZ-2000, Cole
 
 ### Runtime Media Management, Adaptive Modes & Content-Aware Transport
 
-#### 1. Runtime Media Changes & Automated Jukebox Policies (`transport.changer`)
+#### 1. Runtime Media Changes, Jukebox Policies & Composite Sets (`transport.changer`)
 Media swaps occur both via external triggers (user hotkey, phone UI, physical button) and through automated **inference engines**:
-* **Manual / Out-of-Band Triggers**: Hot-swapping virtual disks or flipping tape sides without resetting the running audio/flux stream or dropping connection to the retrocomputer.
+* **Manual / Out-of-Band Triggers**: Hot-swapping virtual disks or flipping tape sides (`[` / `]` keys) without resetting the running audio/flux stream or dropping connection to the retrocomputer.
 * **Automated Sequential Advance**:
   - **Auto-Flip**: Detects optical leader / end-of-tape (EOT) silence or post-data motor stop and automatically queues Side B.
   - **Multi-Tape / Multi-Disk Carousel**: Automatically traverses multi-tape sets (`Tape 1 Side A` → `Side B` → `Tape 2 Side A` → `Side B` → `...` → loop back to `Tape 1 Side A`).
+  - **Composite Side Carousel Sequence**: For multi-tape sets with publisher composite side designations (e.g. *Tomato Hime*), sequences in exact physical order: `Side 1A` $\to$ `Side 1B` $\to$ `Side 2A` $\to$ `Side 2B`.
 * **Hardware Bus Synthesis**: During an automated or manual disk change, `dwimsy` asserts `/DISK_CHANGE` (pin 34) and pulses `/INDEX` / `/READY` to signal the retrocomputer BIOS that media has been swapped.
 
-#### 2. Runtime Conversion Mode & Modulation Switching (`dsp.router`)
+#### 2. Virtual Image Root & 2-Line Status LCD File Browser (`transport.browser`)
+When browsing media via the `<I>` keystroke in TTY mode:
+* **Virtual Image Root**: The top level of the browser always presents a unified virtual root containing all initial CLI-supplied input files and any dynamically generated blank save media.
+* **Image Root Directory (`--image-root <DIR>`)**: When an image root directory is declared, a `[Browse Directory...]` item is presented at the top level of the Virtual Image Root, allowing navigation into filesystem subdirectories.
+* **Context-Aware Initial Location**:
+  - If the active media was chosen from the CLI or generated dynamically $\to$ browsing starts in the Virtual Image Root.
+  - If the active media was selected from a subdirectory within `--image-root` $\to$ browsing opens directly inside that subdirectory.
+* **Type-to-Navigate**: In TTY mode, typing alphanumeric characters performs in-place substring filtering across filenames.
+* **Seamless Virtual Insertion**: Pressing `<Enter>` selects an image and hot-inserts it into the active transport loop, simulating appropriate door/index pulses to the host retrocomputer without audio dropouts.
+
+#### 3. SHA1-Indexed Write Overlays & Overlay Lifecycle
+Media modifications are stored out-of-band to guarantee pristine masters:
+* **Storage Location**: Stored in a dedicated user cache (`~/.cache/dwimsy/overlays/<SHA1>/`), indexed strictly by the SHA-1 hash of the master tape image.
+* **Browser Overlay Selection**: Selecting an image with an existing overlay presents an instant choice: `[1] Use Overlay`, `[2] Clean Master`, `[3] Delete Overlay`.
+* **TTY Diagnostics & Purge (`<D>`)**: Loading an image with an active overlay flashes a diagnostic message on `stderr` (`[OVERLAY] Active (SHA1: ...) [Press <D> to discard]`). Pressing `<D>` purges the overlay and reverts to pristine media.
+* **Pipeline / Filter Default**: Standalone filter applets and piped stream conversions default to cold, read-only mode. If a matching overlay is found in cache, `dwimsy` displays an informational notice on `stderr` explaining the `--overlay` activation flag.
+* **Deterministic Verification (`--no-overlay`)**: Explicitly bypasses overlay reading for reproducible verification and testing.
+
+#### 4. Automated Physical Side/Tape Slicing & Leader Detection (`--multi-side`)
+When digitizing continuous captures containing multiple cassette sides or tapes:
+* **Spectrographic Leader & Hiss Profiling**: Identifies non-magnetic clear leader tape and transport stops via a $15\text{–}25\text{ dB}$ step-change dropping from magnetic bias hiss ($E_{\text{bias}} \approx -50\text{ dBFS}$) to electronic preamp floor ($E_{\text{floor}} \le -75\text{ dBFS}$).
+* **Validated Lifecycle Interlock**: Only commits a side split when the audio region satisfies a complete tape lifecycle ($\text{Leader In} \to \text{Valid Program/Audio Payload} \to \text{Leader Out}$).
+* **Default Carousel Sequencing**: Automatically assigns sequential layout (`Tape 01 Side A` $\to$ `Side B` $\to$ `Tape 02 Side A` $\to$ `Side B`) unless overridden by user metadata.
+
+#### 5. Runtime Conversion Mode & Modulation Switching (`dsp.router`)
 Mode switching operates across two distinct dynamics:
 * **User-Driven Real-Time A/B Testing**: The operator toggles output modes on-the-fly (`Raw Passthrough` ↔ `Conditioned Filter` ↔ `Canonical Ideal` ↔ `Cassette Hardware Model`) while listening to the real hardware to diagnose edge-case demodulation issues.
 * **Inferred / Sniffed In-Stream Modulation Switching**:
   - **Hybrid Speed Loaders**: Software often begins with a standard ROM BIOS FSK header (1200 baud) and switches mid-stream to high-speed custom PWM or Turbo tones (e.g. 3600+ baud). `dwimsy` continuously monitors pilot frequencies and dynamically hot-switches demodulators mid-stream with zero dropped samples.
   - **Adaptive DSP Fallback**: If signal SNR or carrier eye pattern degrades below a confidence threshold, the router dynamically engages secondary phase equalization or alternate slicer hysteresis.
 
-#### 3. Multi-Platform Compilation Splitting & Multi-File Container Packaging (`tape.multiplex`)
-For compilation tapes containing programs for multiple target systems and spoken human narration (such as ASCII's *Tape Login* series):
+#### 6. Multi-Platform Compilation Splitting & Multi-File Container Packaging (`tape.multiplex`)
+For compilation tapes containing programs for multiple target systems and spoken human narration (such as ASCII's *Tape Login* and *Tank Battle* series, or multi-part releases like *Gundam 2* and *Tomato Hime*):
 * **Hard Program Fencing**: Intervening human speech/commentary tracks or extended leader silences (>5s) act as hard program boundaries, preventing unrelated titles from merging.
-* **Chained Multi-File Container Integrity**: Multi-part programs (e.g., PC-88 tokenized BASIC loader $\to$ machine-language engine $\to$ graphics/map data; MSX multi-block loads; PC-6001 BASIC $\to$ NONTAMA payload) are preserved together inside a single, unified, bootable emulator container image (`.t88`, `.cas`, `.p6t`, `.mzt`). This ensures emulators load all subsequent stages automatically without hanging on missing sub-files.
+* **Chained Multi-File Container Integrity**: Multi-part programs (e.g., PC-88 tokenized BASIC loader $\to$ machine-language engine $\to$ graphics/map data; MSX multi-block loads; PC-6001 BASIC $\to$ NONTAMA payload) are preserved together inside a single, unified, bootable emulator container image (`.t88`, `.cas`, `.p6t`, `.t77`, `.mzt`). This ensures emulators load all subsequent stages automatically without hanging on missing sub-files.
 * **Dissected Payload Extraction**: In addition to the bootable multi-file container, individual sub-files (`.cmt`, `.bin`, detokenized `.bas`) are unpacked into a `subfiles/` directory for developer inspection.
 
-#### 4. Three-Tier Ambiguity Resolution Strategy
+#### 7. Three-Tier Ambiguity Resolution Strategy
 Generic extensions like `.cmt` (used by PC-88, PC-6001, MSX, FM-7), `.cas` (used by MSX, Sega SC-3000, Sord M5, Casio, CoCo), and `.wav` are resolved through a deterministic hierarchy:
 1. **Tier 1: Explicit Namespaced Filter Applets**: Direct invocation of single-purpose Unix filters (`dwimsy-msx-wav2cas`, `dwimsy-sega-wav2cas`, `dwimsy-wav2t88`, `dwimsy-t882wav`) establishes unambiguous platform context.
-2. **Tier 2: Explicit Profile Switches**: High-level commands accept `--profile=` overrides (`--profile=pc88`, `--profile=msx`, `--profile=sega-sc3000`, `--profile=pc6001`).
-3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated UART stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, or Sega `"SEGA CASSETTE"` headers).
+2. **Tier 2: Explicit Profile Switches**: High-level commands accept `--profile=` overrides (`--profile=pc88`, `--profile=msx`, `--profile=sega-sc3000`, `--profile=pc6001`, `--profile=fm7`).
+3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated UART stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sega `"SEGA CASSETTE"`, or FM-7/FM-8 headers).
 
-#### 5. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (`transport.seeker`)
+#### 8. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (`transport.seeker`)
 Instead of blind time-based skipping, `dwimsy` provides structure-aware transport navigation:
 * **Named File & Header Seeking**: Seek directly to a named file (e.g., `seek --file "STAGE2.BIN"` or `seek --type BASIC`).
 * **Block & Record Navigation**: Step forward or backward by logical data blocks (`seek --next-block`, `seek --prev-file`).
@@ -261,7 +291,7 @@ Instead of blind time-based skipping, `dwimsy` provides structure-aware transpor
 * **Calibrated Tape Counter Seek**: Navigates using physical reel rotation models (`seek --counter "0450"`), translating between tape ticks and elapsed master FLAC time.
 * **Transport State Integrity**: While seeking in live bridge mode, `dwimsy` coordinates with the retrocomputer host by holding the virtual motor/pause state, smoothly re-engaging carrier lock at the target boundary without triggering framing errors.
 
-### Fresh Blank Media Creation, Auto-Naming & Instant Insertion
+### Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage
 
 Many retrocomputing productivity tools (such as Japanese word processors on the PC-6001mkIISR, database managers on PC-88, or multi-part RPGs) explicitly prompt the user to **"Insert a formatted blank tape/disk for saving user data"**.
 
@@ -270,6 +300,7 @@ Many retrocomputing productivity tools (such as Japanese word processors on the 
   - Tape: `Hydlide (Japan) [User Save Tape 01].p6t` or `PC6001_DataTape_2026-08-17_001.wav`
   - Floppy: `Yukara_WordProcessor (Japan) [User Data Disk 01].d88`
 * **Pre-Formatted Geometry Presets**: Instantly synthesizes pre-formatted media templates (e.g., fresh C-15/C-30 blank cassette with clear leader + unrecorded magnetic bias silence, or standard pre-formatted FAT8/2D/2DD floppy sector images).
+* **Hash-Indexed Out-of-Band Storage**: Created save media is stored in `~/.local/share/dwimsy/created/<SHA1>/`, indexed by the SHA-1 hash of the first supplied image, or `da39a3ee5e6b4b0d3255bfef95601890afd80709` (empty file hash) if started in empty deck mode.
 * **Instant Virtual Insertion**: Hot-swaps the active program media with the newly created save media and simulates appropriate physical bus notifications (door open/close cycle, `/DISK_CHANGE` assertion, or motor release) without restarting the audio daemon.
 * **Trigger Methods**:
   - **Single Keystroke**: Pressing `<N>` in interactive TTY mode.
@@ -337,11 +368,36 @@ explicitly tagged variant siblings.
 ```text
 Layer            Default Flavor (Untagged)     Tagged Variant Sibling
 ──────────────────────────────────────────────────────────────────────────
-Layer 1 (Audio)  capture.flac                  capture [re-synthesized].wav
+Layer 1 (Audio)  capture.flac                  capture [REGENERATED].wav
 Layer 2 (Cont.)  game (Japan).t88 / .tsx       game (Japan) [canonical-timing].tsx
-Layer 3 (Stream) game (Japan).p6 / .cas / .cmt game (Japan) [untrimmed].p6 / [pad8].cas
+Layer 3 (Stream) game (Japan).p6 / .cas / .cmt game (Japan) [untrimmed].p6 / [unpadded].cas
 Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
 ```
+
+### Naming & Metadata Policy (Offline & Standalone)
+`dwimsy` contains **no embedded software database** and performs **no network queries**. Filename generation follows a zero-friction fallback rule:
+* **Default Fallback**: If no metadata is supplied, `dwimsy` derives concise, standard filenames from the input file's basename or internal tape preambles (e.g. `tape01.flac` $\to$ `tape01.cmt`, `tape01.t88`; internal headers $\to$ `01_DOOR.cmt`). Long multi-tag No-Intro names are skipped entirely when metadata is absent.
+* **User-Supplied Metadata**: When full No-Intro style names are desired during ripping, they are derived directly from user-supplied options (e.g. `--name "Crazy Newton (Computer Land Hokkaido) (Japan) (PC-6001 32K Mode 2 Pages 2) [_] [CLOAD-RUN]"` or `--title "Crazy Newton" --publisher "Computer Land Hokkaido" --region "Japan" --system "PC-6001" --ram 32K --basic-mode 2 --pages 2 --load-cmd "CLOAD-RUN" --provisional`) or inherited from an input capture that already carries a No-Intro name.
+* **Provisional Tag `[_]`**: Used to mark unconfirmed or provisional titles that require further manual verification.
+* **Tape Loading Instructions `[COMMAND]`**: Suffixes like `[CLOAD-RUN]`, `[MON-R-GE000]`, `[LOAD'CAS1-'-RUN]`, `[RUN'CAS0-']`, or `[BLOAD'CAS-',R]` explicitly document the required BIOS loading command.
+* **Multi-Side Archival Consolidation**: For composite tapes where sides have differing load commands or baud rates, the top-level archive name reflects comma-separated sets: `[MON-R-GE000, MON-R2-GE000]` and `(PC-8801 N88-BASIC V1 Mode 1200 Baud, 600 Baud)`. Default baud rates are omitted from individual sides.
+* **Composite Side Designations Spanning Multiple Tapes**: For sets where physical packaging and in-game prompts designate composite sides across multiple tapes (e.g. *Tomato Hime* Part 1 `Side 1A`, Part 2 `Side 1B`, Part 3 `Side 2A`, Part 4 `Side 2B`), these designations supersede generic `(Tape X) (Side Y)` tags:
+  - Long: `Salad no Kuni no Tomato Hime 1 (Side 1A) (Hudson Soft) [_]`
+  - Short: `salad1_1a.cas`, `salad1_1a.wav`, `salad1_1a_orig.flac`
+* **Multi-Platform Compilations on a Single Cassette**: For multi-system releases (e.g. *Tank Battle* containing PC-8801, FM-7, PC-6001mkII, FM-8 on one tape), the top-level archive summarizes all systems, while extracted tracks are indexed by file position with platform-specific loading commands:
+  - Top Archive: `Tank Battle (ASCII) (Japan) (PC-8801, FM-7, PC-6001 mkII, FM-8) [_]`
+  - File 01: `Tank Battle (File 01) (ASCII) (Japan) (PC-8801) [_] [LOAD'CAS1-'-RUN]` $\leftrightarrow$ `n80_tank88_file01.cmt`
+  - File 02: `Tank Battle (File 02) (ASCII) (Japan) (FM-7) [_] [RUN'CAS0-']` $\leftrightarrow$ `fm7_tank7_file02.t77`
+  - File 03: `Tank Battle (File 03) (ASCII) (Japan) (PC-6001 mkII Mode 5 Pages 2) [_] [CLOAD-RUN]` $\leftrightarrow$ `n62_tank_file03.p6t`
+  - File 04: `Tank Battle (File 04) (ASCII) (Japan) (FM-8) [_] [RUN'CAS0-']` $\leftrightarrow$ `fm8_tank8_file04.t77`
+
+### Canonical Default Collapsing
+To provide clean, immediate usability in emulators while maintaining complete archival sets, `dwimsy` uses non-destructive hardlinking (`os.link`, falling back to `shutil.copy2`):
+* **Side A as Canonical Default**: When Side A represents the primary release (e.g. standard 1200 baud version) and Side B is an alternate speed duplicate, `dwimsy` links `door_door_a.t88` to the unsuffixed default `door_door.t88`.
+* **Multi-Take / Dump Collapsing**: When multiple audio takes or dumps exist (`tape01`, `copy01`), the verified master dump collapses to the unnumbered base name (`door_door.flac`).
+* **Multi-Part / Sequential Media**: For multi-tape games (e.g. *Tomato Hime*), sequential parts are indexed `salad1_1a.cas`, `salad2_1b.cas`, `salad3_2a.cas`, `salad4_2b.cas` linked to their respective No-Intro long names.
+* **Multi-Part / Mixed-Mode Media**: For mixed-mode releases (e.g. *Gundam 2*), `dwimsy` maintains the primary game image linked to `gundam2.t88` while preserving chronological segment files (`Segment 01`..`15`) for audio drama and data tracks.
+
 ### Pairing Rules
 
 1.  PC-6001 (.p6 and .p6t Aligned Pairs):
@@ -350,11 +406,10 @@ Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
         compatibility.
       - game (Japan) [untrimmed].p6 ↔ game (Japan)
         [untrimmed].p6t: Raw stream retaining physical trailing flush padding.
-2.  MSX (.cas Unaligned vs. 8-Byte Aligned Pairs):
-      - game (Japan).cas: Clean unpadded byte stream (No-Intro / OpenMSX
-        standard).
-      - game (Japan) [pad8].cas: Chunks padded to 8-byte boundaries (legacy
-        TOSEC / fMSX match).
+2.  MSX (.cas 8-Byte Padded vs. Unpadded Pairs):
+      - game (Japan).cas: Standard 8-byte boundary padded stream (matching
+        TOSEC / No-Intro / OpenMSX preservation databases).
+      - game (Japan) [unpadded].cas: Compact unpadded byte stream (raw tight chunks).
       - game (Japan).tsx: Physical timing container with KCS Block 0x4B and
         Turbo Block 0x11.
 3.  PC-88 / PC-80 (.t88 and .cmt Pairs):
@@ -363,10 +418,12 @@ Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
       - game (Japan) [untrimmed].cmt ↔ game (Japan)
         [untrimmed].t88: Raw physical stream retaining trailing carrier
         overshoot.
-4.  Sega SC-3000 and Sord M5 (.cas Disambiguated Pairs):
+4.  Fujitsu FM-7 / FM-8 (.t77 and .cmt Pairs):
+      - game (Japan).t77 ↔ game (Japan).cmt: Standard FM-7 / FM-8 timing container.
+5.  Sega SC-3000 and Sord M5 (.cas Disambiguated Pairs):
       - game (Japan) (SC-3000).cas: Sega SC-3000 emulator container (`SEGA CASSETTE` header).
       - game (Japan) (Sord M5).cas: Sord M5 stream (`0x55` sync bursts).
-5.  Multi-File Program Containers:
+6.  Multi-File Program Containers:
       - game (Japan).t88 / .cas: Unified bootable container bundling all chained sub-files in sequence.
       - subfiles/01_file.cmt, 02_file.cmt: Individual sliced sub-files for disassembly and reverse-engineering.
 
@@ -399,9 +456,49 @@ dwimsy convert game.d88 game.wav --target-tape-type t88
 dwimsy convert capture.wav output.cas --profile=msx
 dwimsy convert capture.wav output.cas --profile=sega-sc3000
 dwimsy convert game.cmt game.wav --profile=pc88
+dwimsy convert game.cmt game.t77 --profile=fm7
 
-# Archive multi-platform compilation tapes with interleaved speech (Tape Login model)
+# Launch live bridge in empty tape deck mode (zero initial inputs, ready for development)
+dwimsy bridge --deck /dev/ttyUSB0
+
+# Launch live bridge with image root directory for 2-line LCD browser
+dwimsy bridge --image-root ./games/ --deck /dev/ttyUSB0
+
+# Split continuous multi-side tape rip automatically on clear leader / hiss dropouts
+dwimsy split continuous_rip.flac --multi-side -o ./extracted_sides/
+
+# Archive multi-platform compilation tapes (Tape Login & Tank Battle models)
 dwimsy archive "Tape_Login_Vol01.flac" -o ./Tape_Login_Archive/
+dwimsy archive "Tank_Battle.flac" \
+    --title "Tank Battle" \
+    --publisher "ASCII" \
+    --region "Japan" \
+    --systems "PC-8801, FM-7, PC-6001 mkII, FM-8" \
+    --provisional \
+    -o ./Tank_Battle_Archive/
+
+# Archive with full user-supplied No-Intro metadata, P6T autoboot footer & provisional tag
+dwimsy archive capture.flac \
+    --title "Crazy Newton" \
+    --publisher "Computer Land Hokkaido" \
+    --region "Japan" \
+    --system "PC-6001" \
+    --ram 32K \
+    --basic-mode 2 \
+    --pages 2 \
+    --load-cmd "CLOAD-RUN" \
+    --provisional \
+    -o ./Crazy_Newton_Archive/
+
+# Archive a PC-88 tape with full No-Intro long name, catalog ID, and loading command
+dwimsy archive input01.t88 \
+    --name "Door Door (Side A) (1983-02) (Enix) (Japan) (PC-8801 N88-BASIC V1 Mode) [E-G002 102-13-10] [_] [MON-R-GE000]" \
+    -o ./Door_Door_Archive/
+
+# Archive multi-tape MSX sets with BLOAD syntax and composite side tagging (Tomato Hime model)
+dwimsy archive salad_tape1_a.flac \
+    --name "Salad no Kuni no Tomato Hime 1 (Side 1A) (Hudson Soft) [_] [BLOAD'CAS-',R]" \
+    -o ./Tomato_Hime_Archive/
 
 # Compile a tape game into a bootable MSX or PC-6001mkII ROM cartridge (cas2rom / mkrom)
 dwimsy package game.cas --target-cart-type msx-sakhr -o game.rom
@@ -483,6 +580,10 @@ To prevent UI telemetry from polluting piped data streams:
   * `<Space>`: Toggle motor pause / play.
   * `<R>`: Toggle virtual Record Arming mode.
   * `<N>`: Create, auto-name, and hot-insert a fresh blank save tape/disk.
+  * `[` / `]`: Switch to previous / next side or tape in the Virtual Image Root.
+  * `<` / `>`: Step transport backward or forward (fast-forward / rewind).
+  * `<I>`: Open minimal 2-line LCD file browser (Virtual Image Root / File browser).
+  * `<D>`: Discard / purge active write overlay and revert to pristine master.
   * `Arrow Keys` (←/→/↑/↓): Fast-forward, rewind, seek block/track, adjust speed trim.
   * `<Enter>` / `<ESC>`: Menu selection / Back & Cancel.
   * `<M>` or `<Tab>`: Cycle canonicalization / emulation profiles.
@@ -511,9 +612,9 @@ dwimsy join \
 
 ### File Linking & Paired Naming `[ ] TODO`
 
-  - dwimsy emits both a compact CLI name (crazy_a.p6) and an extended No-Intro
-    long name (Crazy Newton (Japan) (PC-6001 32K Mode 2 Pages 2)
-    [CLOAD-RUN] 32k.p6) in a flat directory.
+  - When metadata is supplied, dwimsy emits both a compact CLI name (crazy_a.p6)
+    and an extended No-Intro long name (Crazy Newton (Computer Land Hokkaido) (Japan) (PC-6001 32K Mode 2 Pages 2)
+    [_] [CLOAD-RUN] 32k.p6) in a flat directory.
   - Links are created with os.link, falling back automatically to shutil.copy2
     on FAT32/exFAT, cross-device mounts, or unsupported environments.
   - Input capture files are linked/copied directly inside output bundles under
@@ -532,7 +633,7 @@ cross-referencing against MAME Software Lists, TOSEC, and No-Intro:
 hashes:
   # Layer 1: Raw Analog Capture (Matches MAME Softlist / CHD hashing)
   layer1_analog_audio:
-    filename: "door_door_orig.flac"
+    filename: "door_door_tape01_a_orig.flac"
     size_bytes: 24741464
     crc32: "89ABCDEF"
     md5: "c4ca4238a0b923820dcc509a6f75849b"
@@ -541,7 +642,7 @@ hashes:
 
   # Layer 2: Physical Timing Container
   layer2_container:
-    filename: "Door Door (Japan).t88"
+    filename: "Door Door (Side A) (1983-02) (Enix) (Japan) (PC-8801 N88-BASIC V1 Mode) [E-G002 102-13-10] [_] [MON-R-GE000].t88"
     size_bytes: 27200
     crc32: "12345678"
     md5: "5d41402abc4b2a76b9719d911017c592"
@@ -551,7 +652,7 @@ hashes:
   # Layer 3: Logical Stream (Trimmed & Untrimmed Flavors)
   layer3_logical_stream:
     trimmed_clean:
-      filename: "Door Door (Japan).cmt"
+      filename: "Door Door (Side A) (1983-02) (Enix) (Japan) (PC-8801 N88-BASIC V1 Mode) [E-G002 102-13-10] [_] [MON-R-GE000].cmt"
       size_bytes: 26830
       crc32: "EEFF0011"
       md5: "098f6bcd4621d373cade4e832627b4f6"
@@ -559,7 +660,7 @@ hashes:
       sha256: "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
       no_intro_match: "Door Door (Japan) (PC-8801)"
     untrimmed_raw:
-      filename: "Door Door (Japan) [untrimmed].cmt"
+      filename: "Door Door (Side A) (1983-02) (Enix) (Japan) (PC-8801 N88-BASIC V1 Mode) [E-G002 102-13-10] [_] [MON-R-GE000] [untrimmed].cmt"
       size_bytes: 26856
       crc32: "AABBCCDD"
       md5: "ad0234829205b9033196ba818f7a872b"
@@ -569,23 +670,24 @@ hashes:
 
 ### Transformation Provenance Graph & Write-Overlay Ledger `[ ] TODO`
 
-Transformations and non-destructive write sessions are recorded with complete provenance:
+Transformations, created media, and non-destructive write sessions are recorded with complete provenance:
 ```yaml
 provenance:
   input:
-    file: "tape.flac"
+    file: "door_door_tape01_a_orig.flac"
     sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   transformation: "wav2t88"
   tool_version: "dwimsy-core 0.1.0"
   parameters: { baud_tracking: "adaptive", agc: true, dc_block: true }
   confidence: 0.984
   output:
-    file: "tape.t88"
+    file: "door_door_tape01_a.t88"
     sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
 write_overlays:
   - overlay_id: 1
-    source_signal: "cmt_out_session01.wav"
+    master_sha1: "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    overlay_path: "~/.cache/dwimsy/overlays/da39a3ee5e6b4b0d3255bfef95601890afd80709/session01.wav"
     tape_counter_start: "0342"
     tape_counter_end: "0410"
     timestamp_start_s: 252.18
@@ -594,6 +696,12 @@ write_overlays:
       filename: "SAVED.BAS"
       type: "PC-88 N88-BASIC Tokenized"
       crc: "9A8B7C6D"
+
+created_media:
+  - media_id: 1
+    session_master_sha1: "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    file_path: "~/.local/share/dwimsy/created/da39a3ee5e6b4b0d3255bfef95601890afd80709/save_tape01.p6t"
+    preset: "C-30"
 ```
 
 ### Trailing Byte Trimming & Motor Coasting Ledger `[ ] TODO`
@@ -624,9 +732,9 @@ ignores during motor coast:
         - *Physical-Equivalent Mode*: Emulates the frequency response, tape saturation, and wow/flutter of a specific vintage deck to drive authentic retrocomputer hardware.
         - *Canonical Regeneration Mode*: Generates standardized electrical signals conforming to ideal specification for writing pristine physical replacement media.
   - Piecewise Timebase Correction & Mixed-Mode Segmentation: `[ ] TODO` For composite tapes
-    containing interleaved narration/drama audio and modulated data (e.g. ASCII *Tape Login*, PC-88 *Gundam*):
+    containing interleaved narration/drama audio and modulated data (e.g. ASCII *Tape Login*, *Tank Battle*, PC-88 *Gundam 2*):
       * Distinguishes human speech from computer carrier tones using spectral entropy, spectral flatness ($SFM \to 0$), and zero-crossing regularity ($\Delta t$ bimodal distribution).
-      * Segments the timeline into audio and data regions referencing master FLAC timestamps.
+      * Segments the timeline into audio drama (`.ogg` / `.wav`) and data regions (`.t88` / `.t77` / `.cmt`) referencing master FLAC timestamps.
       * Derives instantaneous tape speed and wow/flutter from known CMT symbol timing markers.
       * Applies piecewise timebase correction to analog audio tracks without altering their analog waveform, while data segments are canonically regenerated.
       * Emits a companion `<basename>.cue` sheet linking audio and data tracks to exact master FLAC timestamps.
@@ -694,7 +802,7 @@ Tasks:
     binaries (mkrom).
 5.  [ ] TODO Implement `platforms.cart_hooks`: MSX Sakhr `cas2rom` extractor/packer and PC-6001mkII `mkrom` generator.
 6.  [ ] TODO Implement dwimsy.tape.variants: Side-by-side flavor generator
-    (Trimmed/Untrimmed, MSX Pad8, .p6/.p6t aligned pairs) with complete
+    (Trimmed/Untrimmed, MSX unpadded, .p6/.p6t aligned pairs) with complete
     hash/size registry.
 7.  [ ] TODO Implement dwimsy archive bundle generator with manifest.yaml and
     README.md.
@@ -706,11 +814,11 @@ Tasks:
 1.  [ ] TODO Implement dwimsy.tape.tsx (TZX 1.20 + Block #4B KCS FSK)
     → enables Amstrad CPC .cdt and ZX Spectrum .tzx.
 2.  [ ] TODO Implement dwimsy.tape.p6t and dwimsy.tape.p6 with BIOS CSAVE
-    padding trimmer.
+    padding trimmer, autostart footer generation and `mk2mon` labels.
 3.  [ ] TODO Integrate dwimsy.tape.bbc (BBC Micro Model B .uef via cas2uef).
-4.  [ ] TODO Implement Sord M5 and Sega SC-3000 .cas adapters.
-5.  [ ] TODO Add auto-sniffing for .cas flavor disambiguation and multi-platform
-    compilation splitting (Tape Login multiplexer).
+4.  [ ] TODO Implement Sord M5, Sega SC-3000, and Fujitsu FM-7/FM-8 (.t77) adapters.
+5.  [ ] TODO Add auto-sniffing for .cas/.cmt flavor disambiguation and multi-platform
+    compilation splitting (Tape Login / Tank Battle multiplexer).
 
 ### Phase 4: Mixed-Mode Media, Dual-Track Stereo & Audio Discs `[ ] TODO`
 
@@ -751,6 +859,7 @@ Tasks:
 | :------------------------- | :--------------- | :------------------------------------------- | :-------------------------------------------- | :-------------------------------- | :------------------------------------ |
 | **NEC PC-8001 / PC-8801**  | FSK              | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 / 600 baud                   | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
 | **NEC PC-6001 / PC-6601**  | FSK              | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 / 600 baud                   | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
+| **Fujitsu FM-7 / FM-8**    | FSK (T77)        | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 / 600 baud                   | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
 | **MSX / MSX2 (Standard)**  | FSK              | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 / 2400 baud                  | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
 | **MSX (Sanyo 2x Fast)**    | Octave FSK       | 4800 Hz (2 cyc)                              | 2400 Hz (1 cyc)                               | 2400 baud                         | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
 | **MSX (European Turbo)**   | PWM / Pulse      | Short edge pair                              | Long edge pair                                | 2000–4000+ baud                   | Raw bitstream, zero stop bits         |
@@ -775,13 +884,14 @@ Format      Extension   Header Signature / Magic Bytes
 ─────────────────────────────────────────────────────────────────────────────
 PC-88 T88   .t88        50 43 2D 38 38 30 31 20 54 61 70 65 20 49 6D 61 67 65 28 54 38 38 29 00
 PC-88 CMT   .cmt        D3 D3 D3... (BASIC), 24 24 24... (MON ML), 9C 9C 9C... (ASCII)
+FM-7 T77    .t77        FBASIC / 2BS file headers, 0x00*N + 0x3C sync descriptors
 MSX TSX     .tsx / .tzx 5A 58 54 61 70 65 21 1A ("ZXTape!\x1a") + ver 0x01 0x20/0x21
 MSX CAS     .cas        1F A6 DE BA CC 13 7D 74 (8-byte BIOS sync header)
 Sharp MZT   .mzt        01 (File type) + 16-byte filename + 128-byte MZ directory header block
 Family BASIC.mzt / .cas Sharp MZ-compatible PWM block structure with Famicom BASIC V2/V3 header
 BBC UEF     .uef        1F 8B (Gzip header) -> 55 45 46 20 46 69 6C 65 21 ("UEF File!")
 Amstrad CDT .cdt        5A 58 54 61 70 65 21 1A ("ZXTape!\x1a")
-PC-6001 P6T .p6t        PC6001V format with trailing timing/mode descriptors
+PC-6001 P6T .p6t        PC6001V format with trailing timing/mode descriptors & autostart footer
 PC-6001 P6  .p6         D3 D3 D3... + screen mode / page count descriptor
 Sega CAS    .cas        53 45 47 41 20 43 41 53 53 45 54 54 45 ("SEGA CASSETTE")
 Sord M5 CAS .cas        55 55 55 55 55 55 55 55 (Sync run) + 'HEADER'
