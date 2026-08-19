@@ -53,6 +53,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Zero Required Dependencies & Standalone Operation**: Built on Python 3.9+ standard library (`math`, `struct`, `array`, `io`, `sys`, `shutil`, `os`, `argparse`). Pure-Python biquad/IIR direct form filter engines provide full DSP functionality out-of-the-box. Acceleration libraries (like NumPy/SciPy) are strictly optional and auto-detected for high-throughput batch processing.
 * **Offline Operation (No Network & No Embedded DBs)**: `dwimsy` contains no embedded software lists and performs no network lookups. Extended No-Intro metadata is applied when explicitly provided by the user (via CLI options or input filenames); otherwise, standard clean filenames based on the input basename or tape header preambles are used directly without friction.
 * **Empty Tape Deck Mode**: Can be launched with zero initial media inputs, operating as an unpopulated virtual cassette transport ready to record software from scratch over `CMT-OUT` or mount images via the 2-line LCD browser.
+* **Ephemeral In-Memory Mode (`--ephemeral`) & Out-of-Band User Channel**: Overlays and newly generated media can be held purely in RAM. Operators can selectively import new images or export any virtual root file on-the-fly via TTY local commands or web/phone upload/download endpoints.
 * **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts ($15\text{–}25\text{ dB}$ step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
 * **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean naming for all output files. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
 * **Systematic Flavor Defaults**: Each layer has an untagged canonical default flavor (e.g. standard 8-byte padded `.cas` for MSX, trimmed `.cmt` for PC-88). Non-default variants (untrimmed raw streams, compact unpadded CAS) receive standard qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
@@ -242,19 +243,19 @@ Media swaps occur both via external triggers (user hotkey, phone UI, physical bu
 
 #### 2. Virtual Image Root & 2-Line Status LCD File Browser (`transport.browser`)
 When browsing media via the `<I>` keystroke in TTY mode:
-* **Virtual Image Root**: The top level of the browser always presents a unified virtual root containing all initial CLI-supplied input files and any dynamically generated blank save media.
+* **Virtual Image Root**: The top level of the browser always presents a unified virtual root containing all initial CLI-supplied input files, dynamically generated blank save media, and imported images.
 * **Image Root Directory (`--image-root <DIR>`)**: When an image root directory is declared, a `[Browse Directory...]` item is presented at the top level of the Virtual Image Root, allowing navigation into filesystem subdirectories.
 * **Context-Aware Initial Location**:
-  - If the active media was chosen from the CLI or generated dynamically $\to$ browsing starts in the Virtual Image Root.
+  - If the active media was chosen from the CLI, generated dynamically, or imported $\to$ browsing starts in the Virtual Image Root.
   - If the active media was selected from a subdirectory within `--image-root` $\to$ browsing opens directly inside that subdirectory.
 * **Type-to-Navigate**: In TTY mode, typing alphanumeric characters performs in-place substring filtering across filenames.
 * **Seamless Virtual Insertion**: Pressing `<Enter>` selects an image and hot-inserts it into the active transport loop, simulating appropriate door/index pulses to the host retrocomputer without audio dropouts.
 
-#### 3. SHA1-Indexed Write Overlays & Overlay Lifecycle
-Media modifications are stored out-of-band to guarantee pristine masters:
-* **Storage Location**: Stored in a dedicated user cache (`~/.cache/dwimsy/overlays/<SHA1>/`), indexed strictly by the SHA-1 hash of the master tape image.
-* **Browser Overlay Selection**: Selecting an image with an existing overlay presents an instant choice: `[1] Use Overlay`, `[2] Clean Master`, `[3] Delete Overlay`.
-* **TTY Diagnostics & Purge (`<D>`)**: Loading an image with an active overlay flashes a diagnostic message on `stderr` (`[OVERLAY] Active (SHA1: ...) [Press <D> to discard]`). Pressing `<D>` purges the overlay and reverts to pristine media.
+#### 3. Out-of-Band Import/Export Control Channel & Ephemeral Mode
+* **Ephemeral In-Memory Mode (`--ephemeral`)**: Overlays and newly created save media are held strictly in RAM and never written to disk or the persistent cache.
+* **TTY UI Local Transfer Commands**: Running logically within the TTY frontend without interrupting the audio streaming engine, operators can issue local commands (`:import <path>`, `:export <file> <dest>`, `:save-overlay`) to transfer files into/out of the Virtual Image Root.
+* **Remote UI Upload/Download (IPC)**: Web and phone dashboards expose file upload/download endpoints over WebSocket / HTTP. Imported images immediately enter the Virtual Image Root and can be cycled via `[` / `]`.
+* **SHA1-Indexed Persistent Overlays**: In non-ephemeral mode, write overlays are stored out-of-band under `~/.cache/dwimsy/overlays/<SHA1>/`, indexed by the master tape SHA-1 hash. Selecting an image with an existing overlay presents an instant choice: `[1] Use Overlay`, `[2] Clean Master`, `[3] Delete Overlay`. Pressing `<D>` in TTY mode discards the active overlay.
 * **Pipeline / Filter Default**: Standalone filter applets and piped stream conversions default to cold, read-only mode. If a matching overlay is found in cache, `dwimsy` displays an informational notice on `stderr` explaining the `--overlay` activation flag.
 * **Deterministic Verification (`--no-overlay`)**: Explicitly bypasses overlay reading for reproducible verification and testing.
 
@@ -464,6 +465,9 @@ dwimsy bridge --deck /dev/ttyUSB0
 # Launch live bridge with image root directory for 2-line LCD browser
 dwimsy bridge --image-root ./games/ --deck /dev/ttyUSB0
 
+# Launch live bridge in ephemeral mode (overlays and created tapes kept only in RAM)
+dwimsy bridge --ephemeral --image-root ./games/
+
 # Split continuous multi-side tape rip automatically on clear leader / hiss dropouts
 dwimsy split continuous_rip.flac --multi-side -o ./extracted_sides/
 
@@ -574,9 +578,9 @@ To prevent UI telemetry from polluting piped data streams:
   ```
   - **Animated Text Scrolling**: When filenames or metadata strings exceed the line width (e.g. on 16x2 or 20x2 character displays), the text scrolls smoothly with edge pauses so no information is truncated.
   - **Live Overlay & New Media Alerts**: Write-overlay events, record-armed interlocks, fresh blank media insertions, tape leader detections, and carrier status flash cleanly in the marquee without disturbing the real-time audio/flux loop.
-* **Interactive TTY Keystrokes (POSIX `termios` / Windows `msvcrt`)**: When `stdin`/`stderr` are on a TTY, direct keystrokes control the engine without pausing streaming:
-  * `Ctrl-S`: Stop / pause tape transport or recording.
-  * `Ctrl-Q`: Resume playback or recording.
+* **Interactive TTY Keystrokes & Out-of-Band Control Channel**:
+  When `stdin`/`stderr` are on a TTY, direct keystrokes and colon commands control the engine without pausing audio streaming:
+  * `Ctrl-S` / `Ctrl-Q`: Stop / Resume transport motion or recording.
   * `<Space>`: Toggle motor pause / play.
   * `<R>`: Toggle virtual Record Arming mode.
   * `<N>`: Create, auto-name, and hot-insert a fresh blank save tape/disk.
@@ -584,6 +588,8 @@ To prevent UI telemetry from polluting piped data streams:
   * `<` / `>`: Step transport backward or forward (fast-forward / rewind).
   * `<I>`: Open minimal 2-line LCD file browser (Virtual Image Root / File browser).
   * `<D>`: Discard / purge active write overlay and revert to pristine master.
+  * `:import <path>`: Import an external image into the Virtual Image Root on-the-fly.
+  * `:export <name> <dest>`: Export any file from the Virtual Image Root to disk.
   * `Arrow Keys` (←/→/↑/↓): Fast-forward, rewind, seek block/track, adjust speed trim.
   * `<Enter>` / `<ESC>`: Menu selection / Back & Cancel.
   * `<M>` or `<Tab>`: Cycle canonicalization / emulation profiles.
@@ -593,7 +599,7 @@ To prevent UI telemetry from polluting piped data streams:
     * *Signal/DSP*: RMS VU levels, DC bias, SNR, FSK carrier lock, baud tracking jitter.
     * *Transport*: Instantaneous motor speed (e.g. `+1.3%`), capstan tacho counts, head cylinder/track, record arming status, write-protect sense.
     * *Protocol/Filesystem*: Active sector ID, detected filename and format during writes, CRC/parity validation flags.
-  * Smartphone or desktop web dashboards can connect to display live waterfall spectrograms, monitor VU levels, flip tape sides, insert floppy images, create new save media, toggle record arming, and tag cue markers remotely.
+  * Smartphone or desktop web dashboards can connect to display live waterfall spectrograms, monitor VU levels, flip tape sides, insert floppy images, upload/download virtual root files, toggle record arming, and tag cue markers remotely.
 * **POSIX Signals & Appliance Buttons**:
   * `SIGUSR1` (Button A): Advance track / Swap disk / Flip tape side (A ↔ B).
   * `SIGUSR2` (Button B): Cycle profile (`Raw` → `Conditioned` → `Canonical` → `Cassette Model`).
