@@ -24,7 +24,7 @@ grandiose version: (currently 0% implemented)
 1. [Overview & Approach](#1-overview--approach)
 2. [Existing Project Lineage & Asset Repositories](#2-existing-project-lineage--asset-repositories)
 3. [Component Implementation Status Matrix](#3-component-implementation-status-matrix)
-4. [The 4-Layer Architecture](#4-the-4-layer-architecture)
+4. [Representation Layers, Real-Time Planes & Hardware Gateway](#4-representation-layers-real-time-planes--hardware-gateway)
    - [Hardware Transducer & Tri-Directional Control Gateway ("DWIMSY Box")](#hardware-transducer--tri-directional-control-gateway-dwimsy-box)
    - [Transport Automation Spectrum: From Manual Relays to Fully Logic-Controlled Decks](#transport-automation-spectrum-from-manual-relays-to-fully-logic-controlled-decks)
    - [Runtime Media Management, Adaptive Modes & Content-Aware Transport](#runtime-media-management-adaptive-modes--content-aware-transport)
@@ -49,7 +49,7 @@ grandiose version: (currently 0% implemented)
 It is designed to grow incrementally, adding support for new computer platforms, physical media types, modulations, filesystems, and recovery scenarios over time.
 
 ### Core Design Principles
-* **Composable Unix Filters + Shared Core**: Individual tools (`t882wav`, `wav2t88`, `flac2wav`, `cas2wav`, `bin2fds`, `dwimsy-conv`, etc.) can be piped together in standard shells (`stdin`/`stdout` streaming with `-`) or called through a central CLI (`dwimsy`). All tools share a common internal library.
+* **Composable Unix Filters + Shared Core**: Individual tools (`t882wav`, `wav2t88`, `flac2wav`, `cas2wav`, `bin2fds`, `dwimsy-conv`, etc.) can be piped together in standard shells (`stdin`/`stdout` streaming with `-`) or called through a central CLI (`dwimsy`). All tools share a common internal library. Streamability is not by itself a claim of real-time suitability: live-capable stages must declare bounded lookahead, maximum buffering, processing latency, startup latency, and resynchronization latency.
 * **Zero Required Dependencies & Standalone Operation**: Built on Python 3.9+ standard library (`math`, `struct`, `array`, `io`, `sys`, `shutil`, `os`, `argparse`). Pure-Python biquad/IIR direct form filter engines provide full DSP functionality out-of-the-box. Acceleration libraries (like NumPy/SciPy) are strictly optional and auto-detected for high-throughput batch processing.
 * **Offline Operation (No Network & No Embedded DBs)**: `dwimsy` contains no embedded software lists and performs no network lookups. Extended No-Intro metadata is applied when explicitly provided by the user (via CLI options or input filenames); otherwise, standard clean filenames based on the input basename or tape header preambles are used directly without friction.
 * **Empty Tape Deck Mode**: Can be launched with zero initial media inputs, operating as an unpopulated virtual cassette transport ready to record software from scratch over `CMT-OUT` or mount images via the 2-line LCD browser.
@@ -62,8 +62,8 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Self-Contained Archival Bundles**: Input capture files are linked/copied directly inside output bundles alongside full hash suites (Size, CRC32, MD5, SHA1, SHA256) at every abstraction layer.
 * **Layered Architecture & Cross-Copy Consensus**: Multi-copy differential recovery and consensus voting operate at signal, flux, container, and logical sector/record layers for both disks and tapes.
 * **Fault-Tolerant Automation (`fsck` Model)**: Non-interactive conversions process valid data and isolate corrupted sections with diagnostic logs rather than crashing. An offline interactive recovery mode assists with manual bit/pulse repairs.
-* **The Archival Rule (No Premature Inference)**: Never infer structure when the container or physical capture explicitly provides structure (e.g. D88 track offset tables).
-* **Information Conservation**: A transformation cannot recover information that its input representation does not contain (e.g., CAS → UEF necessarily invents timing, which must be explicitly marked as `synthetic` / `heuristic`).
+* **The Archival Rule (No Premature Inference)**: Never infer structure when the container or physical capture explicitly provides structure (e.g. D88 track offset tables). Preserve the observed source representation before applying interpretation, correction, canonicalization, or synthesis.
+* **Information Conservation**: A transformation cannot recover information that its input representation does not contain (e.g., CAS → UEF necessarily invents timing, which must be explicitly marked as `synthetic` / `heuristic`). Canonicalization is purpose-specific and lossy by definition; it never replaces the preservation master.
 * **Non-Destructive Write Overlays & Hash-Indexed Media Creation**: Saving to virtual or physical media never overwrites pristine captures. Overlays are stored out-of-band in `~/.cache/dwimsy/overlays/<SHA1>/`, while newly created save media is placed in `~/.local/share/dwimsy/created/<SHA1>/` (associated with the initial tape hash, or `da39a3ee5e6b4b0d3255bfef95601890afd80709` for empty sessions).
 
 ---
@@ -85,7 +85,8 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 | Subsystem / Module | Description | Status | Target Milestone |
 | :--- | :--- | :---: | :---: |
-| **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), AGC | `[ ] TODO` | Milestone 1 |
+| **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), AGC, bounded-lookahead timing recovery | `[ ] TODO` | Milestone 1 |
+| **`core.realtime`** | Live-stage contracts, bounded buffering/latency accounting, clocks, backpressure and resynchronization | `[ ] TODO` | Milestone 1 |
 | **`core.audio`** | Streaming WAV/FLAC I/O, lossless PCM frame slicing (`flac2wav`) | `[ ] TODO` | Milestone 1 |
 | **`core.fsk`** | FSK pulse classifier & UART framing | `[ ] TODO` | Milestone 1 |
 | **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`) | `[ ] TODO` | Milestone 1 |
@@ -134,7 +135,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ---
 
-## 4. The 4-Layer Architecture
+## 4. Representation Layers, Real-Time Planes & Hardware Gateway
 
 ```text
 ┌────────────────────────────────────────────────────────┐
@@ -167,6 +168,49 @@ It is designed to grow incrementally, adding support for new computer platforms,
 │   • Physical DSP   : Time-Base Correction, AGC, Slicer │
 └────────────────────────────────────────────────────────┘
 ```
+
+### Representation Layers and Orthogonal Planes
+
+The four representation layers remain useful as a description of *what* a transformation represents, but they are not a complete execution architecture. `dwimsy` also has orthogonal concerns that must cross representation boundaries without becoming entangled with them:
+
+```text
+Representation layers
+
+  Information / Payload       files, BASIC, binaries, filesystem objects
+             ▲
+  Protocol / Container        CMT, T88, CAS, UEF, D88, sector streams
+             ▲
+  Timing / Modulation         symbols, pulses, flux timing, regenerated timing
+             ▲
+  Physical Signal             PCM audio, raw flux, observed transitions
+
+Orthogonal planes
+
+  Transport / Control         motor, relay, solenoid, drive selection, EOT
+  Timebase                    capture time ↔ media time ↔ corrected time
+  Segmentation / Cueing       mixed-mode regions and semantic annotations
+  Provenance / Preservation   raw masters, derivatives, hashes, epistemic tags
+  Live I/O                    bounded-latency streaming between endpoints
+```
+
+A codec should operate on a representation stream and declare its real-time properties independently of whether its input/output is a file, a pipe, an emulator endpoint, or physical hardware.
+
+### Real-Time Streaming Contract
+
+All tape-format converters are intended to be usable as continuous streaming stages, including when connected directly to physical hardware. For a stage to be declared **live-capable**, its implementation must document and test:
+
+* maximum lookahead;
+* maximum buffering / memory required as a function of stream duration (ideally constant-bounded for live stages);
+* worst-case processing latency;
+* startup latency;
+* flush/end-of-stream behavior; and
+* maximum resynchronization latency after a dropout or ambiguous region.
+
+A Unix filter that accepts stdin/stdout but buffers an entire file is therefore *streamable* but not *live-capable*. The two properties must not be conflated.
+
+### Timebase as a First-Class Representation
+
+Physical capture time, modeled tape position, corrected media time, protocol timing, and regenerated timing are distinct quantities. Transformations that relate them should preserve an explicit mapping rather than silently resampling everything into one clock domain. This is especially important for mixed-mode tapes: known CMT timing can constrain a tape-speed model used to time-correct adjacent analog narration/music while leaving the original captured waveform untouched.
 
 ### Hardware Transducer & Tri-Directional Control Gateway ("DWIMSY Box")
 
@@ -207,6 +251,10 @@ It is designed to grow incrementally, adding support for new computer platforms,
    * **Inbound Commands**: Operators swap disks, flip tape sides, arm virtual recording modes, create blank save tapes, trigger motor overrides, inject cue annotations, and cycle canonicalization modes without disturbing the real-time audio/flux streaming loop.
    * **Outbound Live Telemetry**: `dwimsy` continuously pushes real-time status messages (transport speed deviation, active cylinder/track, sector ID, demodulator carrier lock, confidence scores, detected filenames during save operations, record-arm status, and write-protection alerts) back to the supervisor interfaces.
    * **Remote Connectivity**: Exposes an out-of-band IPC interface (Unix domain sockets `/var/run/dwimsy.sock`, Windows Named Pipes `\\.\pipe\dwimsy_ctl`, or local WebSockets at `:8080`) so headless appliances can be monitored and driven from a smartphone, tablet, or web dashboard.
+
+### On-Demand Disk / Track Streaming
+
+For disks, the live endpoint may be random-access even though the underlying flux/sector codecs are streaming. A Greaseweazle-backed drive should be usable as an on-demand track source/sink: an emulator or higher layer requests a cylinder/head (or equivalent track identity), `dwimsy` acquires or regenerates only the required track, and the resulting flux/sector stream flows through the same transformation pipeline used offline. Raw flux capture remains independently archivable. This is intentionally a hardware-adapter requirement rather than a claim about any particular Greaseweazle command syntax; the adapter must be verified against the actual device/API behavior before implementation.
 
 ### Transport Automation Spectrum: From Manual Relays to Fully Logic-Controlled Decks
 
@@ -337,19 +385,19 @@ In vintage software distribution, software was duplicated onto standard or custo
 * **Standard & Custom Shell Presets**: Supports standard tape lengths (`C-10`, `C-15`, `C-20`, `C-30`, `C-46`, `C-60`, `C-90`, `C-120`) and custom publisher-cut runtimes (e.g., `--tape-length 8.5m` or `--side-duration 4m15s`).
 * **Realistic Lead-in & Trailing Infill**: Positions program data after standard non-magnetic clear leader tape and initial magnetic lead-in silence (e.g. 5–10s), then pads trailing tape with realistic modeled analog tape silence / residual bias noise up to the full nominal side length.
 * **Side B Infill & Unrecorded Replication**: Optionally produces a structurally matched, unrecorded or blank Side B waveform to mirror the complete physical retail artifact.
-* **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter ($r_0 \approx 11\text{ mm}$) to calculate non-linear reel rotational speeds, giving perfectly calibrated tape counter positions ($N_{\text{counter}}$) across fast-forward and rewind operations.
+* **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter ($r_0 \approx 11\text{ mm}$) to calculate non-linear reel rotational speeds, giving a modeled tape-position estimate ($N_{\text{counter}}$) across fast-forward and rewind operations; calibration accuracy depends on measured or declared tape/deck parameters.
 
 ### Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays
 
 #### Five Preservation Dimensions
-1. **Artifact Preservation**: Physical scans, packaging, cassette shells, manuals, and labels.
-2. **Signal Preservation**: Raw observed signals (unaltered 24/96 FLAC captures, raw flux transitions).
-3. **Information Preservation**: Recovered verified blocks, sectors, filesystems, and BASIC code.
-4. **Behavioral / Semantic Preservation**: Execution flow, narration/data interleaving, cable swap prompts, motor pauses.
-5. **Canonical / Synthetic Derivatives**: Reconstructed idealized media for emulation, verification, or re-mastering.
+1. **Artifact Preservation**: Physical scans, packaging, cassette shells, manuals, labels, and other physical-object documentation.
+2. **Signal Preservation**: Raw observed signals (for example, lossless FLAC captures from a tape deck or raw flux captures from a disk device). The original capture is a preservation anchor and is never replaced by a cleaned or canonical derivative.
+3. **Information Preservation**: Recovered verified blocks, sectors, filesystems, BASIC code, and other decoded information, with uncertainty retained where recovery is incomplete.
+4. **Behavioral / Semantic Preservation**: Execution flow, narration/data interleaving, cable connect/disconnect prompts, motor pauses, save/record behavior, and other evidence about how the software and media were intended to interact.
+5. **Canonical / Synthetic Derivatives**: Reconstructed idealized media for emulation, comparison, deterministic regeneration, or re-mastering. These are explicitly derived artifacts, not substitutes for the source capture.
 
 #### Epistemic Classification
-Every decoded structure carries an epistemic tag: `established` (standard/ROM verified), `observed` (empirically seen on real media), `inferred` (working hypothesis), `heuristic` (algorithmic best-fit), or `synthetic` (generated/normalized).
+Every decoded structure or derived claim carries an epistemic tag: `established` (standard/ROM verified), `observed` (empirically seen on real media), `inferred` (working hypothesis), `heuristic` (algorithmic best-fit), or `synthetic` (generated/normalized). These tags describe the status of the *claim*, not merely the file format. Provenance should identify the source evidence and transformation that produced each derivative where practical.
 
 #### Non-Destructive Write Overlays & Media Writable Tracking
 Media is tagged as read-only or writable (tracking physical write-protect notches/tabs):
@@ -397,7 +445,7 @@ To provide clean, immediate usability in emulators while maintaining complete ar
 * **Side A as Canonical Default**: When Side A represents the primary release (e.g. standard 1200 baud version) and Side B is an alternate speed duplicate, `dwimsy` links `door_door_a.t88` to the unsuffixed default `door_door.t88`.
 * **Multi-Take / Dump Collapsing**: When multiple audio takes or dumps exist (`tape01`, `copy01`), the verified master dump collapses to the unnumbered base name (`door_door.flac`).
 * **Multi-Part / Sequential Media**: For multi-tape games (e.g. *Tomato Hime*), sequential parts are indexed `salad1_1a.cas`, `salad2_1b.cas`, `salad3_2a.cas`, `salad4_2b.cas` linked to their respective No-Intro long names.
-* **Multi-Part / Mixed-Mode Media**: For mixed-mode releases (e.g. *Gundam 2*), `dwimsy` maintains the primary game image linked to `gundam2.t88` while preserving chronological segment files (`Segment 01`..`15`) for audio drama and data tracks.
+* **Multi-Part / Mixed-Mode Media**: For mixed-mode releases (e.g. the PC-88 *Gundam* tape with interleaved narration/music and CMT data), `dwimsy` preserves the complete master capture and a chronological segment timeline. Data regions may yield canonical CMT/T88 derivatives, while adjacent drama/music regions remain tied to their exact master-FLAC timestamps and may receive piecewise timebase correction for a regenerated mixed-mode tape. The physical capture, segmentation evidence, and generated result remain separate artifacts.
 
 ### Pairing Rules
 
