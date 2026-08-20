@@ -97,15 +97,15 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 | Subsystem / Module | Description | Status | Target Milestone |
 | :--- | :--- | :---: | :---: |
-| **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), AGC, bounded-lookahead timing recovery | `[ ] TODO` | Milestone 1 |
-| **`core.realtime`** | Live-stage contracts, bounded buffering/latency accounting, clocks, backpressure and resynchronization | `[ ] TODO` | Milestone 1 |
-| **`core.audio`** | Streaming WAV/FLAC I/O, lossless PCM frame slicing (`flac2wav`) | `[ ] TODO` | Milestone 1 |
-| **`core.fsk`** | FSK pulse classifier & UART framing | `[ ] TODO` | Milestone 1 |
-| **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`) | `[ ] TODO` | Milestone 1 |
-| **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`) | `[ ] TODO` | Milestone 1 |
-| **`cli.dwimsy`** | Central CLI (`convert`, `restore`, `split`, `join`, `inspect`) | `[ ] TODO` | Milestone 1 |
-| **`cli.sidechannel`** | `stderr` virtual LCD, TTY keystrokes & POSIX/Win32 signal dispatcher | `[ ] TODO` | Milestone 1 |
-| **`cli.filters.*`** | Netpbm-style filter applets (`t882wav`, `wav2t88`, `dwimsy-conv`, etc.) | `[ ] TODO` | Milestone 1 |
+| **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), AGC — tuned first against PC-88/PC-8801's 2400/1200 Hz FSK | `[ ] TODO` | Milestone 1 |
+| **`core.audio`** | Streaming WAV I/O only (no FLAC yet — that ships with MSX support in Milestone 2) | `[ ] TODO` | Milestone 1 |
+| **`core.fsk`** | FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav` | `[ ] TODO` | Milestone 1 |
+| **`cli.filters.*`** | `t882wav` and `wav2t88` only, ported directly from `pc88_tape_tools` | `[ ] TODO` | Milestone 1 |
+| **`cli.dwimsy`** | Minimal CLI exposing only `convert`, wired to `t882wav`/`wav2t88` — remaining verbs land in Milestone 2 | `[ ] TODO` | Milestone 1 |
+| **`core.realtime`** | Live-stage contracts, bounded buffering/latency accounting, clocks, backpressure and resynchronization | `[ ] TODO` | Milestone 2 |
+| **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`, ported with MSX support) | `[ ] TODO` | Milestone 2 |
+| **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`, ported with MSX support) | `[ ] TODO` | Milestone 2 |
+| **`cli.sidechannel`** | `stderr` virtual LCD, TTY keystrokes & POSIX/Win32 signal dispatcher | `[ ] TODO` | Milestone 2 |
 | **`core.charsets`** | Unicode ↔ JIS X 0201 / NEC / MSX / KOI-7 streaming transcoder | `[ ] TODO` | Milestone 2 |
 | **`core.fs`** | Filename sanitizer & `link_or_copy` hardlinker/copier | `[ ] TODO` | Milestone 2 |
 | **`core.transport`** | Transport automation engine: Tier 1 manual, Tier 2 relay, Tier 3 solenoid logic | `[ ] TODO` | Milestone 2 |
@@ -901,26 +901,35 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 
 ## 10. Multi-Phase Implementation Roadmap
 
-### Phase 1: Core Foundation & Unix Filters `[ ] TODO`
+### Phase 1: Minimum Viable Vertical Slice — PC-88 Only `[ ] TODO`
+
+The goal of Phase 1 is a single, narrow, end-to-end path through the architecture — not breadth. No MSX, no disks, no full CLI verb set, no hardware side-channel. Just enough to prove the core abstractions hold up against one real platform with real sample files.
 
 Tasks:
-1. `[ ] TODO` Implement `dwimsy.core.pulse` (zero-crossing timer, TBC, AGC, DC-blocker).
-2. `[ ] TODO` Implement `dwimsy.core.audio` (streaming WAV + FLAC reader/writer with lossless PCM slicing).
-3. `[ ] TODO` Implement `dwimsy.dsp` (`cmt_filter` wave shaper and `cassette_modeler`).
-4. `[ ] TODO` Implement Netpbm filters: `t882wav`, `wav2t88`, `cas2wav`, `wav2cas`, `flac2wav`, `t88clean` (t2t), `wavclean` (w2w).
-5. `[ ] TODO` Implement `dwimsy` CLI with `convert`, `restore`, `split`, `join`, `inspect`.
-   Verification: `[ ] TODO` Bit-exact roundtrip on `input01.t88` and `casan.flac`.
+1. `[ ] TODO` Implement `dwimsy.core.pulse` (zero-crossing timer, TBC, AGC, DC-blocker), tuned initially against PC-88/PC-8801's 2400/1200 Hz FSK.
+2. `[ ] TODO` Implement `dwimsy.core.audio`: streaming WAV reader/writer only. FLAC support is deferred to Phase 2, where it ships alongside MSX support (`flac2wav`).
+3. `[ ] TODO` Implement `dwimsy.core.fsk`: FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav`'s existing logic.
+4. `[ ] TODO` Port `t882wav` and `wav2t88` as Netpbm-style filters, directly from `pc88_tape_tools`.
+5. `[ ] TODO` Implement a minimal `dwimsy` CLI exposing only `convert`, wired to the two filters above. `restore`, `split`, `join`, and `inspect` are deferred to Phase 2, since they depend on flavor taxonomy, hash registry, and provenance features that don't exist yet.
+   Verification: `[ ] TODO` Bit-exact roundtrip on a real PC-88 `.t88` sample (e.g. `input01.t88`) through `wav2t88` → `t882wav` → `wav2t88`, matching the original container byte-for-byte.
 
-### Phase 2: Semantics, Disk Subsystems, QuickDisk / FDS & Flavor Matrix `[ ] TODO`
+### Phase 2: MSX Generalization, Full CLI, Disk Subsystems, QuickDisk / FDS & Flavor Matrix `[ ] TODO`
+
+Phase 2 opens by testing whether Phase 1's abstractions actually generalize — porting a second platform (MSX) before building out anything platform-specific-heavy like disk formats.
 
 Tasks:
-1. `[ ] TODO` Integrate `dwimsy.core.charsets` (JIS X 0201, NEC semigraphics, MSX Katakana, ASCII, streaming CLI filter applet).
-2. `[ ] TODO` Integrate `dwimsy.disk.d88` and `dwimsy.disk.fat8` (`d882fat8`, `fat82d88`, `d882t88`, `d88_explode`).
-3. `[ ] TODO` Port `bin2fds.py` to Python 3 in `dwimsy.disk.fds` (`bin2fds` filter).
-4. `[ ] TODO` Implement NONTAMA and MSX M-loader unpackers to standard BLOAD binaries (`mkrom`).
-5. `[ ] TODO` Implement `platforms.cart_hooks`: MSX Sakhr `cas2rom` extractor/packer and PC-6001mkII `mkrom` generator.
-6. `[ ] TODO` Implement `dwimsy.tape.variants`: Side-by-side flavor generator (Trimmed/Untrimmed, MSX unpadded, `.p6`/`.p6t` aligned pairs) with complete hash/size registry.
-7. `[ ] TODO` Implement `dwimsy` archive bundle generator with `manifest.yaml` and `README.md`.
+1. `[ ] TODO` Port `wav2cas`, `cas2wav`, and `flac2wav` (MSX FSK codec + streaming FLAC I/O), validating that `core.audio`/`core.fsk`/`core.pulse` generalize to a second platform without a rewrite.
+2. `[ ] TODO` Implement `dwimsy.dsp` (`cmt_filter` wave shaper and `cassette_modeler`), ported with MSX support.
+3. `[ ] TODO` Implement `dwimsy.core.realtime` (live-stage contracts, bounded buffering/latency, backpressure), first exercised via live-capture support for PC-88 and MSX.
+4. `[ ] TODO` Expand the `dwimsy` CLI verb set: `restore`, `split`, `join`, `inspect`.
+5. `[ ] TODO` Implement `dwimsy.cli.sidechannel` (`stderr` virtual LCD, TTY keystrokes, POSIX/Win32 signal dispatcher).
+6. `[ ] TODO` Integrate `dwimsy.core.charsets` (JIS X 0201, NEC semigraphics, MSX Katakana, ASCII, streaming CLI filter applet).
+7. `[ ] TODO` Integrate `dwimsy.disk.d88` and `dwimsy.disk.fat8` (`d882fat8`, `fat82d88`, `d882t88`, `d88_explode`).
+8. `[ ] TODO` Port `bin2fds.py` to Python 3 in `dwimsy.disk.fds` (`bin2fds` filter).
+9. `[ ] TODO` Implement NONTAMA and MSX M-loader unpackers to standard BLOAD binaries (`mkrom`).
+10. `[ ] TODO` Implement `platforms.cart_hooks`: MSX Sakhr `cas2rom` extractor/packer and PC-6001mkII `mkrom` generator.
+11. `[ ] TODO` Implement `dwimsy.tape.variants`: Side-by-side flavor generator (Trimmed/Untrimmed, MSX unpadded, `.p6`/`.p6t` aligned pairs) with complete hash/size registry.
+12. `[ ] TODO` Implement `dwimsy` archive bundle generator with `manifest.yaml` and `README.md`.
 
 ### Phase 3: Extended Tape Containers (TSX, P6T, UEF, Sord, Sega, Sharp, Fujitsu) `[ ] TODO`
 
