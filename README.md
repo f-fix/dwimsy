@@ -25,7 +25,11 @@ grandiose version: (currently 0% implemented)
 2. [Existing Project Lineage & Asset Repositories](#2-existing-project-lineage--asset-repositories)
 3. [Component Implementation Status Matrix](#3-component-implementation-status-matrix)
 4. [Representation Layers, Real-Time Planes & Hardware Gateway](#4-representation-layers-real-time-planes--hardware-gateway)
+   - [Representation Layers and Orthogonal Planes](#representation-layers-and-orthogonal-planes)
+   - [Real-Time Streaming Contract](#real-time-streaming-contract)
+   - [Timebase as a First-Class Representation](#timebase-as-a-first-class-representation)
    - [Hardware Transducer & Tri-Directional Control Gateway ("DWIMSY Box")](#hardware-transducer--tri-directional-control-gateway-dwimsy-box)
+   - [On-Demand Disk / Track Streaming](#on-demand-disk--track-streaming)
    - [Transport Automation Spectrum: From Manual Relays to Fully Logic-Controlled Decks](#transport-automation-spectrum-from-manual-relays-to-fully-logic-controlled-decks)
    - [Runtime Media Management, Adaptive Modes & Content-Aware Transport](#runtime-media-management-adaptive-modes--content-aware-transport)
    - [Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage](#fresh-blank-media-creation-auto-naming--out-of-band-storage)
@@ -54,7 +58,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Offline Operation (No Network & No Embedded DBs)**: `dwimsy` contains no embedded software lists and performs no network lookups. Extended No-Intro metadata is applied when explicitly provided by the user (via CLI options or input filenames); otherwise, standard clean filenames based on the input basename or tape header preambles are used directly without friction.
 * **Empty Tape Deck Mode**: Can be launched with zero initial media inputs, operating as an unpopulated virtual cassette transport ready to record software from scratch over `CMT-OUT` or mount images via the 2-line LCD browser.
 * **Ephemeral In-Memory Mode (`--ephemeral`) & Out-of-Band User Channel**: Overlays and newly generated media can be held purely in RAM. Operators can selectively import new images or export any virtual root file on-the-fly via TTY local commands or web/phone upload/download endpoints.
-* **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts ($15\text{–}25\text{ dB}$ step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
+* **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts (15–25 dB step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
 * **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean naming for all output files. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
 * **Systematic Flavor Defaults**: Each layer has an untagged canonical default flavor (e.g. standard 8-byte padded `.cas` for MSX, trimmed `.cmt` for PC-88). Non-default variants (untrimmed raw streams, compact unpadded CAS) receive standard qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
 * **Canonical Default Collapsing**: `dwimsy` automatically emits both explicit long names and collapsed canonical default slugs (e.g., `door_door_a.t88` and `door_door.t88` linked to Side A; `salad1_1a.cas` linked to primary part) via non-destructive hardlinking (`os.link`).
@@ -269,7 +273,7 @@ The degree to which media transport is governed by software vs. the human operat
 #### Modeling the Tier 2 Record Interlock
 On Tier 2 systems (MSX, PC-88, PC-6001):
 1. **Mechanical Record Arming**: The user must mechanically depress `RECORD` + `PLAY` on the deck (engaging head carriage and record bias circuits).
-2. **Electrical Motor Gating (`REMOTE`)**: Tape motion does *not* begin immediately; the host computer holds the `REMOTE` relay open until the BIOS save routine is ready $\to$ closes relay $\to$ tape writes $\to$ opens relay $\to$ tape stops, remaining mechanically armed in record mode.
+2. **Electrical Motor Gating (`REMOTE`)**: Tape motion does *not* begin immediately; the host computer holds the `REMOTE` relay open until the BIOS save routine is ready → closes relay → tape writes → opens relay → tape stops, remaining mechanically armed in record mode.
 * In `dwimsy`, users can virtually arm recording mode (`<R>` key, appliance button, or UI switch). In headless mode (`--record-policy auto-arm`), `dwimsy` auto-arms upon detecting valid modulated carrier tones on `CMT-OUT`.
 
 #### Modeling Tier 3 Smart Transport Engines
@@ -286,7 +290,7 @@ Media swaps occur both via external triggers (user hotkey, phone UI, physical bu
 * **Automated Sequential Advance**:
   - **Auto-Flip**: Detects optical leader / end-of-tape (EOT) silence or post-data motor stop and automatically queues Side B.
   - **Multi-Tape / Multi-Disk Carousel**: Automatically traverses multi-tape sets (`Tape 1 Side A` → `Side B` → `Tape 2 Side A` → `Side B` → `...` → loop back to `Tape 1 Side A`).
-  - **Composite Side Carousel Sequence**: For multi-tape sets with publisher composite side designations (e.g. *Tomato Hime*), sequences in exact physical order: `Side 1A` $\to$ `Side 1B` $\to$ `Side 2A` $\to$ `Side 2B`.
+  - **Composite Side Carousel Sequence**: For multi-tape sets with publisher composite side designations (e.g. *Tomato Hime*), sequences in exact physical order: `Side 1A` → `Side 1B` → `Side 2A` → `Side 2B`.
 * **Hardware Bus Synthesis**: During an automated or manual disk change, `dwimsy` asserts `/DISK_CHANGE` (pin 34) and pulses `/INDEX` / `/READY` to signal the retrocomputer BIOS that media has been swapped.
 
 #### 2. Virtual Image Root & 2-Line Status LCD File Browser (`transport.browser`)
@@ -294,8 +298,8 @@ When browsing media via the `<I>` keystroke in TTY mode:
 * **Virtual Image Root**: The top level of the browser always presents a unified virtual root containing all initial CLI-supplied input files, dynamically generated blank save media, and imported images.
 * **Image Root Directory (`--image-root <DIR>`)**: When an image root directory is declared, a `[Browse Directory...]` item is presented at the top level of the Virtual Image Root, allowing navigation into filesystem subdirectories.
 * **Context-Aware Initial Location**:
-  - If the active media was chosen from the CLI, generated dynamically, or imported $\to$ browsing starts in the Virtual Image Root.
-  - If the active media was selected from a subdirectory within `--image-root` $\to$ browsing opens directly inside that subdirectory.
+  - If the active media was chosen from the CLI, generated dynamically, or imported → browsing starts in the Virtual Image Root.
+  - If the active media was selected from a subdirectory within `--image-root` → browsing opens directly inside that subdirectory.
 * **Type-to-Navigate**: In TTY mode, typing alphanumeric characters performs in-place substring filtering across filenames.
 * **Seamless Virtual Insertion**: Pressing `<Enter>` selects an image and hot-inserts it into the active transport loop, simulating appropriate door/index pulses to the host retrocomputer without audio dropouts.
 
@@ -309,9 +313,9 @@ When browsing media via the `<I>` keystroke in TTY mode:
 
 #### 4. Automated Physical Side/Tape Slicing & Leader Detection (`--multi-side`)
 When digitizing continuous captures containing multiple cassette sides or tapes:
-* **Spectrographic Leader & Hiss Profiling**: Identifies non-magnetic clear leader tape and transport stops via a $15\text{–}25\text{ dB}$ step-change dropping from magnetic bias hiss ($E_{\text{bias}} \approx -50\text{ dBFS}$) to electronic preamp floor ($E_{\text{floor}} \le -75\text{ dBFS}$).
-* **Validated Lifecycle Interlock**: Only commits a side split when the audio region satisfies a complete tape lifecycle ($\text{Leader In} \to \text{Valid Program/Audio Payload} \to \text{Leader Out}$).
-* **Default Carousel Sequencing**: Automatically assigns sequential layout (`Tape 01 Side A` $\to$ `Side B` $\to$ `Tape 02 Side A` $\to$ `Side B`) unless overridden by user metadata.
+* **Spectrographic Leader & Hiss Profiling**: Identifies non-magnetic clear leader tape and transport stops via a 15–25 dB step-change dropping from magnetic bias hiss (E_bias ≈ -50 dBFS) to electronic preamp floor (E_floor ≤ -75 dBFS).
+* **Validated Lifecycle Interlock**: Only commits a side split when the audio region satisfies a complete tape lifecycle (Leader In → Valid Program/Audio Payload → Leader Out).
+* **Default Carousel Sequencing**: Automatically assigns sequential layout (`Tape 01 Side A` → `Side B` → `Tape 02 Side A` → `Side B`) unless overridden by user metadata.
 
 #### 5. Runtime Conversion Mode & Modulation Switching (`dsp.router`)
 Mode switching operates across two distinct dynamics:
@@ -323,7 +327,7 @@ Mode switching operates across two distinct dynamics:
 #### 6. Multi-Platform Compilation Splitting & Multi-File Container Packaging (`tape.multiplex`)
 For compilation tapes containing programs for multiple target systems and spoken human narration (such as ASCII's *Tape Login* and *Tank Battle* series, or multi-part releases like *Gundam 2* and *Tomato Hime*):
 * **Hard Program Fencing**: Intervening human speech/commentary tracks or extended leader silences (>5s) act as hard program boundaries, preventing unrelated titles from merging.
-* **Chained Multi-File Container Integrity**: Multi-part programs (e.g., PC-88 tokenized BASIC loader $\to$ machine-language engine $\to$ graphics/map data; MSX multi-block loads; PC-6001 BASIC $\to$ NONTAMA payload) are preserved together inside a single, unified, bootable emulator container image (`.t88`, `.cas`, `.p6t`, `.t77`, `.mzt`). This ensures emulators load all subsequent stages automatically without hanging on missing sub-files.
+* **Chained Multi-File Container Integrity**: Multi-part programs (e.g., PC-88 tokenized BASIC loader → machine-language engine → graphics/map data; MSX multi-block loads; PC-6001 BASIC → NONTAMA payload) are preserved together inside a single, unified, bootable emulator container image (`.t88`, `.cas`, `.p6t`, `.t77`, `.mzt`). This ensures emulators load all subsequent stages automatically without hanging on missing sub-files.
 * **Dissected Payload Extraction**: In addition to the bootable multi-file container, individual sub-files (`.cmt`, `.bin`, detokenized `.bas`) are unpacked into a `subfiles/` directory for developer inspection.
 
 #### 7. Three-Tier Ambiguity Resolution Strategy
@@ -385,7 +389,7 @@ In vintage software distribution, software was duplicated onto standard or custo
 * **Standard & Custom Shell Presets**: Supports standard tape lengths (`C-10`, `C-15`, `C-20`, `C-30`, `C-46`, `C-60`, `C-90`, `C-120`) and custom publisher-cut runtimes (e.g., `--tape-length 8.5m` or `--side-duration 4m15s`).
 * **Realistic Lead-in & Trailing Infill**: Positions program data after standard non-magnetic clear leader tape and initial magnetic lead-in silence (e.g. 5–10s), then pads trailing tape with realistic modeled analog tape silence / residual bias noise up to the full nominal side length.
 * **Side B Infill & Unrecorded Replication**: Optionally produces a structurally matched, unrecorded or blank Side B waveform to mirror the complete physical retail artifact.
-* **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter ($r_0 \approx 11\text{ mm}$) to calculate non-linear reel rotational speeds, giving a modeled tape-position estimate ($N_{\text{counter}}$) across fast-forward and rewind operations; calibration accuracy depends on measured or declared tape/deck parameters.
+* **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter (r_0 ≈ 11 mm) to calculate non-linear reel rotational speeds, giving a modeled tape-position estimate (N_counter) across fast-forward and rewind operations; calibration accuracy depends on measured or declared tape/deck parameters.
 
 ### Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays
 
@@ -402,7 +406,7 @@ Every decoded structure or derived claim carries an epistemic tag: `established`
 #### Non-Destructive Write Overlays & Media Writable Tracking
 Media is tagged as read-only or writable (tracking physical write-protect notches/tabs):
 * When writes occur (e.g., in-game saves or `CSAVE`), they **never overwrite the master capture**.
-* Writes are recorded as **time-indexed or tape-counter-indexed write overlays** with exact start/end offsets ($T_{\text{start}}$, $T_{\text{end}}$).
+* Writes are recorded as **time-indexed or tape-counter-indexed write overlays** with exact start/end offsets (T_start, T_end).
 * When rewinding, subsequent reads seamlessly draw from the overlay for modified regions and from the original master capture elsewhere.
 * The UI surfaces the names and types of written overlay files in real time (e.g., `[OVERLAY @ 04:12-05:30: 'SAVED.BAS' (BASIC)]`).
 
@@ -425,7 +429,7 @@ Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
 
 ### Naming & Metadata Policy (Offline & Standalone)
 `dwimsy` contains **no embedded software database** and performs **no network queries**. Filename generation follows a zero-friction fallback rule:
-* **Default Fallback**: If no metadata is supplied, `dwimsy` derives concise, standard filenames from the input file's basename or internal tape preambles (e.g. `tape01.flac` $\to$ `tape01.cmt`, `tape01.t88`; internal headers $\to$ `01_DOOR.cmt`). Long multi-tag No-Intro names are skipped entirely when metadata is absent.
+* **Default Fallback**: If no metadata is supplied, `dwimsy` derives concise, standard filenames from the input file's basename or internal tape preambles (e.g. `tape01.flac` → `tape01.cmt`, `tape01.t88`; internal headers → `01_DOOR.cmt`). Long multi-tag No-Intro names are skipped entirely when metadata is absent.
 * **User-Supplied Metadata**: When full No-Intro style names are desired during ripping, they are derived directly from user-supplied options (e.g. `--name "Crazy Newton (Computer Land Hokkaido) (Japan) (PC-6001 32K Mode 2 Pages 2) [_] [CLOAD-RUN]"` or `--title "Crazy Newton" --publisher "Computer Land Hokkaido" --region "Japan" --system "PC-6001" --ram 32K --basic-mode 2 --pages 2 --load-cmd "CLOAD-RUN" --provisional`) or inherited from an input capture that already carries a No-Intro name.
 * **Provisional Tag `[_]`**: Used to mark unconfirmed or provisional titles that require further manual verification.
 * **Tape Loading Instructions `[COMMAND]`**: Suffixes like `[CLOAD-RUN]`, `[MON-R-GE000]`, `[LOAD'CAS1-'-RUN]`, `[RUN'CAS0-']`, or `[BLOAD'CAS-',R]` explicitly document the required BIOS loading command.
@@ -435,10 +439,10 @@ Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
   - Short: `salad1_1a.cas`, `salad1_1a.wav`, `salad1_1a_orig.flac`
 * **Multi-Platform Compilations on a Single Cassette**: For multi-system releases (e.g. *Tank Battle* containing PC-8801, FM-7, PC-6001mkII, FM-8 on one tape), the top-level archive summarizes all systems, while extracted tracks are indexed by file position with platform-specific loading commands:
   - Top Archive: `Tank Battle (ASCII) (Japan) (PC-8801, FM-7, PC-6001 mkII, FM-8) [_]`
-  - File 01: `Tank Battle (File 01) (ASCII) (Japan) (PC-8801) [_] [LOAD'CAS1-'-RUN]` $\leftrightarrow$ `n80_tank88_file01.cmt`
-  - File 02: `Tank Battle (File 02) (ASCII) (Japan) (FM-7) [_] [RUN'CAS0-']` $\leftrightarrow$ `fm7_tank7_file02.t77`
-  - File 03: `Tank Battle (File 03) (ASCII) (Japan) (PC-6001 mkII Mode 5 Pages 2) [_] [CLOAD-RUN]` $\leftrightarrow$ `n62_tank_file03.p6t`
-  - File 04: `Tank Battle (File 04) (ASCII) (Japan) (FM-8) [_] [RUN'CAS0-']` $\leftrightarrow$ `fm8_tank8_file04.t77`
+  - File 01: `Tank Battle (File 01) (ASCII) (Japan) (PC-8801) [_] [LOAD'CAS1-'-RUN]` ↔ `n80_tank88_file01.cmt`
+  - File 02: `Tank Battle (File 02) (ASCII) (Japan) (FM-7) [_] [RUN'CAS0-']` ↔ `fm7_tank7_file02.t77`
+  - File 03: `Tank Battle (File 03) (ASCII) (Japan) (PC-6001 mkII Mode 5 Pages 2) [_] [CLOAD-RUN]` ↔ `n62_tank_file03.p6t`
+  - File 04: `Tank Battle (File 04) (ASCII) (Japan) (FM-8) [_] [RUN'CAS0-']` ↔ `fm8_tank8_file04.t77`
 
 ### Canonical Default Collapsing
 To provide clean, immediate usability in emulators while maintaining complete archival sets, `dwimsy` uses non-destructive hardlinking (`os.link`, falling back to `shutil.copy2`):
@@ -787,7 +791,7 @@ ignores during motor coast:
         - *Canonical Regeneration Mode*: Generates standardized electrical signals conforming to ideal specification for writing pristine physical replacement media.
   - Piecewise Timebase Correction & Mixed-Mode Segmentation: `[ ] TODO` For composite tapes
     containing interleaved narration/drama audio and modulated data (e.g. ASCII *Tape Login*, *Tank Battle*, PC-88 *Gundam 2*):
-      * Distinguishes human speech from computer carrier tones using spectral entropy, spectral flatness ($SFM \to 0$), and zero-crossing regularity ($\Delta t$ bimodal distribution).
+      * Distinguishes human speech from computer carrier tones using spectral entropy, spectral flatness (SFM → 0), and zero-crossing regularity (Δt bimodal distribution).
       * Segments the timeline into audio drama (`.ogg` / `.wav`) and data regions (`.t88` / `.t77` / `.cmt`) referencing master FLAC timestamps.
       * Derives instantaneous tape speed and wow/flutter from known CMT symbol timing markers.
       * Applies piecewise timebase correction to analog audio tracks without altering their analog waveform, while data segments are canonically regenerated.
@@ -966,8 +970,8 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
 3. **Jiles, D. C., & Atherton, D. L. (1986)**: *"Theory of Ferromagnetic Hysteresis"*, *Journal of Magnetism and Magnetic Materials*, 61(1-2), pp. 48–60 (Anhysteretic tape magnetization and AC bias linearization models).
    * URL: https://doi.org/10.1016/0304-8853(86)90066-1
 4. **Yamaha Corporation (1984)**: *"Yamaha CX5M / YIS-503 Music Computer Service Manual"*,
-   * Fig. 5-5-9: CMT-IN Cassette Interface Input Shaping Circuit (C31, R21, R20, C29, D1/D2, R33, JRC-311B comparator $\to$ PSG IOA7).
-   * Fig. 5-4-10: PPI PC5 $\to$ CMT OUT Cassette Interface Output Shaping Circuit (PPI PC5 $\to$ 74LS14 4B inverter, C31, R41, C32, R40/R39 attenuator).
+   * Fig. 5-5-9: CMT-IN Cassette Interface Input Shaping Circuit (C31, R21, R20, C29, D1/D2, R33, JRC-311B comparator → PSG IOA7).
+   * Fig. 5-4-10: PPI PC5 → CMT OUT Cassette Interface Output Shaping Circuit (PPI PC5 → 74LS14 4B inverter, C31, R41, C32, R40/R39 attenuator).
    * URL: https://archive.org/details/yamaha_cx5mu_service-manual
 5. **ASCII Corporation / MSX Licensing Corporation (1983)**: *"MSX Technical Data Handbook / MSX BIOS Specification"*,
    * PSG (AY-3-8910 / YM2149) Register 14 (I/O Port A), Bit 7: Cassette Data Input (CMT IN).
@@ -977,8 +981,10 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
    * URL: https://mdfs.net/Docs/Comp/BBC/FileFormat/UEFSpecs.htm
 7. **CAS File Format Definition**:
    * URL: https://www.msx.org/forum/semi-msx-talk/emulation/how-do-exactly-works-cas-format
-8. **Protected BASIC File Format (PC-BASIC Specification)**:
+8. **Rob Hagemans / PC-BASIC Project**: *"Protected File Format"* — reverse-engineering of GW-BASIC's protected-save (`,P`) obfuscation scheme (the paired 11-byte/13-byte XOR key structure). Documents the algorithm's internal workings for GW-BASIC, not NEC's dialects.
    * URL: https://robhagemans.github.io/pcbasic/doc/2.0/#protected-file-format
+9. **NEC (1983)**: *"PC-8001 mkII SR N80-BASIC / N80SR-BASIC Reference Manual"* — documents the `,P` protected-save *access method* (the `SAVE`/`BSAVE` flag itself) but not the obfuscation algorithm's internal workings.
+10. **`fat8_d88_tool` project (original research)**: Recognizing that NEC's N88-BASIC protected-save format follows the same paired-XOR-key structure documented for GW-BASIC (per item 8) but with different key data baked into PC-88 ROM, and devising a known-plaintext `SAVE`-based method to recover the PC-88 combined XOR key without needing the ROM itself. The related PC-98 `N88-BASIC(86)` protected-save format uses an unrelated single-bit-rotation scheme, identified independently by direct known-plaintext testing rather than from any published reference. See the [`fat8_d88_tool` README](https://github.com/f-fix/fat8_d88_tool#de-obfuscation-pc98-version) for the full derivation and recovered key material.
 
 ---
 
