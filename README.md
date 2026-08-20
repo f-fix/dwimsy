@@ -57,7 +57,8 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Zero Required Dependencies & Standalone Operation**: Built on Python 3.9+ standard library (`math`, `struct`, `array`, `io`, `sys`, `shutil`, `os`, `argparse`). Pure-Python biquad/IIR direct form filter engines provide full DSP functionality out-of-the-box. Acceleration libraries (like NumPy/SciPy) are strictly optional and auto-detected for high-throughput batch processing.
 * **Offline Operation (No Network & No Embedded DBs)**: `dwimsy` contains no embedded software lists and performs no network lookups. Extended No-Intro metadata is applied when explicitly provided by the user (via CLI options or input filenames); otherwise, standard clean filenames based on the input basename or tape header preambles are used directly without friction.
 * **Empty Tape Deck Mode**: Can be launched with zero initial media inputs, operating as an unpopulated virtual cassette transport ready to record software from scratch over `CMT-OUT` or mount images via the 2-line LCD browser.
-* **Ephemeral In-Memory Mode (`--ephemeral`) & Out-of-Band User Channel**: Overlays and newly generated media can be held purely in RAM. Operators can selectively import new images or export any virtual root file on-the-fly via TTY local commands or web/phone upload/download endpoints.
+* **Always-Available User Channel & Ephemeral Imports**: The supervisor import/export channel is always active. Images imported into a session are held ephemerally in the Virtual Image Root without touching host directories unless explicitly exported.
+* **Ephemeral In-Memory / Crash-Safe Mode (`--ephemeral`)**: When activated, ensures that no write overlays, generated save tapes, or session modifications are persisted to disk or cache across runs, remaining clean even after sudden termination. Temporary storage uses auto-cleaned scratch directories or RAM.
 * **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts (15–25 dB step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
 * **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean naming for all output files. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
 * **Systematic Flavor Defaults**: Each layer has an untagged canonical default flavor (e.g. standard 8-byte padded `.cas` for MSX, trimmed `.cmt` for PC-88). Non-default variants (untrimmed raw streams, compact unpadded CAS) receive standard qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
@@ -89,52 +90,52 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 | Subsystem / Module | Description | Status | Target Milestone |
 | :--- | :--- | :---: | :---: |
-| **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), AGC, bounded-lookahead timing recovery | `[ ] TODO` | Milestone 1 |
-| **`core.realtime`** | Live-stage contracts, bounded buffering/latency accounting, clocks, backpressure and resynchronization | `[ ] TODO` | Milestone 1 |
-| **`core.audio`** | Streaming WAV/FLAC I/O, lossless PCM frame slicing (`flac2wav`) | `[ ] TODO` | Milestone 1 |
+| **`core.pulse`** | Edge timing, zero-crossing, TBC, AGC, bounded lookahead | `[ ] TODO` | Milestone 1 |
+| **`core.realtime`** | Live-stage contracts, bounded buffering/latency, clocks | `[ ] TODO` | Milestone 1 |
+| **`core.audio`** | Streaming WAV/FLAC I/O, lossless PCM frame slicing | `[ ] TODO` | Milestone 1 |
 | **`core.fsk`** | FSK pulse classifier & UART framing | `[ ] TODO` | Milestone 1 |
 | **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`) | `[ ] TODO` | Milestone 1 |
 | **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`) | `[ ] TODO` | Milestone 1 |
 | **`cli.dwimsy`** | Central CLI (`convert`, `restore`, `split`, `join`, `inspect`) | `[ ] TODO` | Milestone 1 |
-| **`cli.sidechannel`** | `stderr` virtual LCD, TTY keystrokes & POSIX/Win32 signal dispatcher | `[ ] TODO` | Milestone 1 |
-| **`cli.filters.*`** | Netpbm-style filter entry points (`t882wav`, `wav2t88`, `dwimsy-conv`, etc.) | `[ ] TODO` | Milestone 1 |
-| **`core.charsets`** | Unicode ↔ JIS X 0201 / NEC / MSX / KOI-7 streaming transcoder | `[ ] TODO` | Milestone 2 |
+| **`cli.sidechannel`** | `stderr` virtual LCD, TTY keystrokes & signal dispatcher | `[ ] TODO` | Milestone 1 |
+| **`cli.filters.*`** | Netpbm-style filter applets (`t882wav`, `wav2t88`, etc.) | `[ ] TODO` | Milestone 1 |
+| **`core.charsets`** | Unicode ↔ JIS X 0201 / NEC / MSX / KOI-7 transcoder | `[ ] TODO` | Milestone 2 |
 | **`core.fs`** | Filename sanitizer & `link_or_copy` hardlinker/copier | `[ ] TODO` | Milestone 2 |
-| **`core.transport`** | Transport automation engine: Tier 1 manual, Tier 2 relay, Tier 3 solenoid logic | `[ ] TODO` | Milestone 2 |
-| **`transport.changer`**| Media changer, auto-naming, blank media generator & jukebox policies | `[ ] TODO` | Milestone 2 |
-| **`transport.browser`**| LCD 2-line virtual image root browser with type-to-navigate & context tracking | `[ ] TODO` | Milestone 2 |
-| **`transport.seeker`** | Content-aware smart seek (file/block/marker navigation & cueing) | `[ ] TODO` | Milestone 2 |
-| **`dsp.router`**       | Dynamic mode & modulation router (pilot sniff, auto-turbo switch) | `[ ] TODO` | Milestone 2 |
-| **`platforms.cart_hooks`**| ROM cartridge tape containers, BIOS hook extractors & `cas2rom` packagers | `[ ] TODO` | Milestone 2 |
-| **`ui.remote`** | IPC control daemon (Unix socket / Named Pipe / WebSocket) for web/phone UI | `[ ] TODO` | Milestone 2 |
+| **`core.transport`** | Transport engine: Tier 1 manual, Tier 2 relay, Tier 3 solenoid | `[ ] TODO` | Milestone 2 |
+| **`transport.changer`**| Media changer, auto-naming, blank generator & jukebox | `[ ] TODO` | Milestone 2 |
+| **`transport.browser`**| LCD 2-line virtual image root browser with type-to-filter | `[ ] TODO` | Milestone 2 |
+| **`transport.seeker`** | Content-aware smart seek (file/block/marker navigation) | `[ ] TODO` | Milestone 2 |
+| **`dsp.router`**       | Dynamic mode & modulation router (pilot sniff, turbo switch) | `[ ] TODO` | Milestone 2 |
+| **`platforms.cart_hooks`**| ROM tape containers, BIOS hook extractors, `cas2rom` | `[ ] TODO` | Milestone 2 |
+| **`ui.remote`** | IPC control daemon (Unix socket / Named Pipe / WebSocket) | `[ ] TODO` | Milestone 2 |
 | **`disk.d88`** | D88 sector container reader & writer | `[ ] TODO` | Milestone 2 |
 | **`disk.fat8`** | FAT8 filesystem parser & injector | `[ ] TODO` | Milestone 2 |
 | **`disk.fds`** | FDS / QuickDisk container engine (`bin2fds` Python 3 port) | `[ ] TODO` | Milestone 2 |
 | **`platforms.unpack`** | NONTAMA & MSX M-Loader binary unpackers (`mkrom`) | `[ ] TODO` | Milestone 2 |
 | **`metadata.archive`** | Archival bundle exporter & `README.md` generator | `[ ] TODO` | Milestone 2 |
-| **`tape.variants`** | Multi-flavor generator (Trimmed/Untrimmed, CAS unpadded, P6/P6T pairs) | `[ ] TODO` | Milestone 2 |
-| **`tape.geometry`** | Physical cassette shell profiling (C-10..C-90, custom lengths, hub math) | `[ ] TODO` | Milestone 2 |
+| **`tape.variants`** | Multi-flavor generator (Trimmed/Untrimmed, unpadded CAS) | `[ ] TODO` | Milestone 2 |
+| **`tape.geometry`** | Physical cassette shell profiling (C-10..C-90, hub math) | `[ ] TODO` | Milestone 2 |
 | **`tape.sharp_family`**| Sharp MZ & Famicom Family BASIC PWM/MZT stream decoder | `[ ] TODO` | Milestone 3 |
 | **`tape.casio`** | Casio PV-2000 & Casio FP-1100 FSK/PWM tape codec | `[ ] TODO` | Milestone 3 |
-| **`tape.tsx`** | TSX / TZX 1.20 container (MSX FSK & Turbo blocks, CDT/TZX) | `[ ] TODO` | Milestone 3 |
-| **`tape.p6t`** | PC-6001 `.p6t` container (footer sync, autoboot metadata & `mk2mon` labels) | `[ ] TODO` | Milestone 3 |
+| **`tape.tsx`** | TSX / TZX 1.20 container (MSX FSK & Turbo blocks) | `[ ] TODO` | Milestone 3 |
+| **`tape.p6t`** | PC-6001 `.p6t` container (footer sync, autoboot, `mk2mon`) | `[ ] TODO` | Milestone 3 |
 | **`tape.bbc`** | BBC Micro Model B `.uef` reader/writer (`cas2uef`) | `[ ] TODO` | Milestone 3 |
-| **`tape.sord_sega`** | Sord M5 & Sega SC-3000 `.cas` adapters | `[ ] TODO` | Milestone 3 |
+| **`tape.sord_sega`** | Sord M5, Sega SC-3000, and FM-7/FM-8 (.t77) adapters | `[ ] TODO` | Milestone 3 |
 | **`tape.multiplex`** | Multi-platform compilation splitter (*Tape Login*, *Tank Battle*) | `[ ] TODO` | Milestone 3 |
 | **`cue.engine`** | Companion `<basename>.cue` generator & reader | `[ ] TODO` | Milestone 3 |
-| **`dsp.classifier`** | FSK carrier vs. broadband speech/music classifier & leader detector | `[ ] TODO` | Milestone 4 |
+| **`dsp.classifier`** | FSK carrier vs. broadband speech & leader detector | `[ ] TODO` | Milestone 4 |
 | **`platforms.sega_ai`** | Sega AI Computer concurrent stereo engine | `[ ] TODO` | Milestone 4 |
 | **`platforms.atari8`** | Atari 8-bit POKEY/Audio concurrent stereo engine | `[ ] TODO` | Milestone 4 |
-| **`media.audio_disc`** | Audio-carrier formats (Flexidiscs, CD-DA modulated tracks, GCX CD) | `[ ] TODO` | Milestone 4 |
-| **`dsp.harmonize`** | Non-linear time harmonization & reverse print-through recovery | `[ ] TODO` | Milestone 4 |
+| **`media.audio_disc`** | Audio-carrier formats (Flexidiscs, CD-DA tracks, GCX CD) | `[ ] TODO` | Milestone 4 |
+| **`dsp.harmonize`** | Non-linear time harmonization & print-through recovery | `[ ] TODO` | Milestone 4 |
 | **`core.pulse_slicer`**| PWM / Turbo pulse slicer (MSX Turbo, Amstrad Speedlock) | `[ ] TODO` | Milestone 5 |
-| **`platforms.studybox`**| Famicom StudyBox dual-track voice + MFM stream decoder & solenoid transport | `[ ] TODO` | Milestone 5 |
-| **`platforms.adam_ddp`**| Coleco Adam DDP (80 ips high-speed tape) decoder & servo transport | `[ ] TODO` | Milestone 5 |
-| **`platforms.gakken_gcx`**| Gakken Manabu-kun (GCX) MSX-like tape & CD-DA audio disc engine | `[ ] TODO` | Milestone 5 |
+| **`platforms.studybox`**| Famicom StudyBox dual-track voice + MFM stream decoder | `[ ] TODO` | Milestone 5 |
+| **`platforms.adam_ddp`**| Coleco Adam DDP (80 ips high-speed tape) decoder | `[ ] TODO` | Milestone 5 |
+| **`platforms.gakken_gcx`**| Gakken Manabu-kun (GCX) MSX-like tape & CD-DA engine | `[ ] TODO` | Milestone 5 |
 | **`platforms.ibm5150`** | IBM PC 5150 cassette demodulator | `[ ] TODO` | Milestone 5 |
 | **`platforms.bk0010`** | Soviet Elektronika BK-0010 PDP-11 demodulator | `[ ] TODO` | Milestone 5 |
-| **`bus.controller`** | Floppy/Serial/Parallel/IEC bus interfaces (Shugart, Apple, Commodore IEC, SIO) | `[ ] TODO` | Milestone 5 |
-| **`disk.flux`** | Floppy disk raw flux timing decoders (Applesauce, Greaseweazle)| `[ ] TODO` | Milestone 5 |
+| **`bus.controller`** | Floppy/Serial/Parallel/IEC bus hardware interfaces | `[ ] TODO` | Milestone 5 |
+| **`disk.flux`** | Floppy disk raw flux decoders (Applesauce, Greaseweazle)| `[ ] TODO` | Milestone 5 |
 | **`packaging`** | `pyproject.toml`, pip packaging, API docs | `[ ] TODO` | Milestone 5 |
 
 ---
@@ -175,7 +176,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ### Representation Layers and Orthogonal Planes
 
-The four representation layers remain useful as a description of *what* a transformation represents, but they are not a complete execution architecture. `dwimsy` also has orthogonal concerns that must cross representation boundaries without becoming entangled with them:
+The four representation layers describe *what* a transformation represents, but are complemented by orthogonal planes crossing representation boundaries:
 
 ```text
 Representation layers
@@ -197,24 +198,21 @@ Orthogonal planes
   Live I/O                    bounded-latency streaming between endpoints
 ```
 
-A codec should operate on a representation stream and declare its real-time properties independently of whether its input/output is a file, a pipe, an emulator endpoint, or physical hardware.
+A codec operates on a representation stream and declares its real-time properties independently of whether its endpoint is a file, pipe, emulator, or physical deck.
 
 ### Real-Time Streaming Contract
 
-All tape-format converters are intended to be usable as continuous streaming stages, including when connected directly to physical hardware. For a stage to be declared **live-capable**, its implementation must document and test:
-
+All tape converters are designed to operate as continuous streaming filters. For a stage to be declared **live-capable**, its implementation must declare and verify:
 * maximum lookahead;
-* maximum buffering / memory required as a function of stream duration (ideally constant-bounded for live stages);
+* maximum buffering / memory footprint (constant-bounded for live stages);
 * worst-case processing latency;
 * startup latency;
 * flush/end-of-stream behavior; and
-* maximum resynchronization latency after a dropout or ambiguous region.
-
-A Unix filter that accepts stdin/stdout but buffers an entire file is therefore *streamable* but not *live-capable*. The two properties must not be conflated.
+* maximum resynchronization latency after a dropout.
 
 ### Timebase as a First-Class Representation
 
-Physical capture time, modeled tape position, corrected media time, protocol timing, and regenerated timing are distinct quantities. Transformations that relate them should preserve an explicit mapping rather than silently resampling everything into one clock domain. This is especially important for mixed-mode tapes: known CMT timing can constrain a tape-speed model used to time-correct adjacent analog narration/music while leaving the original captured waveform untouched.
+Physical capture time, modeled tape position, corrected media time, protocol timing, and regenerated timing are distinct quantities. Transformations preserve an explicit mapping rather than silently resampling into a single clock domain. On mixed-mode tapes, known CMT timing constrains the tape-speed model used to correct adjacent analog speech/music tracks while leaving original audio waveforms untouched.
 
 ### Hardware Transducer & Tri-Directional Control Gateway ("DWIMSY Box")
 
@@ -258,7 +256,7 @@ Physical capture time, modeled tape position, corrected media time, protocol tim
 
 ### On-Demand Disk / Track Streaming
 
-For disks, the live endpoint may be random-access even though the underlying flux/sector codecs are streaming. A Greaseweazle-backed drive should be usable as an on-demand track source/sink: an emulator or higher layer requests a cylinder/head (or equivalent track identity), `dwimsy` acquires or regenerates only the required track, and the resulting flux/sector stream flows through the same transformation pipeline used offline. Raw flux capture remains independently archivable. This is intentionally a hardware-adapter requirement rather than a claim about any particular Greaseweazle command syntax; the adapter must be verified against the actual device/API behavior before implementation.
+For disks, the live endpoint may be random-access even though underlying flux/sector codecs stream. A Greaseweazle-backed drive operates as an on-demand track source/sink: an emulator or higher layer requests a cylinder/head track identity, `dwimsy` acquires or regenerates only the required track, and the resulting flux/sector stream flows through the same transformation pipeline used offline.
 
 ### Transport Automation Spectrum: From Manual Relays to Fully Logic-Controlled Decks
 
@@ -270,11 +268,12 @@ The degree to which media transport is governed by software vs. the human operat
 | **Tier 2: Relay-Gated Motor** | Electrical Spindle Motor Gating | MSX, NEC PC-88 / PC-6001, TRS-80, C64 Datassette | Senses/switches 5V/12V `REMOTE` relay; starts/stops tape motion | User manually depresses mechanical `PLAY` or `RECORD` keys; computer gates motor |
 | **Tier 3: Full Logic / Solenoid Control** | 100% Software-Controlled Transport | **Famicom StudyBox**, **Gakken Manabu-kun (GCX)**, **Coleco Adam DDP**, **Sharp MZ-80B / MZ-2000 / MZ-2500** | Software commands `PLAY`, `STOP`, `REC`, `FF`, `REW`, `HIGH_SPEED_SEEK`, `HEAD_LOAD`, `EJECT` via ASIC/PIO registers | Zero physical key pressing required; host software autonomously seeks lessons, cue points, and records audio |
 
-#### Modeling the Tier 2 Record Interlock
-On Tier 2 systems (MSX, PC-88, PC-6001):
-1. **Mechanical Record Arming**: The user must mechanically depress `RECORD` + `PLAY` on the deck (engaging head carriage and record bias circuits).
-2. **Electrical Motor Gating (`REMOTE`)**: Tape motion does *not* begin immediately; the host computer holds the `REMOTE` relay open until the BIOS save routine is ready → closes relay → tape writes → opens relay → tape stops, remaining mechanically armed in record mode.
-* In `dwimsy`, users can virtually arm recording mode (`<R>` key, appliance button, or UI switch). In headless mode (`--record-policy auto-arm`), `dwimsy` auto-arms upon detecting valid modulated carrier tones on `CMT-OUT`.
+#### Transport Gating Modes (Handling Missing Motor Relays on MSX / Sharp MZ)
+When computers or decks are connected via 2-wire audio cables without a `REMOTE` relay wire, `dwimsy` provides four selectable transport gating policies:
+* **Hardware Relay (`--motor=relay`)**: Strictly obeys host `REMOTE` relay voltage.
+* **Passive Continuous (`--motor=continuous`)**: Unbroken real-time playback (simulates a mechanical deck with `PLAY` permanently depressed).
+* **Smart Auto-Pause (`--motor=smart-pause`, Default for audio-only)**: Automatically pauses at detected inter-block boundaries or pilot tones, resuming on `<Space>` keypress or configurable timeout to prevent data overrun.
+* **Carrier-Sensed Gating (`--motor=carrier-sense`)**: For recording over `CMT-OUT`: automatically engages recording upon detecting 1200/2400 Hz carrier tones, pausing when the carrier drops.
 
 #### Modeling Tier 3 Smart Transport Engines
 For Tier 3 systems (Famicom StudyBox, Gakken Manabu-kun GCX, Sharp MZ-2000, Coleco Adam):
@@ -296,6 +295,8 @@ Media swaps occur both via external triggers (user hotkey, phone UI, physical bu
 #### 2. Virtual Image Root & 2-Line Status LCD File Browser (`transport.browser`)
 When browsing media via the `<I>` keystroke in TTY mode:
 * **Virtual Image Root**: The top level of the browser always presents a unified virtual root containing all initial CLI-supplied input files, dynamically generated blank save media, and imported images.
+* **Always-Available Import/Export Channel**: Operators can dynamically import new images or export artifacts from the Virtual Image Root at any time via TTY local commands (`:import`, `:export`) or remote phone/web dashboard endpoints.
+* **Session-Ephemeral Imports**: Any image imported via the user channel is held ephemerally in the Virtual Image Root without touching host directories unless explicitly exported.
 * **Image Root Directory (`--image-root <DIR>`)**: When an image root directory is declared, a `[Browse Directory...]` item is presented at the top level of the Virtual Image Root, allowing navigation into filesystem subdirectories.
 * **Context-Aware Initial Location**:
   - If the active media was chosen from the CLI, generated dynamically, or imported → browsing starts in the Virtual Image Root.
@@ -304,7 +305,7 @@ When browsing media via the `<I>` keystroke in TTY mode:
 * **Seamless Virtual Insertion**: Pressing `<Enter>` selects an image and hot-inserts it into the active transport loop, simulating appropriate door/index pulses to the host retrocomputer without audio dropouts.
 
 #### 3. Out-of-Band Import/Export Control Channel & Ephemeral Mode
-* **Ephemeral In-Memory Mode (`--ephemeral`)**: Overlays and newly created save media are held strictly in RAM and never written to disk or the persistent cache.
+* **Ephemeral Mode (`--ephemeral`)**: Ensures that no write overlays, generated save tapes, or session modifications are persisted to disk or cache across runs, remaining clean even after sudden termination or power loss. Temporary storage uses auto-cleaned scratch directories or RAM.
 * **TTY UI Local Transfer Commands**: Running logically within the TTY frontend without interrupting the audio streaming engine, operators can issue local commands (`:import <path>`, `:export <file> <dest>`, `:save-overlay`) to transfer files into/out of the Virtual Image Root.
 * **Remote UI Upload/Download (IPC)**: Web and phone dashboards expose file upload/download endpoints over WebSocket / HTTP. Imported images immediately enter the Virtual Image Root and can be cycled via `[` / `]`.
 * **SHA1-Indexed Persistent Overlays**: In non-ephemeral mode, write overlays are stored out-of-band under `~/.cache/dwimsy/overlays/<SHA1>/`, indexed by the master tape SHA-1 hash. Selecting an image with an existing overlay presents an instant choice: `[1] Use Overlay`, `[2] Clean Master`, `[3] Delete Overlay`. Pressing `<D>` in TTY mode discards the active overlay.
@@ -389,7 +390,7 @@ In vintage software distribution, software was duplicated onto standard or custo
 * **Standard & Custom Shell Presets**: Supports standard tape lengths (`C-10`, `C-15`, `C-20`, `C-30`, `C-46`, `C-60`, `C-90`, `C-120`) and custom publisher-cut runtimes (e.g., `--tape-length 8.5m` or `--side-duration 4m15s`).
 * **Realistic Lead-in & Trailing Infill**: Positions program data after standard non-magnetic clear leader tape and initial magnetic lead-in silence (e.g. 5–10s), then pads trailing tape with realistic modeled analog tape silence / residual bias noise up to the full nominal side length.
 * **Side B Infill & Unrecorded Replication**: Optionally produces a structurally matched, unrecorded or blank Side B waveform to mirror the complete physical retail artifact.
-* **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter (r_0 ≈ 11 mm) to calculate non-linear reel rotational speeds, giving a modeled tape-position estimate (N_counter) across fast-forward and rewind operations; calibration accuracy depends on measured or declared tape/deck parameters.
+* **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter (r₀ ≈ 11 mm) to calculate non-linear reel rotational speeds, giving a modeled tape-position estimate (N_counter) across fast-forward and rewind operations.
 
 ### Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays
 
@@ -517,7 +518,7 @@ dwimsy bridge --deck /dev/ttyUSB0
 # Launch live bridge with image root directory for 2-line LCD browser
 dwimsy bridge --image-root ./games/ --deck /dev/ttyUSB0
 
-# Launch live bridge in ephemeral mode (overlays and created tapes kept only in RAM)
+# Launch live bridge in ephemeral mode (overlays and created tapes kept only in RAM/temp)
 dwimsy bridge --ephemeral --image-root ./games/
 
 # Split continuous multi-side tape rip automatically on clear leader / hiss dropouts
@@ -626,7 +627,7 @@ To prevent UI telemetry from polluting piped data streams:
   To fit all critical fields (**Tape Counter**, **Elapsed/Total Time**, **Block Index**, **File Number**, **File Name**, and **Current Mode**) into compact displays, `dwimsy` uses a fixed top status bar paired with an animated scrolling marquee ticker on the bottom line:
   ```text
   Line 1 (Fixed)  : [C:0342] [04:15/15:00] [MODE:CANONICAL] [SPEED:100.2%]
-  Line 2 (Marquee): F02/05 BLK03/12 > "DRAGON_SLAYER_PART2.BAS" [CRC:OK] [REC:ARMED]
+  Line 2 (Marquee): F02/05 BLK03/12 > "DRAGON_SLAYER.BAS" [CRC:OK] [REC:ARMED]
   ```
   - **Animated Text Scrolling**: When filenames or metadata strings exceed the line width (e.g. on 16x2 or 20x2 character displays), the text scrolls smoothly with edge pauses so no information is truncated.
   - **Live Overlay & New Media Alerts**: Write-overlay events, record-armed interlocks, fresh blank media insertions, tape leader detections, and carrier status flash cleanly in the marquee without disturbing the real-time audio/flux loop.
@@ -779,13 +780,13 @@ ignores during motor coast:
   - Physical Tape Channel Modeling (`cassette_model.py`): `[ ] TODO` Physical and magneto-electric
     tape-head interface simulation (`cassette_model.py`):
       * Wallace Gap Loss: High-frequency spatial attenuation
-        `L_gap(f) = 20*log10(|sin(pi*g/lambda)/(pi*g/lambda)|)` for head gap `g`
-        (~1.5 µm) at tape speed `v` (4.76 cm/s, `lambda = v/f`).
+        `L_gap(f) = 20·log10(|sin(π·g/λ)/(π·g/λ)|)` for head gap `g`
+        (~1.5 µm) at tape speed `v` (4.76 cm/s, `λ = v/f`).
       * IEC Type I Equalization: Standard record pre-emphasis and playback
-        de-emphasis (`tau_1 = 3180 µs`, `tau_2 = 120 µs`, `tau_3 = 12 µs`),
-        balancing write demagnetization `H_demag(s) = 1 / (1 + s*tau_120)`.
-      * Faraday Induction & Saturation: Induced voltage `e(t) = -N * dPhi/dt`
-        (+6 dB/octave slope) with anhysteretic `M(H) = tanh(k*H)` saturation.
+        de-emphasis (`τ₁ = 3180 µs`, `τ₂ = 120 µs`, `τ₃ = 12 µs`),
+        balancing write demagnetization `H_demag(s) = 1 / (1 + s·τ₁₂₀)`.
+      * Faraday Induction & Saturation: Induced voltage `e(t) = -N · dΦ/dt`
+        (+6 dB/octave slope) with anhysteretic `M(H) = tanh(k·H)` saturation.
       * Dual Operating Modes:
         - *Physical-Equivalent Mode*: Emulates the frequency response, tape saturation, and wow/flutter of a specific vintage deck to drive authentic retrocomputer hardware.
         - *Canonical Regeneration Mode*: Generates standardized electrical signals conforming to ideal specification for writing pristine physical replacement media.
@@ -801,11 +802,11 @@ ignores during motor coast:
     into standard 4,800 ticks/sec container time.
   - Adaptive Midpoint FSK Slicer: `[ ] TODO` Fast edge detection with
     Schmitt-trigger dynamic hysteresis and midpoint cycle discrimination
-    (`N_mid = (Fs/4) * (1/f0 + 1/f1)`), using local envelope tracking (AGC
+    (`N_mid = (Fs/4) · (1/f0 + 1/f1)`), using local envelope tracking (AGC
     attack/release) to ride out fading and dropouts.
   - Zero-Gap Demodulation: `[ ] TODO` Snaps post-DATA carrier start ticks to the
     exact end tick of the preceding data block
-    (`T_end = T_start + N_bytes × ticks_per_byte`).
+    (`T_end = T_start + N_bytes · ticks_per_byte`).
   - Multi-Copy & Multi-Revolution Consensus (Disks & Tapes): `[ ] TODO` Merges
     multiple physical copies or multi-revolution dumps (floppy SCP/A2R/D88 or
     tape takes) using CRC-verified block/sector consensus.
@@ -940,16 +941,16 @@ Tasks:
 ```text
 Format      Extension   Header Signature / Magic Bytes
 ─────────────────────────────────────────────────────────────────────────────
-PC-88 T88   .t88        50 43 2D 38 38 30 31 20 54 61 70 65 20 49 6D 61 67 65 28 54 38 38 29 00
-PC-88 CMT   .cmt        D3 D3 D3... (BASIC), 24 24 24... (MON ML), 9C 9C 9C... (ASCII)
-FM-7 T77    .t77        FBASIC / 2BS file headers, 0x00*N + 0x3C sync descriptors
-MSX TSX     .tsx / .tzx 5A 58 54 61 70 65 21 1A ("ZXTape!\x1a") + ver 0x01 0x20/0x21
+PC-88 T88   .t88        50 43 2D 38 38 30 31 20 54 61 70 65 20 49 6D 61 67...
+PC-88 CMT   .cmt        D3 D3 D3... (BASIC), 24 24 24... (MON ML), 9C 9C 9C...
+FM-7 T77    .t77        FBASIC / 2BS file headers, 0x00*N + 0x3C sync bytes
+MSX TSX     .tsx / .tzx 5A 58 54 61 70 65 21 1A ("ZXTape!\x1a") + ver 0x01 0x20
 MSX CAS     .cas        1F A6 DE BA CC 13 7D 74 (8-byte BIOS sync header)
-Sharp MZT   .mzt        01 (File type) + 16-byte filename + 128-byte MZ directory header block
-Family BASIC.mzt / .cas Sharp MZ-compatible PWM block structure with Famicom BASIC V2/V3 header
-BBC UEF     .uef        1F 8B (Gzip header) -> 55 45 46 20 46 69 6C 65 21 ("UEF File!")
+Sharp MZT   .mzt        01 (File type) + 16-byte filename + 128-byte header
+Family BASIC.mzt / .cas Sharp MZ-compatible PWM with Famicom BASIC V2/V3 header
+BBC UEF     .uef        1F 8B (Gzip header) -> 55 45 46 20 46 69 6C 65 21
 Amstrad CDT .cdt        5A 58 54 61 70 65 21 1A ("ZXTape!\x1a")
-PC-6001 P6T .p6t        PC6001V format with trailing timing/mode descriptors & autostart footer
+PC-6001 P6T .p6t        PC6001V format with trailing timing/autoboot footer
 PC-6001 P6  .p6         D3 D3 D3... + screen mode / page count descriptor
 Sega CAS    .cas        53 45 47 41 20 43 41 53 53 45 54 54 45 ("SEGA CASSETTE")
 Sord M5 CAS .cas        55 55 55 55 55 55 55 55 (Sync run) + 'HEADER'
@@ -957,7 +958,7 @@ NEC D88     .d88 / .d77 17-byte disk title + 0x00 + 0x00 0x00 0x00 0x00
 FDS Image   .fds        46 44 53 1A ("FDS\x1a") or Block 1 '\x01*NINTENDO-HVC*'
 Applesauce  .woz / .a2r 57 4F 5A 31 / 57 4F 5A 32 | 41 32 52 32 ("A2R2")
 Greaseweazle.scp        53 43 50 ("SCP")
-C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CARTRIDGE   ")
+C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20
 ```
 
 ### Consulted Literature & Technical Specifications Reference
