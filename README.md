@@ -58,7 +58,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Offline Operation (No Network & No Embedded DBs)**: `dwimsy` contains no embedded software lists and performs no network lookups. Extended No-Intro metadata is applied when explicitly provided by the user (via CLI options or input filenames); otherwise, standard clean filenames based on the input basename or tape header preambles are used directly without friction.
 * **Empty Tape Deck Mode**: Can be launched with zero initial media inputs, operating as an unpopulated virtual cassette transport ready to record software from scratch over `CMT-OUT` or mount images via the 2-line LCD browser.
 * **Always-Available User Channel & Ephemeral Imports**: The supervisor import/export channel is always active. Images imported into a session are held ephemerally in the Virtual Image Root without touching host directories unless explicitly exported.
-* **Ephemeral In-Memory / Crash-Safe Mode (`--ephemeral`)**: When activated, ensures that no write overlays, generated save tapes, or session modifications are persisted to disk or cache across runs, remaining clean even after sudden termination. Temporary storage uses auto-cleaned scratch directories or RAM.
+* **Ephemeral In-Memory / Crash-Safe Mode (`--ephemeral`)**: When activated, ensures that no write overlays, generated save tapes, or session modifications are persisted to disk or cache across runs, remaining clean even after sudden termination or power loss. Temporary storage uses auto-cleaned scratch directories or RAM.
 * **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts (15–25 dB step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
 * **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean naming for all output files. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
 * **Systematic Flavor Defaults**: Each layer has an untagged canonical default flavor (e.g. standard 8-byte padded `.cas` for MSX, trimmed `.cmt` for PC-88). Non-default variants (untrimmed raw streams, compact unpadded CAS) receive standard qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
@@ -104,7 +104,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 | **`core.transport`** | Transport engine: Tier 1 manual, Tier 2 relay, Tier 3 solenoid | `[ ] TODO` | Milestone 2 |
 | **`transport.changer`**| Media changer, auto-naming, blank generator & jukebox | `[ ] TODO` | Milestone 2 |
 | **`transport.browser`**| LCD 2-line virtual image root browser with type-to-filter | `[ ] TODO` | Milestone 2 |
-| **`transport.seeker`** | Content-aware smart seek (file/block/marker navigation) | `[ ] TODO` | Milestone 2 |
+| **`transport.seeker`** | Content-aware smart seek & Loading Group navigation | `[ ] TODO` | Milestone 2 |
 | **`dsp.router`**       | Dynamic mode & modulation router (pilot sniff, turbo switch) | `[ ] TODO` | Milestone 2 |
 | **`platforms.cart_hooks`**| ROM tape containers, BIOS hook extractors, `cas2rom` | `[ ] TODO` | Milestone 2 |
 | **`ui.remote`** | IPC control daemon (Unix socket / Named Pipe / WebSocket) | `[ ] TODO` | Milestone 2 |
@@ -115,13 +115,17 @@ It is designed to grow incrementally, adding support for new computer platforms,
 | **`metadata.archive`** | Archival bundle exporter & `README.md` generator | `[ ] TODO` | Milestone 2 |
 | **`tape.variants`** | Multi-flavor generator (Trimmed/Untrimmed, unpadded CAS) | `[ ] TODO` | Milestone 2 |
 | **`tape.geometry`** | Physical cassette shell profiling (C-10..C-90, hub math) | `[ ] TODO` | Milestone 2 |
-| **`tape.sharp_family`**| Sharp MZ & Famicom Family BASIC PWM/MZT stream decoder | `[ ] TODO` | Milestone 3 |
+| **`tape.tzx_family`** | Unified TZX/CDT/TSX container (Spectrum, CPC, MSX FSK/Turbo) | `[ ] TODO` | Milestone 3 |
+| **`tape.sharp_mz`** | Sharp MZ-80K / MZ-700 / MZ-800 PWM & 128-byte MZF/MZT | `[ ] TODO` | Milestone 3 |
+| **`tape.sharp_x1`** | Sharp X1 2700-baud PWM, `.tap` container, 80C49 deck logic | `[ ] TODO` | Milestone 3 |
+| **`tape.fujitsu`** | Fujitsu FM-7 / FM-8 / FM-77 `.t77` pulse container & FSK | `[ ] TODO` | Milestone 3 |
+| **`tape.sega`** | Sega SC-3000 / SG-1000 `.cas` adapter | `[ ] TODO` | Milestone 3 |
+| **`tape.sord`** | Sord M5 `.cas` adapter (`0x55` sync bursts) | `[ ] TODO` | Milestone 3 |
 | **`tape.casio`** | Casio PV-2000 & Casio FP-1100 FSK/PWM tape codec | `[ ] TODO` | Milestone 3 |
-| **`tape.tsx`** | TSX / TZX 1.20 container (MSX FSK & Turbo blocks) | `[ ] TODO` | Milestone 3 |
 | **`tape.p6t`** | PC-6001 `.p6t` container (footer sync, autoboot, `mk2mon`) | `[ ] TODO` | Milestone 3 |
 | **`tape.bbc`** | BBC Micro Model B `.uef` reader/writer (`cas2uef`) | `[ ] TODO` | Milestone 3 |
-| **`tape.sord_sega`** | Sord M5, Sega SC-3000, and FM-7/FM-8 (.t77) adapters | `[ ] TODO` | Milestone 3 |
 | **`tape.multiplex`** | Multi-platform compilation splitter (*Tape Login*, *Tank Battle*) | `[ ] TODO` | Milestone 3 |
+| **`platforms.family_basic`**| Famicom Family BASIC V2/V3 detokenizer & HVC-008 level maps | `[ ] TODO` | Milestone 3 |
 | **`cue.engine`** | Companion `<basename>.cue` generator & reader | `[ ] TODO` | Milestone 3 |
 | **`dsp.classifier`** | FSK carrier vs. broadband speech & leader detector | `[ ] TODO` | Milestone 4 |
 | **`platforms.sega_ai`** | Sega AI Computer concurrent stereo engine | `[ ] TODO` | Milestone 4 |
@@ -247,7 +251,7 @@ Physical capture time, modeled tape position, corrected media time, protocol tim
 ```
 
 #### Tri-Directional Control Mechanics
-1. **Upstream Host Control**: Senses host `REMOTE` motor relays, Shugart `/STEP`/`/MOTOR_ON` lines, Commodore IEC serial bus, Atari SIO, Sharp MZ parallel bus lines, or full software transport ASIC command lines (StudyBox / Gakken GCX).
+1. **Upstream Host Control**: Senses host `REMOTE` motor relays, Shugart `/STEP`/`/MOTOR_ON` lines, Commodore IEC serial bus, Atari SIO, Sharp MZ parallel bus lines, or full software transport ASIC command lines (StudyBox / Gakken GCX / Sharp X1).
 2. **Downstream Transport Control**: Drives physical deck relays/solenoids (`PLAY`, `STOP`, `REWIND`, `RECORD`), monitors capstan tachometer / reel rotation for instant tape speed feedback, and senses optical end-of-tape (EOT).
 3. **Operator / Supervisor Plane (Bidirectional)**:
    * **Inbound Commands**: Operators swap disks, flip tape sides, arm virtual recording modes, create blank save tapes, trigger motor overrides, inject cue annotations, and cycle canonicalization modes without disturbing the real-time audio/flux streaming loop.
@@ -266,20 +270,21 @@ The degree to which media transport is governed by software vs. the human operat
 | :--- | :--- | :--- | :--- | :--- |
 | **Tier 1: Manual / Passive** | None (Audio Only) | ZX Spectrum, BBC Micro (Standard), Early PET | Audio IN/OUT only | User manually presses PLAY, STOP, RECORD, REW, FF on prompts |
 | **Tier 2: Relay-Gated Motor** | Electrical Spindle Motor Gating | MSX, NEC PC-88 / PC-6001, TRS-80, C64 Datassette | Senses/switches 5V/12V `REMOTE` relay; starts/stops tape motion | User manually depresses mechanical `PLAY` or `RECORD` keys; computer gates motor |
-| **Tier 3: Full Logic / Solenoid Control** | 100% Software-Controlled Transport | **Famicom StudyBox**, **Gakken Manabu-kun (GCX)**, **Coleco Adam DDP**, **Sharp MZ-80B / MZ-2000 / MZ-2500** | Software commands `PLAY`, `STOP`, `REC`, `FF`, `REW`, `HIGH_SPEED_SEEK`, `HEAD_LOAD`, `EJECT` via ASIC/PIO registers | Zero physical key pressing required; host software autonomously seeks lessons, cue points, and records audio |
+| **Tier 3: Full Logic / Solenoid Control** | 100% Software-Controlled Transport | **Sharp X1 (CZ-800)**, **Famicom StudyBox**, **Gakken GCX**, **Coleco Adam DDP**, **Sharp MZ-2000 / MZ-2500** | Software commands `PLAY`, `STOP`, `REC`, `FF`, `REW`, `SEEK`, `EJECT` via 80C49/ASIC/PIO registers | Zero physical key pressing required; host software autonomously seeks lessons, cue points, and records audio |
 
-#### Transport Gating Modes (Handling Missing Motor Relays on MSX / Sharp MZ)
-When computers or decks are connected via 2-wire audio cables without a `REMOTE` relay wire, `dwimsy` provides four selectable transport gating policies:
+#### Transport Gating Modes (Handling Missing Motor Relays on ZX Spectrum, MSX, Sharp MZ)
+When computers or decks are connected via 2-wire audio cables without a `REMOTE` relay wire (such as standard Sinclair ZX Spectrum hardware, or audio-only MSX/Sharp MZ setups), `dwimsy` provides four selectable transport gating policies:
 * **Hardware Relay (`--motor=relay`)**: Strictly obeys host `REMOTE` relay voltage.
 * **Passive Continuous (`--motor=continuous`)**: Unbroken real-time playback (simulates a mechanical deck with `PLAY` permanently depressed).
-* **Smart Auto-Pause (`--motor=smart-pause`, Default for audio-only)**: Automatically pauses at detected inter-block boundaries or pilot tones, resuming on `<Space>` keypress or configurable timeout to prevent data overrun.
+* **Smart Auto-Pause (`--motor=smart-pause`, Default for audio-only)**: Streams entire **Loading Groups** (consecutive blocks making up a level, screen, or stage) in one continuous pass without stopping, pausing automatically only at true Loading Group boundaries or level transitions. Resumes on `<Space>` keypress.
 * **Carrier-Sensed Gating (`--motor=carrier-sense`)**: For recording over `CMT-OUT`: automatically engages recording upon detecting 1200/2400 Hz carrier tones, pausing when the carrier drops.
 
 #### Modeling Tier 3 Smart Transport Engines
-For Tier 3 systems (Famicom StudyBox, Gakken Manabu-kun GCX, Sharp MZ-2000, Coleco Adam):
+For Tier 3 systems (Sharp X1, Famicom StudyBox, Gakken Manabu-kun GCX, Sharp MZ-2000, Coleco Adam):
 * `dwimsy` provides complete hardware emulation of the host transport command protocol.
+* **Sharp X1 (CZ-800 series)** utilizes a dedicated NEC 80C49 microcontroller for software deck automation, supporting high-speed tape counter reading, filename-based hardware fast-forward seeks, software `EJECT` commands, and 2700-baud Sharp PWM transfers.
 * **Gakken Manabu-kun (GCX)** utilizes an MSX-adjacent Z80/VDP architecture with both logic-controlled tape decks and **Audio CD (CD-DA)** models that interleave modulated software programs with high-fidelity listenable voice/music tracks.
-* When the StudyBox or GCX BIOS issues seek, fast-forward, or audio-record commands, `dwimsy` executes content-aware seek routines, aligns audio/data heads, and engages recording channels completely autonomously without requiring manual user intervention.
+* When the StudyBox, X1, or GCX BIOS issues seek, fast-forward, or audio-record commands, `dwimsy` executes content-aware seek routines, aligns audio/data heads, and engages recording channels completely autonomously without requiring manual user intervention.
 
 ### Runtime Media Management, Adaptive Modes & Content-Aware Transport
 
@@ -318,29 +323,40 @@ When digitizing continuous captures containing multiple cassette sides or tapes:
 * **Validated Lifecycle Interlock**: Only commits a side split when the audio region satisfies a complete tape lifecycle (Leader In → Valid Program/Audio Payload → Leader Out).
 * **Default Carousel Sequencing**: Automatically assigns sequential layout (`Tape 01 Side A` → `Side B` → `Tape 02 Side A` → `Side B`) unless overridden by user metadata.
 
-#### 5. Runtime Conversion Mode & Modulation Switching (`dsp.router`)
+#### 5. Loading Groups & Multi-Block Chaining (`transport.seeker`)
+To prevent tedious manual keystrokes during multi-block loading on systems without motor control (e.g. Sinclair ZX Spectrum games like *R-Type* or *Bubble Bobble*, Speedlock protection schemes, MSX multi-loaders, or PC-6001 NONTAMA stages):
+* **Three-Level Structural Hierarchy**:
+  1. *Block / Record (Layer 2)*: Atomic physical data frame (TZX block, 19-byte Spectrum header, MSX 16-byte chunk, PC-88 `: [addr]` record).
+  2. *Loading Group / Load Group (Layer 3)*: Contiguous sequence of blocks streamed in one continuous, uninterrupted pass by the computer's active loader without stopping the tape.
+  3. *Segment (Timeline / Mixed-Mode)*: Chronological macro-region on a composite mixed-mode tape (e.g. *Gundam 2* `Segment 01` [Data] ↔ `Segment 02` [Audio Drama]).
+* **Automated Group Boundary Detection**:
+  - *TZX / TSX / CDT Metadata*: Evaluates block pause values. Non-zero pauses stream automatically; zero-pause blocks (Block `0x20` Stop the Tape / Block `0x2A` Stop in 48K) or TZX Group markers (`0x21`/`0x22`) seal the Loading Group and engage transport auto-pause.
+  - *Audio Cadence*: Inter-block gaps < 2.0s maintain continuous streaming; silence drops ≥ 3.0s–5.0s trigger stage auto-pause.
+  - *Loader Protocol Signatures*: Recognizes linked loader patterns (Speedlock, NONTAMA, PC-88 CSAVE → MON chains) and groups them automatically.
+
+#### 6. Runtime Conversion Mode & Modulation Switching (`dsp.router`)
 Mode switching operates across two distinct dynamics:
 * **User-Driven Real-Time A/B Testing**: The operator toggles output modes on-the-fly (`Raw Passthrough` ↔ `Conditioned Filter` ↔ `Canonical Ideal` ↔ `Cassette Hardware Model`) while listening to the real hardware to diagnose edge-case demodulation issues.
 * **Inferred / Sniffed In-Stream Modulation Switching**:
   - **Hybrid Speed Loaders**: Software often begins with a standard ROM BIOS FSK header (1200 baud) and switches mid-stream to high-speed custom PWM or Turbo tones (e.g. 3600+ baud). `dwimsy` continuously monitors pilot frequencies and dynamically hot-switches demodulators mid-stream with zero dropped samples.
   - **Adaptive DSP Fallback**: If signal SNR or carrier eye pattern degrades below a confidence threshold, the router dynamically engages secondary phase equalization or alternate slicer hysteresis.
 
-#### 6. Multi-Platform Compilation Splitting & Multi-File Container Packaging (`tape.multiplex`)
+#### 7. Multi-Platform Compilation Splitting & Multi-File Container Packaging (`tape.multiplex`)
 For compilation tapes containing programs for multiple target systems and spoken human narration (such as ASCII's *Tape Login* and *Tank Battle* series, or multi-part releases like *Gundam 2* and *Tomato Hime*):
 * **Hard Program Fencing**: Intervening human speech/commentary tracks or extended leader silences (>5s) act as hard program boundaries, preventing unrelated titles from merging.
-* **Chained Multi-File Container Integrity**: Multi-part programs (e.g., PC-88 tokenized BASIC loader → machine-language engine → graphics/map data; MSX multi-block loads; PC-6001 BASIC → NONTAMA payload) are preserved together inside a single, unified, bootable emulator container image (`.t88`, `.cas`, `.p6t`, `.t77`, `.mzt`). This ensures emulators load all subsequent stages automatically without hanging on missing sub-files.
+* **Chained Multi-File Container Integrity**: Multi-part programs (e.g., PC-88 tokenized BASIC loader → machine-language engine → graphics/map data; MSX multi-block loads; PC-6001 BASIC → NONTAMA payload) are preserved together inside a single, unified, bootable emulator container image (`.t88`, `.cas`, `.p6t`, `.t77`, `.mzt`, `.tap`, `.cdt`, `.tzx`). This ensures emulators load all subsequent stages automatically without hanging on missing sub-files.
 * **Dissected Payload Extraction**: In addition to the bootable multi-file container, individual sub-files (`.cmt`, `.bin`, detokenized `.bas`) are unpacked into a `subfiles/` directory for developer inspection.
 
-#### 7. Three-Tier Ambiguity Resolution Strategy
-Generic extensions like `.cmt` (used by PC-88, PC-6001, MSX, FM-7), `.cas` (used by MSX, Sega SC-3000, Sord M5, Casio, CoCo), and `.wav` are resolved through a deterministic hierarchy:
-1. **Tier 1: Explicit Namespaced Filter Applets**: Direct invocation of single-purpose Unix filters (`dwimsy-msx-wav2cas`, `dwimsy-sega-wav2cas`, `dwimsy-wav2t88`, `dwimsy-t882wav`) establishes unambiguous platform context.
-2. **Tier 2: Explicit Profile Switches**: High-level commands accept `--profile=` overrides (`--profile=pc88`, `--profile=msx`, `--profile=sega-sc3000`, `--profile=pc6001`, `--profile=fm7`).
-3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated UART stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sega `"SEGA CASSETTE"`, or FM-7/FM-8 headers).
+#### 8. Three-Tier Ambiguity Resolution Strategy
+Generic extensions like `.cmt` (used by PC-88, PC-6001, MSX, FM-7), `.cas` (used by MSX, Sega SC-3000, Sord M5, Casio, CoCo), `.mzt` (Sharp MZ single/multi-file dumps vs QD BSD images), and `.wav` are resolved through a deterministic hierarchy:
+1. **Tier 1: Explicit Namespaced Filter Applets**: Direct invocation of single-purpose Unix filters (`dwimsy-msx-wav2cas`, `dwimsy-sega-wav2cas`, `dwimsy-sord-wav2cas`, `dwimsy-wav2t88`, `dwimsy-t882wav`) establishes unambiguous platform context.
+2. **Tier 2: Explicit Profile Switches**: High-level commands accept `--profile=` overrides (`--profile=pc88`, `--profile=msx`, `--profile=sega-sc3000`, `--profile=sord-m5`, `--profile=pc6001`, `--profile=fm7`, `--profile=mz700`, `--profile=mz2000`, `--profile=x1`, `--profile=cpc`, `--profile=spectrum`, `--profile=famicom-basic`).
+3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sharp X1 `.tap` headers, Family BASIC headers, Sega `"SEGA CASSETTE"`, Sord `0x55`+`HEADER`, or FM-7/FM-8 headers).
 
-#### 8. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (`transport.seeker`)
+#### 9. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (`transport.seeker`)
 Instead of blind time-based skipping, `dwimsy` provides structure-aware transport navigation:
 * **Named File & Header Seeking**: Seek directly to a named file (e.g., `seek --file "STAGE2.BIN"` or `seek --type BASIC`).
-* **Block & Record Navigation**: Step forward or backward by logical data blocks (`seek --next-block`, `seek --prev-file`).
+* **Loading Group Navigation**: Step forward or backward by entire loading groups (`seek --next-group`, `seek --prev-group`).
 * **Semantic Marker Seeking**: Instantly cue to narration cue points, audio drama segments, or user cable swap prompts.
 * **Calibrated Tape Counter Seek**: Navigates using physical reel rotation models (`seek --counter "0450"`), translating between tape ticks and elapsed master FLAC time.
 * **Transport State Integrity**: While seeking in live bridge mode, `dwimsy` coordinates with the retrocomputer host by holding the virtual motor/pause state, smoothly re-engaging carrier lock at the target boundary without triggering framing errors.
@@ -474,11 +490,19 @@ To provide clean, immediate usability in emulators while maintaining complete ar
         overshoot.
 4.  Fujitsu FM-7 / FM-8 (.t77 and .cmt Pairs):
       - game (Japan).t77 ↔ game (Japan).cmt: Standard FM-7 / FM-8 timing container.
-5.  Sega SC-3000 and Sord M5 (.cas Disambiguated Pairs):
+5.  Sharp MZ & Nintendo Family BASIC (.mzf, .mzt, and .m12 Pairs):
+      - game (Japan).mzf ↔ game (Japan).mzt: Single-file MZF / multi-file concatenated MZT.
+      - game (Japan) [pat].mzt: Preserves optional MZ700WIN header patch block.
+      - game (Japan).fbt ↔ game (Japan).mzf: Famicom Data Recorder level dumps (Excitebike, Lode Runner).
+6.  Sharp X1 (.tap and .cmt Pairs):
+      - game (Japan).tap ↔ game (Japan).cmt: Sharp X1 2700-baud PWM container.
+7.  Sinclair ZX Spectrum / Amstrad CPC (.tzx, .cdt, and .tap Pairs):
+      - game (UK).tzx / .cdt: Unified TZX-family container (with Group, Pause, and Stop 48K blocks).
+8.  Sega SC-3000 and Sord M5 (.cas Disambiguated Pairs):
       - game (Japan) (SC-3000).cas: Sega SC-3000 emulator container (`SEGA CASSETTE` header).
       - game (Japan) (Sord M5).cas: Sord M5 stream (`0x55` sync bursts).
-6.  Multi-File Program Containers:
-      - game (Japan).t88 / .cas: Unified bootable container bundling all chained sub-files in sequence.
+9.  Multi-File Program Containers:
+      - game (Japan).t88 / .cas / .tap / .tzx / .mzt: Unified bootable container bundling all chained sub-files in sequence.
       - subfiles/01_file.cmt, 02_file.cmt: Individual sliced sub-files for disassembly and reverse-engineering.
 
 ---
@@ -511,6 +535,10 @@ dwimsy convert capture.wav output.cas --profile=msx
 dwimsy convert capture.wav output.cas --profile=sega-sc3000
 dwimsy convert game.cmt game.wav --profile=pc88
 dwimsy convert game.cmt game.t77 --profile=fm7
+dwimsy convert game.cmt game.tap --profile=x1
+
+# Extract Family BASIC tokenized code, BG graphic tables & level maps
+dwimsy extract game.mzt --profile=famicom-basic -o ./famicom_src/
 
 # Launch live bridge in empty tape deck mode (zero initial inputs, ready for development)
 dwimsy bridge --deck /dev/ttyUSB0
@@ -576,6 +604,7 @@ dwimsy join ./extracted_tracks/ -o master.wav
 # Content-aware smart seek to specific file, block, or calibrated tape counter
 dwimsy-ctl seek --file "STAGE2.BAS"
 dwimsy-ctl seek --counter "0350"
+dwimsy-ctl seek --next-group
 dwimsy-ctl seek --next-block
 
 # Media changing, blank save creation & carousel policy configuration
@@ -624,17 +653,17 @@ To prevent UI telemetry from polluting piped data streams:
 * **`stdout`**: Dedicated strictly to raw binary data streams (audio PCM, container bytes, payload).
 * **`stderr`**: Formats an out-of-band 2-line "Virtual LCD" status display (ANSI in-place update), cleanly mapping to physical 16x2 / 20x2 / 40x2 character LCDs (HD44780 / OLED).
 * **Essential Field Layout & Animated Marquee**:
-  To fit all critical fields (**Tape Counter**, **Elapsed/Total Time**, **Block Index**, **File Number**, **File Name**, and **Current Mode**) into compact displays, `dwimsy` uses a fixed top status bar paired with an animated scrolling marquee ticker on the bottom line:
+  To fit all critical fields (**Tape Counter**, **Elapsed/Total Time**, **Loading Group Index**, **File Number**, **File Name**, and **Current Mode**) into compact displays, `dwimsy` uses a fixed top status bar paired with an animated scrolling marquee ticker on the bottom line:
   ```text
   Line 1 (Fixed)  : [C:0342] [04:15/15:00] [MODE:CANONICAL] [SPEED:100.2%]
-  Line 2 (Marquee): F02/05 BLK03/12 > "DRAGON_SLAYER.BAS" [CRC:OK] [REC:ARMED]
+  Line 2 (Marquee): F02/05 GRP01/03 > "DRAGON_SLAYER.BAS" [CRC:OK] [REC:ARMED]
   ```
   - **Animated Text Scrolling**: When filenames or metadata strings exceed the line width (e.g. on 16x2 or 20x2 character displays), the text scrolls smoothly with edge pauses so no information is truncated.
   - **Live Overlay & New Media Alerts**: Write-overlay events, record-armed interlocks, fresh blank media insertions, tape leader detections, and carrier status flash cleanly in the marquee without disturbing the real-time audio/flux loop.
 * **Interactive TTY Keystrokes & Out-of-Band Control Channel**:
   When `stdin`/`stderr` are on a TTY, direct keystrokes and colon commands control the engine without pausing audio streaming:
   * `Ctrl-S` / `Ctrl-Q`: Stop / Resume transport motion or recording.
-  * `<Space>`: Toggle motor pause / play.
+  * `<Space>`: Toggle motor pause / play (or advance to next Loading Group).
   * `<R>`: Toggle virtual Record Arming mode.
   * `<N>`: Create, auto-name, and hot-insert a fresh blank save tape/disk.
   * `[` / `]`: Switch to previous / next side or tape in the Virtual Image Root.
@@ -643,7 +672,7 @@ To prevent UI telemetry from polluting piped data streams:
   * `<D>`: Discard / purge active write overlay and revert to pristine master.
   * `:import <path>`: Import an external image into the Virtual Image Root on-the-fly.
   * `:export <name> <dest>`: Export any file from the Virtual Image Root to disk.
-  * `Arrow Keys` (←/→/↑/↓): Fast-forward, rewind, seek block/track, adjust speed trim.
+  * `Arrow Keys` (←/→/↑/↓): Fast-forward, rewind, seek block/group, adjust speed trim.
   * `<Enter>` / `<ESC>`: Menu selection / Back & Cancel.
   * `<M>` or `<Tab>`: Cycle canonicalization / emulation profiles.
 * **Remote App & Supervisor Telemetry Stream**:
@@ -651,7 +680,7 @@ To prevent UI telemetry from polluting piped data streams:
   * `dwimsy` continuously pushes structured telemetry frames to connected supervisor clients:
     * *Signal/DSP*: RMS VU levels, DC bias, SNR, FSK carrier lock, baud tracking jitter.
     * *Transport*: Instantaneous motor speed (e.g. `+1.3%`), capstan tacho counts, head cylinder/track, record arming status, write-protect sense.
-    * *Protocol/Filesystem*: Active sector ID, detected filename and format during writes, CRC/parity validation flags.
+    * *Protocol/Filesystem*: Active sector ID, active Loading Group, detected filename during writes, CRC flags.
   * Smartphone or desktop web dashboards can connect to display live waterfall spectrograms, monitor VU levels, flip tape sides, insert floppy images, upload/download virtual root files, toggle record arming, and tag cue markers remotely.
 * **POSIX Signals & Appliance Buttons**:
   * `SIGUSR1` (Button A): Advance track / Swap disk / Flip tape side (A ↔ B).
@@ -793,7 +822,7 @@ ignores during motor coast:
   - Piecewise Timebase Correction & Mixed-Mode Segmentation: `[ ] TODO` For composite tapes
     containing interleaved narration/drama audio and modulated data (e.g. ASCII *Tape Login*, *Tank Battle*, PC-88 *Gundam 2*):
       * Distinguishes human speech from computer carrier tones using spectral entropy, spectral flatness (SFM → 0), and zero-crossing regularity (Δt bimodal distribution).
-      * Segments the timeline into audio drama (`.ogg` / `.wav`) and data regions (`.t88` / `.t77` / `.cmt`) referencing master FLAC timestamps.
+      * Segments the timeline into audio drama (`.ogg` / `.wav`) and data regions (`.t88` / `.t77` / `.cmt`, `.tap`, `.tzx`) referencing master FLAC timestamps.
       * Derives instantaneous tape speed and wow/flutter from known CMT symbol timing markers.
       * Applies piecewise timebase correction to analog audio tracks without altering their analog waveform, while data segments are canonically regenerated.
       * Emits a companion `<basename>.cue` sheet linking audio and data tracks to exact master FLAC timestamps.
@@ -806,7 +835,7 @@ ignores during motor coast:
     attack/release) to ride out fading and dropouts.
   - Zero-Gap Demodulation: `[ ] TODO` Snaps post-DATA carrier start ticks to the
     exact end tick of the preceding data block
-    (`T_end = T_start + N_bytes · ticks_per_byte`).
+    (`T_end = T_start + N_bytes × ticks_per_byte`).
   - Multi-Copy & Multi-Revolution Consensus (Disks & Tapes): `[ ] TODO` Merges
     multiple physical copies or multi-revolution dumps (floppy SCP/A2R/D88 or
     tape takes) using CRC-verified block/sector consensus.
@@ -866,17 +895,19 @@ Tasks:
 7.  [ ] TODO Implement dwimsy archive bundle generator with manifest.yaml and
     README.md.
 
-### Phase 3: Extended Tape Containers (TSX, P6T, UEF, Sord, Sega) `[ ] TODO`
+### Phase 3: Extended Tape Containers (TSX, P6T, UEF, Sord, Sega, Sharp, Fujitsu) `[ ] TODO`
 
 Tasks:
 
-1.  [ ] TODO Implement dwimsy.tape.tsx (TZX 1.20 + Block #4B KCS FSK)
-    → enables Amstrad CPC .cdt and ZX Spectrum .tzx.
+1.  [ ] TODO Implement dwimsy.tape.tzx_family (Unified TZX 1.20 / CDT / TSX with Block #4B KCS FSK & Group blocks).
 2.  [ ] TODO Implement dwimsy.tape.p6t and dwimsy.tape.p6 with BIOS CSAVE
     padding trimmer, autostart footer generation and `mk2mon` labels.
 3.  [ ] TODO Integrate dwimsy.tape.bbc (BBC Micro Model B .uef via cas2uef).
-4.  [ ] TODO Implement Sord M5, Sega SC-3000, and Fujitsu FM-7/FM-8 (.t77) adapters.
-5.  [ ] TODO Add auto-sniffing for .cas/.cmt flavor disambiguation and multi-platform
+4.  [ ] TODO Implement Sord M5 and Sega SC-3000 (.cas) adapters.
+5.  [ ] TODO Implement Sharp MZ (.mzf/.mzt) and Sharp X1 (.tap) container engines with 80C49 deck logic.
+6.  [ ] TODO Implement Fujitsu FM-7 / FM-8 (.t77) pulse container and FSK codec.
+7.  [ ] TODO Implement platforms.family_basic (HuBASIC token parser, BG renderer, and HVC-008 level extractor).
+8.  [ ] TODO Add auto-sniffing for .cas/.cmt flavor disambiguation and multi-platform
     compilation splitting (Tape Login / Tank Battle multiplexer).
 
 ### Phase 4: Mixed-Mode Media, Dual-Track Stereo & Audio Discs `[ ] TODO`
@@ -923,6 +954,7 @@ Tasks:
 | **MSX (Sanyo 2x Fast)**    | Octave FSK       | 4800 Hz (2 cyc)                              | 2400 Hz (1 cyc)                               | 2400 baud                         | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
 | **MSX (European Turbo)**   | PWM / Pulse      | Short edge pair                              | Long edge pair                                | 2000–4000+ baud                   | Raw bitstream, zero stop bits         |
 | **Sharp MZ / MZ-700 / MZ-80K** | PWM (MZT)    | Long pulse pair (≈1000 Hz)                   | Short pulse pair (≈2000 Hz)                   | 1200 baud                         | 128-byte MZT header + tape sync blocks|
+| **Sharp X1 (CZ-800 Series)** | Sharp PWM      | Fast pulse interval                          | Slow pulse interval                           | 2700 / 1200 baud                  | 80C49 logic framing & .tap descriptor |
 | **Nintendo Famicom Family BASIC** | PWM (MZT) | Sharp MZ PWM pulse pair                      | Sharp MZ PWM pulse pair                       | 1200 baud                         | Sharp MZ-compatible modulation/framing|
 | **Casio PV-2000 / FP-1100**| FSK / PWM        | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 / 2400 baud                  | Casio unified FSK/PWM tape framing    |
 | **BBC Micro Model B**      | FSK (KCS)        | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 / 300 baud                   | 1 Start (0), 8 Data (LSB), 1 Stop (1) |
@@ -946,10 +978,14 @@ PC-88 CMT   .cmt        D3 D3 D3... (BASIC), 24 24 24... (MON ML), 9C 9C 9C...
 FM-7 T77    .t77        FBASIC / 2BS file headers, 0x00*N + 0x3C sync bytes
 MSX TSX     .tsx / .tzx 5A 58 54 61 70 65 21 1A ("ZXTape!\x1a") + ver 0x01 0x20
 MSX CAS     .cas        1F A6 DE BA CC 13 7D 74 (8-byte BIOS sync header)
-Sharp MZT   .mzt        01 (File type) + 16-byte filename + 128-byte header
+Sharp MZF   .mzf / .m12 01 (File type) + 16-byte filename + 128-byte header
+Sharp MZT   .mzt        Multiple 128-byte MZF files concatenated in sequence
+Sharp X1    .tap        54 41 50 45 ("TAPE") or raw Sharp X1 2700-baud chunks
 Family BASIC.mzt / .cas Sharp MZ-compatible PWM with Famicom BASIC V2/V3 header
+Famicom Data.fbt / .tp  Raw level dump blocks (Excitebike, Lode Runner, etc.)
 BBC UEF     .uef        1F 8B (Gzip header) -> 55 45 46 20 46 69 6C 65 21
 Amstrad CDT .cdt        5A 58 54 61 70 65 21 1A ("ZXTape!\x1a")
+Sinclair TZX.tzx        5A 58 54 61 70 65 21 1A ("ZXTape!\x1a")
 PC-6001 P6T .p6t        PC6001V format with trailing timing/autoboot footer
 PC-6001 P6  .p6         D3 D3 D3... + screen mode / page count descriptor
 Sega CAS    .cas        53 45 47 41 20 43 41 53 53 45 54 54 45 ("SEGA CASSETTE")
