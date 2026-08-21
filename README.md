@@ -181,11 +181,11 @@ git submodule update --init --recursive
 | **`platforms.studybox`**| Famicom StudyBox dual-track voice + MFM stream decoder & solenoid transport | `[ ] TODO` | Milestone 5 |
 | **`platforms.adam_ddp`**| Coleco Adam DDP (80 ips high-speed tape) decoder & servo transport | `[ ] TODO` | Milestone 5 |
 | **`platforms.gakken_gcx`**| Gakken Manabu-kun (GCX) MSX-like tape & CD-DA audio disc engine | `[ ] TODO` | Milestone 5 |
-| **`platforms.ibm5150`** | IBM PC 5150 cassette demodulator | `[ ] TODO" | Milestone 5 |
-| **`platforms.bk0010`** | Soviet Elektronika BK-0010 PDP-11 demodulator | `[ ] TODO" | Milestone 5 |
-| **`bus.controller`** | Floppy/Serial/Parallel/IEC bus hardware interfaces (Shugart, Apple, Commodore IEC, SIO) | `[ ] TODO" | Milestone 5 |
-| **`disk.flux`** | Floppy disk raw flux decoders (Applesauce .a2r/.woz, Greaseweazle .scp/.raw)| `[ ] TODO" | Milestone 5 |
-| **`packaging`** | `pyproject.toml`, pip packaging, API docs | `[ ] TODO" | Milestone 5 |
+| **`platforms.ibm5150`** | IBM PC 5150 cassette demodulator | `[ ] TODO` | Milestone 5 |
+| **`platforms.bk0010`** | Soviet Elektronika BK-0010 PDP-11 demodulator | `[ ] TODO` | Milestone 5 |
+| **`bus.controller`** | Floppy/Serial/Parallel/IEC bus hardware interfaces (Shugart, Apple, Commodore IEC, SIO) | `[ ] TODO` | Milestone 5 |
+| **`disk.flux`** | Floppy disk raw flux decoders (Applesauce .a2r/.woz, Greaseweazle .scp/.raw)| `[ ] TODO` | Milestone 5 |
+| **`packaging`** | `pyproject.toml`, pip packaging, API docs | `[ ] TODO` | Milestone 5 |
 
 ---
 
@@ -300,7 +300,7 @@ Physical capture time, modeled tape position, corrected media time, protocol tim
 ```
 
 #### Tri-Directional Control Mechanics
-1. **Upstream Host Control**: Senses host `REMOTE` motor relays, Shugart `/STEP`/`/MOTOR_ON` lines, Commodore IEC serial bus, Atari SIO, Sharp MZ parallel bus lines, or full software transport ASIC command lines (StudyBox / Gakken GCX / Sharp X1).
+1. **Upstream Host Control**: Senses host `REMOTE` motor relays, Shugart `/STEP`/`/MOTOR_ON` line, Commodore IEC serial bus, Atari SIO, Sharp MZ parallel bus lines, or full software transport ASIC command lines (StudyBox / Gakken GCX / Sharp X1).
 2. **Downstream Transport Control**: Drives physical deck relays/solenoids (`PLAY`, `STOP`, `REWIND`, `RECORD`), monitors capstan tachometer / reel rotation for instant tape speed feedback, and senses optical end-of-tape (EOT).
 3. **Operator / Supervisor Plane (Bidirectional)**:
    * **Inbound Commands**: Operators swap disks, flip tape sides, arm virtual recording modes, create blank save tapes, trigger motor overrides, inject cue annotations, and cycle canonicalization modes without disturbing the real-time audio/flux streaming loop.
@@ -362,7 +362,7 @@ When browsing media via the `<I>` keystroke in TTY mode:
   - If the active media was chosen from the CLI, generated dynamically, or imported → browsing starts in the Virtual Image Root.
   - If the active media was selected from a subdirectory within `--image-root` → browsing opens directly inside that subdirectory.
 * **Type-to-Navigate**: In TTY mode, typing alphanumeric characters performs in-place substring filtering across filenames.
-* **Seamless Virtual Insertion**: Pressing `<Enter>` selects an image and hot-inserts it into the active transport loop, simulating appropriate door/index pulses to the host retrocomputer without audio dropouts.
+* **Seamless Virtual Insertion**: Pressing `<Enter>` selects an image and hot-inserted it into the active transport loop, simulating appropriate door/index pulses to the host retrocomputer without audio dropouts.
 
 #### 3. Out-of-Band Import/Export Control Channel & Ephemeral Mode
 * **Ephemeral In-Memory / Crash-Safe Mode (`--ephemeral`)**: Overlays and newly created save media are held strictly in RAM and never written to disk or persistent cache, remaining clean even after sudden termination or power loss. Temporary storage uses auto-cleaned scratch directories or RAM.
@@ -485,7 +485,7 @@ Media is tagged as read-only or writable (tracking physical write-protect notche
 
 ---
 
-## 8. Evidence, Models, and Preservation Status
+## 7. Evidence, Models, and Preservation Status
 
 `dwimsy` is intended to be useful for preservation without overstating what has actually been established. Technical facts, empirical observations, inferred structure, heuristics, and generated material should remain distinguishable.
 
@@ -554,7 +554,7 @@ The model must record its parameters and provenance, and should not be described
 
 ---
 
-## 9. Systematic Flavor Taxonomy & No-Intro Naming
+## 8. Systematic Flavor Taxonomy & No-Intro Naming
 
 To prevent tool-name pollution and keep filenames concise while making it easy to cross-reference No-Intro, TOSEC, and MAME Software Lists where the resulting artifact actually matches their published definition, dwimsy defines a canonical default flavor (no extra tag) for each layer, alongside explicitly tagged variant siblings.
 ```text
@@ -621,7 +621,7 @@ To provide clean, immediate usability in emulators while maintaining complete ar
 
 ---
 
-## 10. CLI & Interface Conventions
+## 9. CLI & Interface Conventions
 
 ### Main CLI Verbs `[ ] TODO`
 
