@@ -195,6 +195,7 @@ git submodule update --init --recursive
 
 ## 6. Representation Layers, Real-Time Planes & Hardware Gateway
 
+```text
 ┌────────────────────────────────────────────────────────┐
 │ Layer 4: Semantic File & Payload Layer        [ ] TODO │
 │   • Executable Binaries (BLOAD, Load/Exec RAM images)  │
@@ -218,6 +219,7 @@ git submodule update --init --recursive
 │   • Raw Pulse Flux : Applesauce (.a2r), Greaseweazle   │
 │   • Physical DSP   : Time-Base Correction, AGC, Slicer │
 └──────────────────────────┴─────────────────────────────┘
+```
 
 ### Representation Layers and Orthogonal Planes
 
@@ -265,6 +267,7 @@ Physical capture time, modeled tape position, corrected media time, protocol tim
 
 `dwimsy` operates as a real-time hardware appliance and bridge between retrocomputing systems, physical media transports, modern sound cards, emulators, and human operators:
 
+```text
                   ┌───────────────────────────────────────────────┐
                   │          TRI-DIRECTIONAL CONTROL PLANE        │
                   │                                               │
@@ -290,6 +293,7 @@ Physical capture time, modeled tape position, corrected media time, protocol tim
                           ▼                               ▼
                   Local CLI / LCD / TTY          Phone / Web Dashboard
                   (Keystrokes, stderr)          (Spectrogram, Swaps)
+```
 
 #### Tri-Directional Control Mechanics
 1. **Upstream Host Control**: Senses host `REMOTE` motor relays, Shugart `/STEP`/`/MOTOR_ON` lines, Commodore IEC serial bus, Atari SIO, Sharp MZ parallel bus lines, or full software transport ASIC command lines (StudyBox / Gakken GCX / Sharp X1).
@@ -919,7 +923,7 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 * **Adaptive Midpoint FSK Slicer**: `[ ] TODO` Fast edge detection with Schmitt-trigger dynamic hysteresis and midpoint cycle discrimination (`N_mid = (Fₛ/4) × (1/f₀ + 1/f₁)`), using local envelope tracking (AGC attack/release) to ride out fading and dropouts.
 * **Zero-Gap Demodulation**: `[ ] TODO` Snaps post-DATA carrier start ticks to the exact end tick of the preceding data block (`T_end = T_start + N_bytes × ticks_per_byte`).
 * **Multi-Copy & Multi-Revolution Consensus (Disks & Tapes)**: `[ ] TODO` Merges multiple physical copies or multi-revolution dumps (floppy SCP/A2R/D88 or tape takes) using CRC-verified block/sector consensus.
-* **Non-Linear Time Harmonization & Print-Through Recovery**: `[ ] TODO` Dynamic Time Warping on pulse transitions (Δt) to align time-reversed ghost signals from opposite tape sides and repair dropouts.
+* **Non-Linear Time harmonization & Print-Through Recovery**: `[ ] TODO` Dynamic Time Warping on pulse transitions (Δt) to align time-reversed ghost signals from opposite tape sides and repair dropouts.
 * **Context-Aware Semantic Recovery (ZX81)**: `[ ] TODO` Uses BASIC line link pointers, token tables, and disassembly branches to solve ambiguous pulse dropouts.
 * **Dual-Track Concurrent Stereo**: `[ ] TODO` Independent channel classification and crosstalk bleed rejection (Sega AI Computer, Atari 8-bit, Famicom StudyBox).
 * **Virtual Sanyo PHC-DRIII Shaper & Circuit Simulation**: `[ ] TODO` Software differentiator (d/dt), phase equalizer, and exact circuit transfer functions (`cmt_filter.py`):
