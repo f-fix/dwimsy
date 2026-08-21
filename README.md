@@ -191,6 +191,8 @@ git submodule update --init --recursive
 
 ## 6. Representation Layers, Real-Time Planes & Hardware Gateway
 
+A codec operates on a representation stream and declares its real-time properties independently of whether its endpoint is a file, pipe, emulator, or physical deck.
+
 ```text
 ┌────────────────────────────────────────────────────────┐
 │ Layer 4: Semantic File & Payload Layer        [ ] TODO │
@@ -477,7 +479,7 @@ Media is tagged as read-only or writable (tracking physical write-protect notche
 
 ---
 
-## Evidence, Models, and Preservation Status
+## 7. Evidence, Models, and Preservation Status
 
 `dwimsy` is intended to be useful for preservation without overstating what has actually been established. Technical facts, empirical observations, inferred structure, heuristics, and generated material should remain distinguishable.
 
@@ -1051,9 +1053,9 @@ PC-6001 P6T .p6t        PC6001V format with trailing timing/mode descriptors & a
 PC-6001 P6  .p6         D3 D3 D3... + screen mode / page count descriptor
 Sega CAS    .cas        53 45 47 41 20 43 41 53 53 45 54 54 45 ("SEGA CASSETTE")
 Sord M5 CAS .cas        55 55 55 55 55 55 55 55 (Sync run) + 'HEADER'
-NEC D88     .d88 / .d77 17-byte disk title + 0x00 + 0x00 0x00 0x00
+NEC D88     .d88 / .d77 17-byte disk title + 0x00 + 0x00 0x00 0x00 0x00
 FDS Image   .fds        46 44 53 1A ("FDS\x1a") or Block 1 '\x01*NINTENDO-HVC*'
-Applesauce  .woz / .a2r 57 4F 5A 31 / 57 4F 5A 32 | 41 32 52 22 ("A2R2")
+Applesauce  .woz / .a2r 57 4F 5A 31 / 57 4F 5A 32 | 41 32 52 32 ("A2R2") | 41 32 52 33 ("A2R3")
 Greaseweazle.scp        53 43 50 ("SCP")
 C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CARTRIDGE   ")
 ```
