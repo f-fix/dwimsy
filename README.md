@@ -109,7 +109,6 @@ It is designed to grow incrementally, adding support for new computer platforms,
 `dwimsy` orchestrates several specialized tools. To fetch the complete source tree including all sub-component logic, use the recursive clone or update commands:
 
 **New Checkout (Fresh Clone):**
-To clone the repository along with all dependencies in one step:
 ```bash
 git clone --recursive https://github.com/f-fix/dwimsy.git
 ```
