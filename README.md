@@ -264,6 +264,8 @@ Physical capture time, modeled tape position, corrected media time, protocol tim
 
 ### Hardware Transducer & Tri-Directional Control Gateway ("DWIMSY Box")
 
+`dwimsy` operates as a real-time hardware appliance and bridge between retrocomputing systems, physical media transports, modern sound cards, emulators, and human operators:
+
                   ┌───────────────────────────────────────────────┐
                   │          TRI-DIRECTIONAL CONTROL PLANE        │
                   │                                               │
@@ -377,7 +379,7 @@ To prevent tedious manual keystrokes during multi-block loading on systems witho
   3. *Segment (Timeline / Mixed-Mode)*: Chronological macro-region on a composite mixed-mode tape (e.g. *Gundam 2* `Segment 01` [Data] ↔ `Segment 02` [Audio Drama]).
 * **Automated Group Boundary Detection**:
   - *TZX / TSX / CDT Metadata*: Evaluates block pause values. Non-zero pauses stream automatically; zero-pause blocks (Block `0x20` Stop the Tape / Block `0x2A` Stop in 48K) or TZX Group markers (`0x21`/`0x22`) seal the Loading Group and engage transport auto-pause.
-  - *Audio Cadence**: Inter-block gaps < 2.0s maintain continuous streaming; silence drops ≥ 3.0s–5.0s trigger stage auto-pause.
+  - *Audio Cadence*: Inter-block gaps < 2.0s maintain continuous streaming; silence drops ≥ 3.0s–5.0s trigger stage auto-pause.
   - *Loader Protocol Signatures*: Recognizes linked loader patterns (Speedlock, NONTAMA, PC-88 CSAVE → MON chains) and groups them automatically.
 
 #### 6. Runtime Conversion Mode & Modulation Switching (dsp.router)
@@ -1050,9 +1052,9 @@ PC-6001 P6T .p6t        PC6001V format with trailing timing/mode descriptors & a
 PC-6001 P6  .p6         D3 D3 D3... + screen mode / page count descriptor
 Sega CAS    .cas        53 45 47 41 20 43 41 53 53 45 54 54 45 ("SEGA CASSETTE")
 Sord M5 CAS .cas        55 55 55 55 55 55 55 55 (Sync run) + 'HEADER'
-NEC D88     .d88 / .d77 17-byte disk title + 0x00 + 0x00 0x00 0x00 0x00
+NEC D88     .d88 / .d77 17-byte disk title + 0x00 + 0x00 0x00 0x00
 FDS Image   .fds        46 44 53 1A ("FDS\x1a") or Block 1 '\x01*NINTENDO-HVC*'
-Applesauce  .woz / .a2r 57 4F 5A 31 / 57 4F 5A 32 | 41 32 52 32 ("A2R2")
+Applesauce  .woz / .a2r 57 4F 5A 31 / 57 4F 5A 32 | 41 32 52 22 ("A2R2")
 Greaseweazle.scp        53 43 50 ("SCP")
 C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CARTRIDGE   ")
 ```
