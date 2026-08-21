@@ -27,9 +27,9 @@ grandiose version: (currently 0% implemented)
 ## Table of Contents
 1. [Overview & Approach](#1-overview--approach)
 2. [Development Strategy](#2-development-strategy)
-3. [Existing Project Lineage & Asset Repositories](#2-existing-project-lineage--asset-repositories)
-4. [Component Implementation Status Matrix](#3-component-implementation-status-matrix)
-5. [Representation Layers, Real-Time Planes & Hardware Gateway](#4-representation-layers-real-time-planes--hardware-gateway)
+3. [Existing Project Lineage & Asset Repositories](#3-existing-project-lineage--asset-repositories)
+4. [Component Implementation Status Matrix](#4-component-implementation-status-matrix)
+5. [Representation Layers, Real-Time Planes & Hardware Gateway](#5-representation-layers-real-time-planes--hardware-gateway)
    - [Representation Layers and Orthogonal Planes](#representation-layers-and-orthogonal-planes)
    - [Real-Time Streaming Contract](#real-time-streaming-contract)
    - [Timebase as a First-Class Representation](#timebase-as-a-first-class-representation)
@@ -41,18 +41,18 @@ grandiose version: (currently 0% implemented)
    - [ROM Cartridges as Tape Containers & BIOS Hook Injections](#rom-cartridges-as-tape-containers--bios-hook-injections)
    - [Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry](#physical-cassette-shell-profiling--nominal-whole-tape-geometry)
    - [Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
-6. [Evidence, Models, and Preservation Status](#5-evidence-models-and-preservation-status)
+6. [Evidence, Models, and Preservation Status](#6-evidence-models-and-preservation-status)
    - [Status of Technical Claims](#status-of-technical-claims)
    - [Preservation Hierarchy](#preservation-hierarchy)
    - [Mixed-Mode Media](#mixed-mode-media)
    - [Physical-Equivalent Cassette Modeling](#physical-equivalent-cassette-modeling)
-7. [Systematic Flavor Taxonomy & No-Intro Naming](#6-systematic-flavor-taxonomy--no-intro-naming)
-8. [CLI & Interface Conventions](#7-cli--interface-conventions)
-9. [Metadata, Checksums & Archival Packaging](#8-metadata-checksums--archival-packaging)
-10. [Forensic DSP & Restoration Engines](#9-forensic-dsp--restoration-engines)
-11. [Multi-Phase Implementation Roadmap](#10-multi-phase-implementation-roadmap)
-12. [Format & Protocol Technical Reference Guide](#11-format--protocol-technical-reference-guide)
-13. [Note on the code and the tools used to write it](#12-note-on-the-code-and-the-tools-used-to-write-it)
+7. [Systematic Flavor Taxonomy & No-Intro Naming](#7-systematic-flavor-taxonomy--no-intro-naming)
+8. [CLI & Interface Conventions](#8-cli--interface-conventions)
+9. [Metadata, Checksums & Archival Packaging](#9-metadata-checksums--archival-packaging)
+10. [Forensic DSP & Restoration Engines](#10-forensic-dsp--restoration-engines)
+11. [Multi-Phase Implementation Roadmap](#11-multi-phase-implementation-roadmap)
+12. [Format & Protocol Technical Reference Guide](#12-format--protocol-technical-reference-guide)
+13. [Note on the code and the tools used to write it](#13-note-on-the-code-and-the-tools-used-to-write-it)
 
 ---
 
@@ -87,6 +87,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 ---
 
 ## 2. Development Strategy
+
 `dwimsy` employs an **Adapter-first bootstrapping strategy**. Rather than deferring the high-level Transducer/Bridge features until a perfect refactor is complete, we wrap the existing "slop" tools into the `dwimsy` orchestration layer:
 
 *   **Phase 0.5 Adapters**: Define the `PulseStream` and `ByteStream` interfaces. Wrap classes like `BaudAgnosticPulseRecognizer` from `wav2t88` to provide an immediate data source for the Bridge and LCD UI.
@@ -95,6 +96,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 *   **Feature Injection**: Standalone tools are updated to support `stderr` standard logging and metadata dict injection prior to formal migration, allowing No-Intro naming and live telemetry to function even in the adapter phase.
 
 ---
+
 ## 3. Existing Project Lineage & Asset Repositories
 
 `dwimsy` integrates and unifies code, tables, and DSP algorithms from several existing repositories:
@@ -362,7 +364,7 @@ To prevent tedious manual keystrokes during multi-block loading on systems witho
   2. *Loading Group / Load Group (Layer 3)*: Contiguous sequence of blocks streamed in one continuous, uninterrupted pass by the computer's active loader without stopping the tape.
   3. *Segment (Timeline / Mixed-Mode)*: Chronological macro-region on a composite mixed-mode tape (e.g. *Gundam 2* `Segment 01` [Data] ↔ `Segment 02` [Audio Drama]).
 * **Automated Group Boundary Detection**:
-  - *TZX / TSX / CDT Metadata**: Evaluates block pause values. Non-zero pauses stream automatically; zero-pause blocks (Block `0x20` Stop the Tape / Block `0x2A` Stop in 48K) or TZX Group markers (`0x21`/`0x22`) seal the Loading Group and engage transport auto-pause.
+  - *TZX / TSX / CDT Metadata*: Evaluates block pause values. Non-zero pauses stream automatically; zero-pause blocks (Block `0x20` Stop the Tape / Block `0x2A` Stop in 48K) or TZX Group markers (`0x21`/`0x22`) seal the Loading Group and engage transport auto-pause.
   - *Audio Cadence*: Inter-block gaps < 2.0s maintain continuous streaming; silence drops ≥ 3.0s–5.0s trigger stage auto-pause.
   - *Loader Protocol Signatures*: Recognizes linked loader patterns (Speedlock, NONTAMA, PC-88 CSAVE → MON chains) and groups them automatically.
 
@@ -383,7 +385,7 @@ For compilation tapes containing programs for multiple target systems and spoken
 Generic extensions like `.cmt` (used by PC-88, PC-6001, MSX, FM-7), `.cas` (used by MSX, Sega SC-3000, Sord M5, Casio, CoCo), `.mzt` (Sharp MZ single/multi-file dumps vs QD BSD images), and `.wav` are resolved through a deterministic hierarchy:
 1. **Tier 1: Explicit Namespaced Filter Applets**: Direct invocation of single-purpose Unix filters (`dwimsy-msx-wav2cas`, `dwimsy-sega-wav2cas`, `dwimsy-sord-wav2cas`, `dwimsy-wav2t88`, `dwimsy-t882wav`) establishes unambiguous platform context.
 2. **Tier 2: Explicit Profile Switches**: High-level commands accept `--profile=` overrides (`--profile=pc88`, `--profile=msx`, `--profile=sega-sc3000`, `--profile=sord-m5`, `--profile=pc6001`, `--profile=fm7`, `--profile=mz700`, `--profile=mz2000`, `--profile=x1`, `--profile=cpc`, `--profile=spectrum`, `--profile=famicom-basic`).
-3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sharp X1 `.tap` headers, Family BASIC headers, Sega "SEGA CASSETTE", Sord `0x55`+`HEADER`, or FM-7/FM-8 headers).
+3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sharp X1 `.tap` headers, Family BASIC headers, Sega `"SEGA CASSETTE"`, Sord `0x55`+`HEADER`, or FM-7/FM-8 headers).
 
 #### 9. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (`transport.seeker`)
 Instead of blind time-based skipping, `dwimsy` provides structure-aware transport navigation:
@@ -946,7 +948,7 @@ Tasks:
 5. `[ ] TODO` Implement `dwimsy.cli.sidechannel` (`stderr` virtual LCD, TTY keystrokes, POSIX/Win32 signal dispatcher).
 6. `[ ] TODO` Integrate `dwimsy.core.charsets` (JIS X 0201, NEC semigraphics, MSX Katakana, ASCII, streaming CLI filter applet).
 7. `[ ] TODO` Integrate `dwimsy.disk.d88` and `dwimsy.disk.fat8` (`d882fat8`, `fat82d88`, `d882t88`, `d88_explode`).
-8. `[ ] TODO` Port `bin2fds.py` to Python 3 in `dwimsy.disk.fds` (`bin2fds` filter).
+8. `[ ] TODO` Port `bin2fds.py` to Python 3 in `dwimsy.disk.fds` (`bin2fds} filter).
 9. `[ ] TODO` Implement NONTAMA and MSX M-loader unpackers to standard BLOAD binaries (`mkrom`).
 10. `[ ] TODO` Implement `platforms.cart_hooks`: MSX Sakhr `cas2rom` extractor/packer and PC-6001mkII `mkrom` generator.
 11. `[ ] TODO` Implement `dwimsy.tape.variants`: Side-by-side flavor generator (Trimmed/Untrimmed, MSX unpadded, `.p6`/`.p6t` aligned pairs) with complete hash/size registry.
@@ -980,7 +982,7 @@ Tasks:
 3. `[ ] TODO` Implement Coleco Adam DDP (80 ips high-speed tape) decoder and servo transport.
 4. `[ ] TODO` Implement Gakken Manabu-kun (GCX) MSX-like tape & CD-DA audio disc decoder.
 5. `[ ] TODO` Implement vintage 16-bit demodulators: IBM PC 5150 cassette (`.cas`/`.bin`) and Elektronika BK-0010 PDP-11 demodulator with KOI-7 Cyrillic decoding.
-6. `[ ] TODO` Implement raw floppy flux decoders and multi-revolution consensus (Applesauce `.a2r`/`.woz`, Greaseweazle `.scp`/`.raw`).
+6. `[ ] TODO` Implement raw floppy flux decoders and multi-revolution consensus (Applesauce `.a2r`/`.woz", Greaseweazle `.scp`/`.raw`).
 7. `[ ] TODO` Finalize `pyproject.toml`, docstrings, and test suite for pip packaging.
 
 ---
