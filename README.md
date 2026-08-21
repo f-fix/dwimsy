@@ -385,7 +385,7 @@ For compilation tapes containing programs for multiple target systems and spoken
 Generic extensions like `.cmt` (used by PC-88, PC-6001, MSX, FM-7), `.cas` (used by MSX, Sega SC-3000, Sord M5, Casio, CoCo), `.mzt` (Sharp MZ single/multi-file dumps vs QD BSD images), and `.wav` are resolved through a deterministic hierarchy:
 1. **Tier 1: Explicit Namespaced Filter Applets**: Direct invocation of single-purpose Unix filters (`dwimsy-msx-wav2cas`, `dwimsy-sega-wav2cas`, `dwimsy-sord-wav2cas`, `dwimsy-wav2t88`, `dwimsy-t882wav`) establishes unambiguous platform context.
 2. **Tier 2: Explicit Profile Switches**: High-level commands accept `--profile=` overrides (`--profile=pc88`, `--profile=msx`, `--profile=sega-sc3000`, `--profile=sord-m5`, `--profile=pc6001`, `--profile=fm7`, `--profile=mz700`, `--profile=mz2000`, `--profile=x1`, `--profile=cpc`, `--profile=spectrum`, `--profile=famicom-basic`).
-3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sharp X1 `.tap` headers, Family BASIC headers, Sega `"SEGA CASSETTE"`, Sord `0x55`+`HEADER`, or FM-7/FM-8 headers).
+3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sharp X1 `.tap` headers, Family BASIC headers, Sega "SEGA CASSETTE", Sord `0x55`+`HEADER`, or FM-7/FM-8 headers).
 
 #### 9. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (`transport.seeker`)
 Instead of blind time-based skipping, `dwimsy` provides structure-aware transport navigation:
@@ -557,10 +557,10 @@ Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
   - Short: `salad1_1a.cas`, `salad1_1a.wav`, `salad1_1a_orig.flac`
 * **Multi-Platform Compilations on a Single Cassette**: For multi-system releases (e.g. *Tank Battle* containing PC-8801, FM-7, PC-6001mkII, FM-8 on one tape), the top-level archive summarizes all systems, while extracted tracks are indexed by file position with platform-specific loading commands:
   - Top Archive: `Tank Battle (ASCII) (Japan) (PC-8801, FM-7, PC-6001 mkII, FM-8) [_]`
-  - File 01: `Tank Battle (File 01) (ASCII) (Japan) (PC-8801) [_] [LOAD'CAS1-'-RUN]` ↔ `n80_tank88_file01.cmt"
-  - File 02: `Tank Battle (File 02) (ASCII) (Japan) (FM-7) [_] [RUN'CAS0-']` ↔ `fm7_tank7_file02.t77"
-  - File 03: `Tank Battle (File 03) (ASCII) (Japan) (PC-6001 mkII Mode 5 Pages 2) [_] [CLOAD-RUN]` ↔ `n62_tank_file03.p6t"
-  - File 04: `Tank Battle (File 04) (ASCII) (Japan) (FM-8) [_] [RUN'CAS0-']` ↔ `fm8_tank8_file04.t77"
+  - File 01: `Tank Battle (File 01) (ASCII) (Japan) (PC-8801) [_] [LOAD'CAS1-'-RUN]` ↔ `n80_tank88_file01.cmt`
+  - File 02: `Tank Battle (File 02) (ASCII) (Japan) (FM-7) [_] [RUN'CAS0-']` ↔ `fm7_tank7_file02.t77`
+  - File 03: `Tank Battle (File 03) (ASCII) (Japan) (PC-6001 mkII Mode 5 Pages 2) [_] [CLOAD-RUN]` ↔ `n62_tank_file03.p6t`
+  - File 04: `Tank Battle (File 04) (ASCII) (Japan) (FM-8) [_] [RUN'CAS0-']` ↔ `fm8_tank8_file04.t77`
 
 ### Canonical Default Collapsing
 To provide clean, immediate usability in emulators while maintaining complete archival sets, `dwimsy` uses non-destructive hardlinking (`os.link`, falling back to `shutil.copy2`):
@@ -948,7 +948,7 @@ Tasks:
 5. `[ ] TODO` Implement `dwimsy.cli.sidechannel` (`stderr` virtual LCD, TTY keystrokes, POSIX/Win32 signal dispatcher).
 6. `[ ] TODO` Integrate `dwimsy.core.charsets` (JIS X 0201, NEC semigraphics, MSX Katakana, ASCII, streaming CLI filter applet).
 7. `[ ] TODO` Integrate `dwimsy.disk.d88` and `dwimsy.disk.fat8` (`d882fat8`, `fat82d88`, `d882t88`, `d88_explode`).
-8. `[ ] TODO` Port `bin2fds.py` to Python 3 in `dwimsy.disk.fds` (`bin2fds} filter).
+8. `[ ] TODO` Port `bin2fds.py` to Python 3 in `dwimsy.disk.fds` (`bin2fds` filter).
 9. `[ ] TODO` Implement NONTAMA and MSX M-loader unpackers to standard BLOAD binaries (`mkrom`).
 10. `[ ] TODO` Implement `platforms.cart_hooks`: MSX Sakhr `cas2rom` extractor/packer and PC-6001mkII `mkrom` generator.
 11. `[ ] TODO` Implement `dwimsy.tape.variants`: Side-by-side flavor generator (Trimmed/Untrimmed, MSX unpadded, `.p6`/`.p6t` aligned pairs) with complete hash/size registry.
@@ -982,7 +982,7 @@ Tasks:
 3. `[ ] TODO` Implement Coleco Adam DDP (80 ips high-speed tape) decoder and servo transport.
 4. `[ ] TODO` Implement Gakken Manabu-kun (GCX) MSX-like tape & CD-DA audio disc decoder.
 5. `[ ] TODO` Implement vintage 16-bit demodulators: IBM PC 5150 cassette (`.cas`/`.bin`) and Elektronika BK-0010 PDP-11 demodulator with KOI-7 Cyrillic decoding.
-6. `[ ] TODO` Implement raw floppy flux decoders and multi-revolution consensus (Applesauce `.a2r`/`.woz", Greaseweazle `.scp`/`.raw`).
+6. `[ ] TODO` Implement raw floppy flux decoders and multi-revolution consensus (Applesauce .a2r/.woz, Greaseweazle .scp/.raw).
 7. `[ ] TODO` Finalize `pyproject.toml`, docstrings, and test suite for pip packaging.
 
 ---
