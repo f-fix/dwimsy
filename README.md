@@ -27,9 +27,9 @@ grandiose version: (currently 0% implemented)
 ## Table of Contents
 1. [Overview & Approach](#1-overview--approach)
 2. [Development Strategy](#2-development-strategy)
-3. [Existing Project Lineage & Asset Repositories](#3-existing-project-lineage--asset-repositories)
-4. [Component Implementation Status Matrix](#4-component-implementation-status-matrix)
-5. [Representation Layers, Real-Time Planes & Hardware Gateway](#5-representation-layers-real-time-planes--hardware-gateway)
+3. [Existing Project Lineage & Asset Repositories](#2-existing-project-lineage--asset-repositories)
+4. [Component Implementation Status Matrix](#3-component-implementation-status-matrix)
+5. [Representation Layers, Real-Time Planes & Hardware Gateway](#4-representation-layers-real-time-planes--hardware-gateway)
    - [Representation Layers and Orthogonal Planes](#representation-layers-and-orthogonal-planes)
    - [Real-Time Streaming Contract](#real-time-streaming-contract)
    - [Timebase as a First-Class Representation](#timebase-as-a-first-class-representation)
@@ -41,18 +41,18 @@ grandiose version: (currently 0% implemented)
    - [ROM Cartridges as Tape Containers & BIOS Hook Injections](#rom-cartridges-as-tape-containers--bios-hook-injections)
    - [Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry](#physical-cassette-shell-profiling--nominal-whole-tape-geometry)
    - [Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
-6. [Evidence, Models, and Preservation Status](#6-evidence-models-and-preservation-status)
+6. [Evidence, Models, and Preservation Status](#5-evidence-models-and-preservation-status)
    - [Status of Technical Claims](#status-of-technical-claims)
    - [Preservation Hierarchy](#preservation-hierarchy)
    - [Mixed-Mode Media](#mixed-mode-media)
    - [Physical-Equivalent Cassette Modeling](#physical-equivalent-cassette-modeling)
-7. [Systematic Flavor Taxonomy & No-Intro Naming](#7-systematic-flavor-taxonomy--no-intro-naming)
-8. [CLI & Interface Conventions](#8-cli--interface-conventions)
-9. [Metadata, Checksums & Archival Packaging](#9-metadata-checksums--archival-packaging)
-10. [Forensic DSP & Restoration Engines](#10-forensic-dsp--restoration-engines)
-11. [Multi-Phase Implementation Roadmap](#11-multi-phase-implementation-roadmap)
-12. [Format & Protocol Technical Reference Guide](#12-format--protocol-technical-reference-guide)
-13. [Note on the code and the tools used to write it](#13-note-on-the-code-and-the-tools-used-to-write-it)
+7. [Systematic Flavor Taxonomy & No-Intro Naming](#6-systematic-flavor-taxonomy--no-intro-naming)
+8. [CLI & Interface Conventions](#7-cli--interface-conventions)
+9. [Metadata, Checksums & Archival Packaging](#8-metadata-checksums--archival-packaging)
+10. [Forensic DSP & Restoration Engines](#9-forensic-dsp--restoration-engines)
+11. [Multi-Phase Implementation Roadmap](#10-multi-phase-implementation-roadmap)
+12. [Format & Protocol Technical Reference Guide](#11-format--protocol-technical-reference-guide)
+13. [Note on the code and the tools used to write it](#12-note-on-the-code-and-the-tools-used-to-write-it)
 
 ---
 
@@ -87,7 +87,6 @@ It is designed to grow incrementally, adding support for new computer platforms,
 ---
 
 ## 2. Development Strategy
-
 `dwimsy` employs an **Adapter-first bootstrapping strategy**. Rather than deferring the high-level Transducer/Bridge features until a perfect refactor is complete, we wrap the existing "slop" tools into the `dwimsy` orchestration layer:
 
 *   **Phase 0.5 Adapters**: Define the `PulseStream` and `ByteStream` interfaces. Wrap classes like `BaudAgnosticPulseRecognizer` from `wav2t88` to provide an immediate data source for the Bridge and LCD UI.
@@ -96,7 +95,6 @@ It is designed to grow incrementally, adding support for new computer platforms,
 *   **Feature Injection**: Standalone tools are updated to support `stderr` standard logging and metadata dict injection prior to formal migration, allowing No-Intro naming and live telemetry to function even in the adapter phase.
 
 ---
-
 ## 3. Existing Project Lineage & Asset Repositories
 
 `dwimsy` integrates and unifies code, tables, and DSP algorithms from several existing repositories:
@@ -364,7 +362,7 @@ To prevent tedious manual keystrokes during multi-block loading on systems witho
   2. *Loading Group / Load Group (Layer 3)*: Contiguous sequence of blocks streamed in one continuous, uninterrupted pass by the computer's active loader without stopping the tape.
   3. *Segment (Timeline / Mixed-Mode)*: Chronological macro-region on a composite mixed-mode tape (e.g. *Gundam 2* `Segment 01` [Data] ↔ `Segment 02` [Audio Drama]).
 * **Automated Group Boundary Detection**:
-  - *TZX / TSX / CDT Metadata*: Evaluates block pause values. Non-zero pauses stream automatically; zero-pause blocks (Block `0x20` Stop the Tape / Block `0x2A` Stop in 48K) or TZX Group markers (`0x21`/`0x22`) seal the Loading Group and engage transport auto-pause.
+  - *TZX / TSX / CDT Metadata**: Evaluates block pause values. Non-zero pauses stream automatically; zero-pause blocks (Block `0x20` Stop the Tape / Block `0x2A` Stop in 48K) or TZX Group markers (`0x21`/`0x22`) seal the Loading Group and engage transport auto-pause.
   - *Audio Cadence*: Inter-block gaps < 2.0s maintain continuous streaming; silence drops ≥ 3.0s–5.0s trigger stage auto-pause.
   - *Loader Protocol Signatures*: Recognizes linked loader patterns (Speedlock, NONTAMA, PC-88 CSAVE → MON chains) and groups them automatically.
 
@@ -385,7 +383,7 @@ For compilation tapes containing programs for multiple target systems and spoken
 Generic extensions like `.cmt` (used by PC-88, PC-6001, MSX, FM-7), `.cas` (used by MSX, Sega SC-3000, Sord M5, Casio, CoCo), `.mzt` (Sharp MZ single/multi-file dumps vs QD BSD images), and `.wav` are resolved through a deterministic hierarchy:
 1. **Tier 1: Explicit Namespaced Filter Applets**: Direct invocation of single-purpose Unix filters (`dwimsy-msx-wav2cas`, `dwimsy-sega-wav2cas`, `dwimsy-sord-wav2cas`, `dwimsy-wav2t88`, `dwimsy-t882wav`) establishes unambiguous platform context.
 2. **Tier 2: Explicit Profile Switches**: High-level commands accept `--profile=` overrides (`--profile=pc88`, `--profile=msx`, `--profile=sega-sc3000`, `--profile=sord-m5`, `--profile=pc6001`, `--profile=fm7`, `--profile=mz700`, `--profile=mz2000`, `--profile=x1`, `--profile=cpc`, `--profile=spectrum`, `--profile=famicom-basic`).
-3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sharp X1 `.tap` headers, Family BASIC headers, Sega `"SEGA CASSETTE"`, Sord `0x55`+`HEADER`, or FM-7/FM-8 headers).
+3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sharp X1 `.tap` headers, Family BASIC headers, Sega "SEGA CASSETTE", Sord `0x55`+`HEADER`, or FM-7/FM-8 headers).
 
 #### 9. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (`transport.seeker`)
 Instead of blind time-based skipping, `dwimsy` provides structure-aware transport navigation:
@@ -557,10 +555,10 @@ Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
   - Short: `salad1_1a.cas`, `salad1_1a.wav`, `salad1_1a_orig.flac`
 * **Multi-Platform Compilations on a Single Cassette**: For multi-system releases (e.g. *Tank Battle* containing PC-8801, FM-7, PC-6001mkII, FM-8 on one tape), the top-level archive summarizes all systems, while extracted tracks are indexed by file position with platform-specific loading commands:
   - Top Archive: `Tank Battle (ASCII) (Japan) (PC-8801, FM-7, PC-6001 mkII, FM-8) [_]`
-  - File 01: `Tank Battle (File 01) (ASCII) (Japan) (PC-8801) [_] [LOAD'CAS1-'-RUN]` ↔ `n80_tank88_file01.cmt`
-  - File 02: `Tank Battle (File 02) (ASCII) (Japan) (FM-7) [_] [RUN'CAS0-']` ↔ `fm7_tank7_file02.t77`
-  - File 03: `Tank Battle (File 03) (ASCII) (Japan) (PC-6001 mkII Mode 5 Pages 2) [_] [CLOAD-RUN]` ↔ `n62_tank_file03.p6t`
-  - File 04: `Tank Battle (File 04) (ASCII) (Japan) (FM-8) [_] [RUN'CAS0-']` ↔ `fm8_tank8_file04.t77`
+  - File 01: `Tank Battle (File 01) (ASCII) (Japan) (PC-8801) [_] [LOAD'CAS1-'-RUN]` ↔ `n80_tank88_file01.cmt"
+  - File 02: `Tank Battle (File 02) (ASCII) (Japan) (FM-7) [_] [RUN'CAS0-']` ↔ `fm7_tank7_file02.t77"
+  - File 03: `Tank Battle (File 03) (ASCII) (Japan) (PC-6001 mkII Mode 5 Pages 2) [_] [CLOAD-RUN]` ↔ `n62_tank_file03.p6t"
+  - File 04: `Tank Battle (File 04) (ASCII) (Japan) (FM-8) [_] [RUN'CAS0-']` ↔ `fm8_tank8_file04.t77"
 
 ### Canonical Default Collapsing
 To provide clean, immediate usability in emulators while maintaining complete archival sets, `dwimsy` uses non-destructive hardlinking (`os.link`, falling back to `shutil.copy2`):
@@ -1024,7 +1022,7 @@ Format      Extension   Header Signature / Magic Bytes
 PC-88 T88   .t88        50 43 2D 38 38 30 31 20 54 61 70 65 20 49 6D 61 67 65 28 54 38 38 29 00
 PC-88 CMT   .cmt        D3 D3 D3... (BASIC), 24 24 24... (MON ML), 9C 9C 9C... (ASCII)
 FM-7 T77    .t77        FBASIC / 2BS file headers, 0x00*N + 0x3C sync descriptors
-MSX TSX     .tsx / .tzx 5A 58 54 61 70 65 21 1A ("ZXTape!") + ver 0x01 0x20/0x21
+MSX TSX     .tsx / .tzx 5A 58 54 61 70 65 21 1A ("ZXTape!\x1a") + ver 0x01 0x20/0x21
 MSX CAS     .cas        1F A6 DE BA CC 13 7D 74 (8-byte BIOS sync header)
 Sharp MZF   .mzf / .m12 01 (File type) + 16-byte filename + 128-byte header
 Sharp MZT   .mzt        Multiple 128-byte MZF directory header blocks concatenated in sequence
@@ -1032,14 +1030,14 @@ Sharp X1    .tap        54 41 50 45 ("TAPE") or raw Sharp X1 2700-baud chunks
 Family BASIC.mzt / .cas Sharp MZ-compatible PWM block structure with Famicom BASIC V2/V3 header
 Famicom Data.fbt / .tp  Raw level dump blocks (Excitebike, Lode Runner, etc.)
 BBC UEF     .uef        1F 8B (Gzip header) -> 55 45 46 20 46 69 6C 65 21 ("UEF File!")
-Amstrad CDT .cdt        5A 58 54 61 70 65 21 1A ("ZXTape!")
-Sinclair TZX.tzx        5A 58 54 61 70 65 21 1A ("ZXTape!")
+Amstrad CDT .cdt        5A 58 54 61 70 65 21 1A ("ZXTape!\x1a")
+Sinclair TZX.tzx        5A 58 54 61 70 65 21 1A ("ZXTape!\x1a")
 PC-6001 P6T .p6t        PC6001V format with trailing timing/mode descriptors & autostart footer
 PC-6001 P6  .p6         D3 D3 D3... + screen mode / page count descriptor
 Sega CAS    .cas        53 45 47 41 20 43 41 53 53 45 54 54 45 ("SEGA CASSETTE")
 Sord M5 CAS .cas        55 55 55 55 55 55 55 55 (Sync run) + 'HEADER'
 NEC D88     .d88 / .d77 17-byte disk title + 0x00 + 0x00 0x00 0x00 0x00
-FDS Image   .fds        46 44 53 1A ("FDS") or Block 1 '*NINTENDO-HVC*'
+FDS Image   .fds        46 44 53 1A ("FDS\x1a") or Block 1 '\x01*NINTENDO-HVC*'
 Applesauce  .woz / .a2r 57 4F 5A 31 / 57 4F 5A 32 | 41 32 52 32 ("A2R2")
 Greaseweazle.scp        53 43 50 ("SCP")
 C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CARTRIDGE   ")
