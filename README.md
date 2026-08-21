@@ -6,14 +6,18 @@ grandiose version: (currently 0% implemented)
 > 
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-> [!WARNING]
-> **Nothing in this repository is implemented yet.** Every row in the [status matrix](#3-component-implementation-status-matrix) below reads `[ ] TODO`. There is no `dwimsy` CLI, no `core.*` library, and no filters here yet — this repo is currently a specification for how several existing, working tools will be unified. If you need to actually convert or restore media today, use the standalone tools linked below instead.
+> [!IMPORTANT]
+> **DEVELOPMENT STATUS: SPECIFICATION & ADAPTER PHASE.**
+> This repository is a specification for a unified media transducer. Implementation is being bootstrapped by **adapting and wrapping** the existing standalone tools listed below into the `dwimsy` orchestration layer.
 
 ### For now, see:
 
 - **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** — working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three already have self-test suites and stdin/stdout piping. This is the most complete preview of dwimsy's planned pipeline, and its logic is the intended source for `core.fsk`, `cli.filters.t882wav`/`wav2t88`, and part of `cli.dwimsy analyze`/`inspect` (Milestone 1). It doesn't yet implement dwimsy's flavor taxonomy (Section 6) — there's no trimmed/untrimmed pairing or No-Intro-style naming — and there's no shared `core.audio`/`core.pulse` library, since each script is self-contained.
-- **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk`, `core.audio` (`flac2wav`), `dsp.filter` (`cmt_filter`), and `dsp.modeler` (`cassette_model`) in Milestone 1. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that so all tape tools operate as continuous Unix streaming filters.
+  * *Refactoring Status:* Currently being integrated via adapters to prove the Bridge/LCD UI logic.
+- **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk`, `core.audio` (`flac2wav`), `dsp.filter`, and `dsp.modeler` (`cassette_model`) in Milestone 1. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that so all tape tools operate as continuous Unix streaming filters.
+  * *Refactoring Status:* Target for `dwimsy.dsp` and MSX physical layer generalization.
 - **[`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool)** — a working D88/FAT8 extractor, tested against PC-6001/PC-6001mkII/PC-6001mkIISR, PC-8801, PC-98, and even a Pasopia disk image, including PC-88/PC-98 obfuscated-save deobfuscation (N88-BASIC bit rotation and PC-88 143-byte combined XOR key recovery) and JIS-adjacent / PC-6001 semigraphics character mapping. It includes dedicated streaming line-by-line character set conversion modes (`--pc98-8bit-to-utf8`, `--pc6001-8bit-to-utf8`, `--utf8-to-pc98-8bit`, `--utf8-to-pc6001-8bit`) which will form a dedicated `dwimsy charset` verb and filter applet (`dwimsy-conv`). It's the intended source for `disk.d88`, `disk.fat8`, `core.charsets` (Milestone 2), and `core.fs` filename sanitization. The author's own README is candid that the code "started in ChatGPT" and "is uglier than sin" pending cleanup — a good example of a real candidate for dwimsy's promised readable, documented conversion steps. Tokenized-BASIC detokenization and RBYTE encode/decode (`rbyte.py`, `rbyte88.py`, `rbyte_enc.py`, `rbyte88_enc.py`) are still separate, unintegrated pieces.
+  * *Refactoring Status:* Will be used as a backend for `dwimsy extract` disk workflows.
 - **[`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload)** — two working unpackers, `nontama_to_bload.py` (PC-6001mkII NONTAMA rolling-XOR loader tapes, verified against ~18 released games) and `mload_to_bload.py` (MSX "M"-loader rolling-XOR tapes with bitsum verification), plus `mkrom.py` for building bootable cartridges from the results (handling PC-6001mkII port 0xF0 bank switching and Beluga port 0x7F). Maps to `platforms.unpack` and `platforms.cart_hooks` (Milestone 2). Each unpacker is a standalone script today; dwimsy's plan is to route their output through the shared Layer 3/4 stream and payload handling rather than writing `.bin` directly.
 - **[`f-fix/cas2uef`](https://github.com/f-fix/cas2uef)** — a working, narrowly-scoped `cas2uef.py` that converts "compact" (unpadded, non-8-byte-aligned) MSX CAS from DumpListEditor directly into BBC Micro `.uef`. The author's own README flags that the result isn't archival-quality, since CAS carries no timing data and the tool heuristically inserts pauses at detected file-header boundaries. This is the intended basis for `tape.bbc` (Milestone 3), though in dwimsy it's planned to route through the shared logical-stream layer instead of converting directly, so the heuristic pause-insertion can eventually be replaced with real timing where available.
 - **[`f-fix/bin2fds`](https://github.com/f-fix/bin2fds)** — a working but self-described "super ugly" **Python 2** script that converts raw `.bin` (such as FDSStick dumps) to Famicom Disk System `.fds`, including multi-side images. Slated for a straight Python 3 port as `disk.fds` (Milestone 2); until then it's the odd one out in this list, since it isn't even Python 3 yet.
@@ -22,9 +26,10 @@ grandiose version: (currently 0% implemented)
 
 ## Table of Contents
 1. [Overview & Approach](#1-overview--approach)
-2. [Existing Project Lineage & Asset Repositories](#2-existing-project-lineage--asset-repositories)
-3. [Component Implementation Status Matrix](#3-component-implementation-status-matrix)
-4. [Representation Layers, Real-Time Planes & Hardware Gateway](#4-representation-layers-real-time-planes--hardware-gateway)
+2. [Development Strategy](#2-development-strategy)
+3. [Existing Project Lineage & Asset Repositories](#3-existing-project-lineage--asset-repositories)
+4. [Component Implementation Status Matrix](#4-component-implementation-status-matrix)
+5. [Representation Layers, Real-Time Planes & Hardware Gateway](#5-representation-layers-real-time-planes--hardware-gateway)
    - [Representation Layers and Orthogonal Planes](#representation-layers-and-orthogonal-planes)
    - [Real-Time Streaming Contract](#real-time-streaming-contract)
    - [Timebase as a First-Class Representation](#timebase-as-a-first-class-representation)
@@ -36,18 +41,18 @@ grandiose version: (currently 0% implemented)
    - [ROM Cartridges as Tape Containers & BIOS Hook Injections](#rom-cartridges-as-tape-containers--bios-hook-injections)
    - [Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry](#physical-cassette-shell-profiling--nominal-whole-tape-geometry)
    - [Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
-5. [Evidence, Models, and Preservation Status](#5-evidence-models-and-preservation-status)
+6. [Evidence, Models, and Preservation Status](#6-evidence-models-and-preservation-status)
    - [Status of Technical Claims](#status-of-technical-claims)
    - [Preservation Hierarchy](#preservation-hierarchy)
    - [Mixed-Mode Media](#mixed-mode-media)
    - [Physical-Equivalent Cassette Modeling](#physical-equivalent-cassette-modeling)
-6. [Systematic Flavor Taxonomy & No-Intro Naming](#6-systematic-flavor-taxonomy--no-intro-naming)
-7. [CLI & Interface Conventions](#7-cli--interface-conventions)
-8. [Metadata, Checksums & Archival Packaging](#8-metadata-checksums--archival-packaging)
-9. [Forensic DSP & Restoration Engines](#9-forensic-dsp--restoration-engines)
-10. [Multi-Phase Implementation Roadmap](#10-multi-phase-implementation-roadmap)
-11. [Format & Protocol Technical Reference Guide](#11-format--protocol-technical-reference-guide)
-12. [Note on the code and the tools used to write it](#12-note-on-the-code-and-the-tools-used-to-write-it)
+7. [Systematic Flavor Taxonomy & No-Intro Naming](#7-systematic-flavor-taxonomy--no-intro-naming)
+8. [CLI & Interface Conventions](#8-cli--interface-conventions)
+9. [Metadata, Checksums & Archival Packaging](#9-metadata-checksums--archival-packaging)
+10. [Forensic DSP & Restoration Engines](#10-forensic-dsp--restoration-engines)
+11. [Multi-Phase Implementation Roadmap](#11-multi-phase-implementation-roadmap)
+12. [Format & Protocol Technical Reference Guide](#12-format--protocol-technical-reference-guide)
+13. [Note on the code and the tools used to write it](#13-note-on-the-code-and-the-tools-used-to-write-it)
 
 ---
 
@@ -76,11 +81,23 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Fault-Tolerant Automation (`fsck` Model)**: Non-interactive conversions process valid data and isolate corrupted sections with diagnostic logs rather than crashing. An offline interactive recovery mode assists with manual bit/pulse repairs.
 * **The Archival Rule (No Premature Inference)**: Never infer structure when the container or physical capture explicitly provides structure (e.g. D88 track offset tables). Preserve the observed source representation before applying interpretation, correction, canonicalization, or synthesis.
 * **Information Conservation**: A transformation cannot recover information that its input representation does not contain (e.g., CAS → UEF necessarily invents timing, which must be explicitly marked as `synthetic` / `heuristic`). Canonicalization is purpose-specific and lossy by definition; it never replaces the preservation master.
+* **Unified KCS Physical Layer**: For FSK-based systems (PC-88, MSX, BBC Micro, etc.), `dwimsy` utilizes a unified KCS-block (Kansas City Standard) internal representation, allowing high-fidelity export to hardware-compatible containers like TZX, TSX, and CDT.
 * **Non-Destructive Write Overlays & Hash-Indexed Media Creation**: Saving to virtual or physical media never overwrites pristine captures. Overlays are stored out-of-band in `~/.cache/dwimsy/overlays/<SHA1>/`, while newly created save media is placed in `~/.local/share/dwimsy/created/<SHA1>/` (associated with the initial tape hash, or `da39a3ee5e6b4b0d3255bfef95601890afd80709` for empty sessions).
 
 ---
 
-## 2. Existing Project Lineage & Asset Repositories
+## 2. Development Strategy
+
+`dwimsy` employs an **Adapter-first bootstrapping strategy**. Rather than deferring the high-level Transducer/Bridge features until a perfect refactor is complete, we wrap the existing "slop" tools into the `dwimsy` orchestration layer:
+
+*   **Phase 0.5 Adapters**: Define the `PulseStream` and `ByteStream` interfaces. Wrap classes like `BaudAgnosticPulseRecognizer` from `wav2t88` to provide an immediate data source for the Bridge and LCD UI.
+*   **UI-First Orchestration**: Build the ANSI Virtual LCD marquee, phone dashboard, and IPC telemetry logic early by polling status and confidence scores from adapted legacy loops.
+*   **Parallel Verification**: As legacy logic is migrated into the clean `core.fsk` and `core.pulse` modules, we run the new implementation side-by-side with the original "slop" code to ensure accuracy parity and zero regression.
+*   **Feature Injection**: Standalone tools are updated to support `stderr` standard logging and metadata dict injection prior to formal migration, allowing No-Intro naming and live telemetry to function even in the adapter phase.
+
+---
+
+## 3. Existing Project Lineage & Asset Repositories
 
 `dwimsy` integrates and unifies code, tables, and DSP algorithms from several existing repositories:
 
@@ -93,7 +110,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ---
 
-## 3. Component Implementation Status Matrix
+## 4. Component Implementation Status Matrix
 
 | Subsystem / Module | Description | Status | Target Milestone |
 | :--- | :--- | :---: | :---: |
@@ -151,7 +168,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ---
 
-## 4. Representation Layers, Real-Time Planes & Hardware Gateway
+## 5. Representation Layers, Real-Time Planes & Hardware Gateway
 
 ```text
 ┌────────────────────────────────────────────────────────┐
@@ -447,7 +464,7 @@ Media is tagged as read-only or writable (tracking physical write-protect notche
 
 ---
 
-## 5. Evidence, Models, and Preservation Status
+## 6. Evidence, Models, and Preservation Status
 
 `dwimsy` is intended to be useful for preservation without overstating what has actually been established. Technical facts, empirical observations, inferred structure, heuristics, and generated material should remain distinguishable.
 
@@ -516,7 +533,7 @@ The model must record its parameters and provenance, and should not be described
 
 ---
 
-## 6. Systematic Flavor Taxonomy & No-Intro Naming
+## 7. Systematic Flavor Taxonomy & No-Intro Naming
 
 To prevent tool-name pollution and keep filenames concise while making it easy to cross-reference No-Intro, TOSEC, and MAME Software Lists where the resulting artifact actually matches their published definition, dwimsy defines a canonical default flavor (no extra tag) for each layer, alongside explicitly tagged variant siblings.
 ```text
@@ -534,7 +551,7 @@ Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
 * **User-Supplied Metadata**: When full No-Intro style names are desired during ripping, they are derived directly from user-supplied options (e.g. `--name "Crazy Newton (Computer Land Hokkaido) (Japan) (PC-6001 32K Mode 2 Pages 2) [_] [CLOAD-RUN]"` or `--title "Crazy Newton" --publisher "Computer Land Hokkaido" --region "Japan" --system "PC-6001" --ram 32K --basic-mode 2 --pages 2 --load-cmd "CLOAD-RUN" --provisional`) or inherited from an input capture that already carries a No-Intro name.
 * **Provisional Tag `[_]`**: Used to mark unconfirmed or provisional titles that require further manual verification.
 * **Tape Loading Instructions `[COMMAND]`**: Suffixes like `[CLOAD-RUN]`, `[MON-R-GE000]`, `[LOAD'CAS1-'-RUN]`, `[RUN'CAS0-']`, or `[BLOAD'CAS-',R]` explicitly document the required BIOS loading command.
-* **Multi-Side Archival Consolidation**: For composite tapes where sides have differing load commands or baud rates, the top-level archive name reflects comma-separated sets: `[MON-R-GE000, MON-R2-GE000]` and `(PC-8801 N88-BASIC V1 Mode 1200 Baud, 600 Baud)`. Default baud rates are omitted from individual sides.
+* **Multi-Side Archival Consolidation**: For composite tapes where sides have differing load commands or baud rates, the top-level archive name reflects comma-separated sets: `[MON-R-GE000, MON-R2-GE000]` and `(PC-8801 N88-BASIC V1 Mode)`. Default baud rates are omitted from individual sides.
 * **Composite Side Designations Spanning Multiple Tapes**: For sets where physical packaging and in-game prompts designate composite sides across multiple tapes (e.g. *Tomato Hime* Part 1 `Side 1A`, Part 2 `Side 1B`, Part 3 `Side 2A`, Part 4 `Side 2B`), these designations supersede generic `(Tape X) (Side Y)` tags:
   - Long: `Salad no Kuni no Tomato Hime 1 (Side 1A) (Hudson Soft) [_]`
   - Short: `salad1_1a.cas`, `salad1_1a.wav`, `salad1_1a_orig.flac`
@@ -583,7 +600,7 @@ To provide clean, immediate usability in emulators while maintaining complete ar
 
 ---
 
-## 7. CLI & Interface Conventions
+## 8. CLI & Interface Conventions
 
 ### Main CLI Verbs `[ ] TODO`
 
@@ -782,7 +799,7 @@ dwimsy join \
 
 ---
 
-## 8. Metadata, Checksums & Archival Packaging
+## 9. Metadata, Checksums & Archival Packaging
 
 ### Multi-Level Hash Registry `[ ] TODO`
 
@@ -870,7 +887,7 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 
 ---
 
-## 9. Forensic DSP & Restoration Engines
+## 10. Forensic DSP & Restoration Engines
 
 * **Physical Tape Channel Modeling (`cassette_model.py`)**: `[ ] TODO` Physical and magneto-electric tape-head interface simulation:
   * **Wallace Gap Loss**: High-frequency spatial attenuation `L_gap(f) = 20 × log₁₀(|sin(πg/λ)/(πg/λ)|)` for head gap `g` (for example, ~1.5 µm as a model parameter) at tape speed `v` (for example, 4.76 cm/s; `λ = v/f`).
@@ -899,7 +916,12 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 
 ---
 
-## 10. Multi-Phase Implementation Roadmap
+## 11. Multi-Phase Implementation Roadmap
+
+### Phase 0: Orchestration & Adapters `[ ] TODO`
+*   Wrap `BaudAgnosticPulseRecognizer` and `T88ToWavSynthesizer` as `dwimsy` adapters.
+*   Implement the `sidechannel` ANSI LCD and Marquee ticker polling adapter stats.
+*   Standardize legacy tool `stderr` logging for UI interception.
 
 ### Phase 1: Minimum Viable Vertical Slice — PC-88 Only `[ ] TODO`
 
@@ -908,19 +930,20 @@ The goal of Phase 1 is a single, narrow, end-to-end path through the architectur
 Tasks:
 1. `[ ] TODO` Implement `dwimsy.core.pulse` (zero-crossing timer, TBC, AGC, DC-blocker), tuned initially against PC-88/PC-8801's 2400/1200 Hz FSK.
 2. `[ ] TODO` Implement `dwimsy.core.audio`: streaming WAV reader/writer only. FLAC support is deferred to Phase 2, where it ships alongside MSX support (`flac2wav`).
-3. `[ ] TODO` Implement `dwimsy.core.fsk`: FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav`'s existing logic.
+3. `[ ] TODO` Implement `dwimsy.core.fsk`: FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav`.
 4. `[ ] TODO` Port `t882wav` and `wav2t88` as Netpbm-style filters, directly from `pc88_tape_tools`.
 5. `[ ] TODO` Implement a minimal `dwimsy` CLI exposing only `convert`, wired to the two filters above. `restore`, `split`, `join`, and `inspect` are deferred to Phase 2, since they depend on flavor taxonomy, hash registry, and provenance features that don't exist yet.
    Verification: `[ ] TODO` Bit-exact roundtrip on a real PC-88 `.t88` sample (e.g. `input01.t88`) through `wav2t88` → `t882wav` → `wav2t88`, matching the original container byte-for-byte.
 
-### Phase 2: MSX Generalization, Full CLI, Disk Subsystems, QuickDisk / FDS & Flavor Matrix `[ ] TODO`
+### Phase 2: MSX Generalization, The TZX Bridge, Full CLI, Disk Subsystems & Flavor Matrix `[ ] TODO`
 
 Phase 2 opens by testing whether Phase 1's abstractions actually generalize — porting a second platform (MSX) before building out anything platform-specific-heavy like disk formats.
 
 Tasks:
 1. `[ ] TODO` Port `wav2cas`, `cas2wav`, and `flac2wav` (MSX FSK codec + streaming FLAC I/O), validating that `core.audio`/`core.fsk`/`core.pulse` generalize to a second platform without a rewrite.
+2. `[ ] TODO` Implement `dwimsy.tape.tzx_family` as a universal physical-layer export target (The "KCS Bridge").
 2. `[ ] TODO` Implement `dwimsy.dsp` (`cmt_filter` wave shaper and `cassette_modeler`), ported with MSX support.
-3. `[ ] TODO` Implement `dwimsy.core.realtime` (live-stage contracts, bounded buffering/latency, backpressure), first exercised via live-capture support for PC-88 and MSX.
+3. `[ ] TODO` Implement `dwimsy.core.realtime` (live-stage contracts, bounded buffering/latency, resynchronization latency, backpressure), first exercised via live-capture support for PC-88 and MSX.
 4. `[ ] TODO` Expand the `dwimsy` CLI verb set: `restore`, `split`, `join`, `inspect`.
 5. `[ ] TODO` Implement `dwimsy.cli.sidechannel` (`stderr` virtual LCD, TTY keystrokes, POSIX/Win32 signal dispatcher).
 6. `[ ] TODO` Integrate `dwimsy.core.charsets` (JIS X 0201, NEC semigraphics, MSX Katakana, ASCII, streaming CLI filter applet).
@@ -964,7 +987,7 @@ Tasks:
 
 ---
 
-## 11. Format & Protocol Technical Reference Guide
+## 12. Format & Protocol Technical Reference Guide
 
 The tables in this section are engineering references, not authority by themselves. Values that are format-specific, hardware-specific, or derived from reverse engineering should be independently verified before being treated as established facts. Where a value is a model parameter rather than a format requirement, implementations should record its provenance and epistemic status.
 
@@ -1001,7 +1024,7 @@ Format      Extension   Header Signature / Magic Bytes
 PC-88 T88   .t88        50 43 2D 38 38 30 31 20 54 61 70 65 20 49 6D 61 67 65 28 54 38 38 29 00
 PC-88 CMT   .cmt        D3 D3 D3... (BASIC), 24 24 24... (MON ML), 9C 9C 9C... (ASCII)
 FM-7 T77    .t77        FBASIC / 2BS file headers, 0x00*N + 0x3C sync descriptors
-MSX TSX     .tsx / .tzx 5A 58 54 61 70 65 21 1A ("ZXTape!\x1a") + ver 0x01 0x20/0x21
+MSX TSX     .tsx / .tzx 5A 58 54 61 70 65 21 1A ("ZXTape!") + ver 0x01 0x20/0x21
 MSX CAS     .cas        1F A6 DE BA CC 13 7D 74 (8-byte BIOS sync header)
 Sharp MZF   .mzf / .m12 01 (File type) + 16-byte filename + 128-byte header
 Sharp MZT   .mzt        Multiple 128-byte MZF directory header blocks concatenated in sequence
@@ -1009,14 +1032,14 @@ Sharp X1    .tap        54 41 50 45 ("TAPE") or raw Sharp X1 2700-baud chunks
 Family BASIC.mzt / .cas Sharp MZ-compatible PWM block structure with Famicom BASIC V2/V3 header
 Famicom Data.fbt / .tp  Raw level dump blocks (Excitebike, Lode Runner, etc.)
 BBC UEF     .uef        1F 8B (Gzip header) -> 55 45 46 20 46 69 6C 65 21 ("UEF File!")
-Amstrad CDT .cdt        5A 58 54 61 70 65 21 1A ("ZXTape!\x1a")
-Sinclair TZX.tzx        5A 58 54 61 70 65 21 1A ("ZXTape!\x1a")
+Amstrad CDT .cdt        5A 58 54 61 70 65 21 1A ("ZXTape!")
+Sinclair TZX.tzx        5A 58 54 61 70 65 21 1A ("ZXTape!")
 PC-6001 P6T .p6t        PC6001V format with trailing timing/mode descriptors & autostart footer
 PC-6001 P6  .p6         D3 D3 D3... + screen mode / page count descriptor
 Sega CAS    .cas        53 45 47 41 20 43 41 53 53 45 54 54 45 ("SEGA CASSETTE")
 Sord M5 CAS .cas        55 55 55 55 55 55 55 55 (Sync run) + 'HEADER'
 NEC D88     .d88 / .d77 17-byte disk title + 0x00 + 0x00 0x00 0x00 0x00
-FDS Image   .fds        46 44 53 1A ("FDS\x1a") or Block 1 '\x01*NINTENDO-HVC*'
+FDS Image   .fds        46 44 53 1A ("FDS") or Block 1 '*NINTENDO-HVC*'
 Applesauce  .woz / .a2r 57 4F 5A 31 / 57 4F 5A 32 | 41 32 52 32 ("A2R2")
 Greaseweazle.scp        53 43 50 ("SCP")
 C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CARTRIDGE   ")
@@ -1024,18 +1047,18 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
 
 ### Consulted Literature & Technical Specifications Reference
 
-1. **IEC Standard 60094-4 & 60094-5**: *"Magnetic Tape Sound Recording and Reproducing Systems"* — Standard equalization time constants for Type I cassettes (3180 µs, 120 µs, 12 µs).
+1. **IEC Standard 60094-4 & 60094-5**: "Magnetic Tape Sound Recording and Reproducing Systems" — Standard equalization time constants for Type I cassettes (3180 µs, 120 µs, 12 µs).
    * URL: https://webstore.iec.ch/publication/723
    * Wayback Machine: https://web.archive.org/web/20220601/https://webstore.iec.ch/publication/723
-2. **Wallace, R. L. (1951)**: *"The Reproduction of Magnetically Recorded Signals"*, *Bell System Technical Journal*, 30(4), pp. 1145–1173 (Gap and spacing loss equations).
+2. **Wallace, R. L. (1951)**: "The Reproduction of Magnetically Recorded Signals", *Bell System Technical Journal*, 30(4), pp. 1145–1173 (Gap and spacing loss equations).
    * URL: https://doi.org/10.1002/j.1538-7305.1951.tb03700.x
-3. **Jiles, D. C., & Atherton, D. L. (1986)**: *"Theory of Ferromagnetic Hysteresis"*, *Journal of Magnetism and Magnetic Materials*, 61(1-2), pp. 48–60 (Anhysteretic tape magnetization and AC bias linearization models).
+3. **Jiles, D. C., & Atherton, D. L. (1986)**: "Theory of Ferromagnetic Hysteresis", *Journal of Magnetism and Magnetic Materials*, 61(1-2), pp. 48–60 (Anhysteretic tape magnetization and AC bias linearization models).
    * URL: https://doi.org/10.1016/0304-8853(86)90066-1
-4. **Yamaha Corporation (1984)**: *"Yamaha CX5M / YIS-503 Music Computer Service Manual"*,
+4. **Yamaha Corporation (1984)**: "Yamaha CX5M / YIS-503 Music Computer Service Manual",
    * Fig. 5-5-9: CMT-IN Cassette Interface Input Shaping Circuit (C31, R21, R20, C29, D1/D2, R33, JRC-311B comparator → PSG IOA7).
    * Fig. 5-4-10: PPI PC5 → CMT OUT Cassette Interface Output Shaping Circuit (PPI PC5 → 74LS14 4B inverter, C31, R41, C32, R40/R39 attenuator).
    * URL: https://archive.org/details/yamaha_cx5mu_service-manual
-5. **ASCII Corporation / MSX Licensing Corporation (1983)**: *"MSX Technical Data Handbook / MSX BIOS Specification"*,
+5. **ASCII Corporation / MSX Licensing Corporation (1983)**: "MSX Technical Data Handbook / MSX BIOS Specification",
    * PSG (AY-3-8910 / YM2149) Register 14 (I/O Port A), Bit 7: Cassette Data Input (CMT IN).
    * PPI (8255) Register C (I/O Port C), Bit 5: Cassette Data Output (CMT OUT).
    * URL: https://web.archive.org/web/20230330/http://map.grauw.nl/resources/msx_io_ports.php
@@ -1043,14 +1066,14 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
    * URL: https://mdfs.net/Docs/Comp/BBC/FileFormat/UEFSpecs.htm
 7. **CAS File Format Definition**:
    * URL: https://www.msx.org/forum/semi-msx-talk/emulation/how-do-exactly-works-cas-format
-8. **Rob Hagemans / PC-BASIC Project**: *"Protected File Format"* — reverse-engineering of GW-BASIC's protected-save (`,P`) obfuscation scheme (the paired 11-byte/13-byte XOR key structure). Documents the algorithm's internal workings for GW-BASIC, not NEC's dialects.
+8. **Rob Hagemans / PC-BASIC Project**: "Protected File Format" — reverse-engineering of GW-BASIC's protected-save (`,P`) obfuscation scheme (the paired 11-byte/13-byte XOR key structure). Documents the algorithm's internal workings for GW-BASIC, not NEC's dialects.
    * URL: https://robhagemans.github.io/pcbasic/doc/2.0/#protected-file-format
-9. **NEC (1983)**: *"PC-8001 mkII SR N80-BASIC / N80SR-BASIC Reference Manual"* — documents the `,P` protected-save *access method* (the `SAVE`/`BSAVE` flag itself) but not the obfuscation algorithm's internal workings.
+9. **NEC (1983)**: "PC-8001 mkII SR N80-BASIC / N80SR-BASIC Reference Manual" — documents the `,P` protected-save *access method* (the `SAVE`/`BSAVE` flag itself) but not the obfuscation algorithm's internal workings.
 10. **`fat8_d88_tool` project (original research)**: Recognizing that NEC's N88-BASIC protected-save format follows the same paired-XOR-key structure documented for GW-BASIC (per item 8) but with different key data baked into PC-88 ROM, and devising a known-plaintext `SAVE`-based method to recover the PC-88 combined XOR key without needing the ROM itself. The related PC-98 `N88-BASIC(86)` protected-save format uses an unrelated single-bit-rotation scheme, identified independently by direct known-plaintext testing rather than from any published reference. See the [`fat8_d88_tool` README](https://github.com/f-fix/fat8_d88_tool#de-obfuscation-pc98-version) for the full derivation and recovered key material.
 
 ---
 
-## 12. Note on the code and the tools used to write it
+## 13. Note on the code and the tools used to write it
 
 Parts of this code were written (including some initial ones that began in other, separate projects) with assistance from LLM-integrated coding tools. If you don't like it, feel free to use other software or rewrite parts you dislike. PRs are welcome!
 
