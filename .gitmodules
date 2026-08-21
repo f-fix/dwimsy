@@ -1,0 +1,18 @@
+[submodule "deps/pc88_tape_tools"]
+	path = deps/pc88_tape_tools
+	url = https://github.com/f-fix/pc88_tape_tools
+[submodule "deps/wav2cas"]
+	path = deps/wav2cas
+	url = https://github.com/f-fix/wav2cas
+[submodule "deps/fat8_d88_tool"]
+	path = deps/fat8_d88_tool
+	url = https://github.com/f-fix/fat8_d88_tool
+[submodule "deps/nontama_to_bload"]
+	path = deps/nontama_to_bload
+	url = https://github.com/f-fix/nontama_to_bload
+[submodule "deps/cas2uef"]
+	path = deps/cas2uef
+	url = https://github.com/f-fix/cas2uef
+[submodule "deps/bin2fds"]
+	path = deps/bin2fds
+	url = https://github.com/f-fix/bin2fds
