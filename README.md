@@ -27,9 +27,10 @@ grandiose version: (currently 0% implemented)
 ## Table of Contents
 1. [Overview & Approach](#1-overview--approach)
 2. [Development Strategy](#2-development-strategy)
-3. [Existing Project Lineage & Asset Repositories](#3-existing-project-lineage--asset-repositories)
-4. [Component Implementation Status Matrix](#4-component-implementation-status-matrix)
-5. [Representation Layers, Real-Time Planes & Hardware Gateway](#5-representation-layers-real-time-planes--hardware-gateway)
+3. [Installation](#3-installation)
+4. [Existing Project Lineage & Asset Repositories](#4-existing-project-lineage--asset-repositories)
+5. [Component Implementation Status Matrix](#5-component-implementation-status-matrix)
+6. [Representation Layers, Real-Time Planes & Hardware Gateway](#6-representation-layers-real-time-planes--hardware-gateway)
    - [Representation Layers and Orthogonal Planes](#representation-layers-and-orthogonal-planes)
    - [Real-Time Streaming Contract](#real-time-streaming-contract)
    - [Timebase as a First-Class Representation](#timebase-as-a-first-class-representation)
@@ -41,18 +42,18 @@ grandiose version: (currently 0% implemented)
    - [ROM Cartridges as Tape Containers & BIOS Hook Injections](#rom-cartridges-as-tape-containers--bios-hook-injections)
    - [Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry](#physical-cassette-shell-profiling--nominal-whole-tape-geometry)
    - [Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
-6. [Evidence, Models, and Preservation Status](#6-evidence-models-and-preservation-status)
+7. [Evidence, Models, and Preservation Status](#7-evidence-models-and-preservation-status)
    - [Status of Technical Claims](#status-of-technical-claims)
    - [Preservation Hierarchy](#preservation-hierarchy)
    - [Mixed-Mode Media](#mixed-mode-media)
    - [Physical-Equivalent Cassette Modeling](#physical-equivalent-cassette-modeling)
-7. [Systematic Flavor Taxonomy & No-Intro Naming](#7-systematic-flavor-taxonomy--no-intro-naming)
-8. [CLI & Interface Conventions](#8-cli--interface-conventions)
-9. [Metadata, Checksums & Archival Packaging](#9-metadata-checksums--archival-packaging)
-10. [Forensic DSP & Restoration Engines](#10-forensic-dsp--restoration-engines)
-11. [Multi-Phase Implementation Roadmap](#11-multi-phase-implementation-roadmap)
-12. [Format & Protocol Technical Reference Guide](#12-format--protocol-technical-reference-guide)
-13. [Note on the code and the tools used to write it](#13-note-on-the-code-and-the-tools-used-to-write-it)
+8. [Systematic Flavor Taxonomy & No-Intro Naming](#8-systematic-flavor-taxonomy--no-intro-naming)
+9. [CLI & Interface Conventions](#9-cli--interface-conventions)
+10. [Metadata, Checksums & Archival Packaging](#10-metadata-checksums--archival-packaging)
+11. [Forensic DSP & Restoration Engines](#11-forensic-dsp--restoration-engines)
+12. [Multi-Phase Implementation Roadmap](#12-multi-phase-implementation-roadmap)
+13. [Format & Protocol Technical Reference Guide](#13-format--protocol-technical-reference-guide)
+14. [Note on the code and the tools used to write it](#14-note-on-the-code-and-the-tools-used-to-write-it)
 
 ---
 
@@ -73,7 +74,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Evidence and Claims Are Separate**: A decoded file, segmentation boundary, timing model, or semantic interpretation may be useful without being certain. Wherever practical, dwimsy records the evidence, transformation, confidence, and epistemic status that support a derived result. Canonicalization is purpose-specific and lossy by definition; it never replaces the preservation master.
 * **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts (15–25 dB step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
 * **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean naming for all output files. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
-* **Systematic Flavor Defaults**: Each layer has an untagged canonical default flavor (e.g. standard 8-byte padded `.cas` for MSX, trimmed `.cmt` for PC-88). Non-default variants (untrimmed raw streams, compact unpadded CAS) receive standard qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
+* **Systematic Flavor Taxonomy & No-Intro Naming**: Each layer has an untagged canonical default flavor (e.g. standard 8-byte padded `.cas` for MSX, trimmed `.cmt` for PC-88). Non-default variants (untrimmed raw streams, compact unpadded CAS) receive standard qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
 * **Canonical Default Collapsing**: `dwimsy` automatically emits both explicit long names and collapsed canonical default slugs (e.g., `door_door_a.t88` and `door_door.t88` linked to Side A; `salad1_1a.cas` linked to primary part) via non-destructive hardlinking (`os.link`).
 * **Contrasting Audio Representation**: Long names treat the raw capture as default (`.flac`) and tag synthesized audio as `[REGENERATED].wav`; short CLI slugs treat usable synthesized audio as default (`.wav`) and qualify raw captures with `_orig.flac`.
 * **Self-Contained Archival Bundles**: Input capture files are linked/copied directly inside output bundles alongside full hash suites (Size, CRC32, MD5, SHA1, SHA256) at every abstraction layer.
@@ -97,7 +98,27 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ---
 
-## 3. Existing Project Lineage & Asset Repositories
+## 3. Installation
+
+### For Developers (Git Submodules)
+`dwimsy` orchestrates several specialized tools. To fetch the complete source tree including all sub-component logic, use the recursive clone or update commands:
+
+**New Checkout (Fresh Clone):**
+To clone the repository along with all dependencies in one step:
+```bash
+git clone --recursive https://github.com/f-fix/dwimsy.git
+```
+
+**Existing Checkout (Update):**
+If you have already cloned the repository but the `deps/` directories are empty:
+```bash
+git pull
+git submodule update --init --recursive
+```
+
+---
+
+## 4. Existing Project Lineage & Asset Repositories
 
 `dwimsy` integrates and unifies code, tables, and DSP algorithms from several existing repositories:
 
@@ -110,7 +131,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ---
 
-## 4. Component Implementation Status Matrix
+## 5. Component Implementation Status Matrix
 
 | Subsystem / Module | Description | Status | Target Milestone |
 | :--- | :--- | :---: | :---: |
@@ -160,15 +181,15 @@ It is designed to grow incrementally, adding support for new computer platforms,
 | **`platforms.studybox`**| Famicom StudyBox dual-track voice + MFM stream decoder & solenoid transport | `[ ] TODO` | Milestone 5 |
 | **`platforms.adam_ddp`**| Coleco Adam DDP (80 ips high-speed tape) decoder & servo transport | `[ ] TODO` | Milestone 5 |
 | **`platforms.gakken_gcx`**| Gakken Manabu-kun (GCX) MSX-like tape & CD-DA audio disc engine | `[ ] TODO` | Milestone 5 |
-| **`platforms.ibm5150`** | IBM PC 5150 cassette demodulator | `[ ] TODO` | Milestone 5 |
-| **`platforms.bk0010`** | Soviet Elektronika BK-0010 PDP-11 demodulator | `[ ] TODO` | Milestone 5 |
-| **`bus.controller`** | Floppy/Serial/Parallel/IEC bus hardware interfaces (Shugart, Apple, Commodore IEC, SIO) | `[ ] TODO` | Milestone 5 |
-| **`disk.flux`** | Floppy disk raw flux decoders (Applesauce .a2r/.woz, Greaseweazle .scp/.raw)| `[ ] TODO` | Milestone 5 |
-| **`packaging`** | `pyproject.toml`, pip packaging, API docs | `[ ] TODO` | Milestone 5 |
+| **`platforms.ibm5150`** | IBM PC 5150 cassette demodulator | `[ ] TODO" | Milestone 5 |
+| **`platforms.bk0010`** | Soviet Elektronika BK-0010 PDP-11 demodulator | `[ ] TODO" | Milestone 5 |
+| **`bus.controller`** | Floppy/Serial/Parallel/IEC bus hardware interfaces (Shugart, Apple, Commodore IEC, SIO) | `[ ] TODO" | Milestone 5 |
+| **`disk.flux`** | Floppy disk raw flux decoders (Applesauce .a2r/.woz, Greaseweazle .scp/.raw)| `[ ] TODO" | Milestone 5 |
+| **`packaging`** | `pyproject.toml`, pip packaging, API docs | `[ ] TODO" | Milestone 5 |
 
 ---
 
-## 5. Representation Layers, Real-Time Planes & Hardware Gateway
+## 6. Representation Layers, Real-Time Planes & Hardware Gateway
 
 ```text
 ┌────────────────────────────────────────────────────────┐
@@ -464,7 +485,7 @@ Media is tagged as read-only or writable (tracking physical write-protect notche
 
 ---
 
-## 6. Evidence, Models, and Preservation Status
+## 8. Evidence, Models, and Preservation Status
 
 `dwimsy` is intended to be useful for preservation without overstating what has actually been established. Technical facts, empirical observations, inferred structure, heuristics, and generated material should remain distinguishable.
 
@@ -533,7 +554,7 @@ The model must record its parameters and provenance, and should not be described
 
 ---
 
-## 7. Systematic Flavor Taxonomy & No-Intro Naming
+## 9. Systematic Flavor Taxonomy & No-Intro Naming
 
 To prevent tool-name pollution and keep filenames concise while making it easy to cross-reference No-Intro, TOSEC, and MAME Software Lists where the resulting artifact actually matches their published definition, dwimsy defines a canonical default flavor (no extra tag) for each layer, alongside explicitly tagged variant siblings.
 ```text
@@ -600,7 +621,7 @@ To provide clean, immediate usability in emulators while maintaining complete ar
 
 ---
 
-## 8. CLI & Interface Conventions
+## 10. CLI & Interface Conventions
 
 ### Main CLI Verbs `[ ] TODO`
 
@@ -799,7 +820,7 @@ dwimsy join \
 
 ---
 
-## 9. Metadata, Checksums & Archival Packaging
+## 11. Metadata, Checksums & Archival Packaging
 
 ### Multi-Level Hash Registry `[ ] TODO`
 
@@ -887,7 +908,7 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 
 ---
 
-## 10. Forensic DSP & Restoration Engines
+## 12. Forensic DSP & Restoration Engines
 
 * **Physical Tape Channel Modeling (`cassette_model.py`)**: `[ ] TODO` Physical and magneto-electric tape-head interface simulation:
   * **Wallace Gap Loss**: High-frequency spatial attenuation `L_gap(f) = 20 × log₁₀(|sin(πg/λ)/(πg/λ)|)` for head gap `g` (for example, ~1.5 µm as a model parameter) at tape speed `v` (for example, 4.76 cm/s; `λ = v/f`).
@@ -916,7 +937,7 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 
 ---
 
-## 11. Multi-Phase Implementation Roadmap
+## 13. Multi-Phase Implementation Roadmap
 
 ### Phase 0: Orchestration & Adapters `[ ] TODO`
 *   Wrap `BaudAgnosticPulseRecognizer` and `T88ToWavSynthesizer` as `dwimsy` adapters.
@@ -987,7 +1008,7 @@ Tasks:
 
 ---
 
-## 12. Format & Protocol Technical Reference Guide
+## 14. Format & Protocol Technical Reference Guide
 
 The tables in this section are engineering references, not authority by themselves. Values that are format-specific, hardware-specific, or derived from reverse engineering should be independently verified before being treated as established facts. Where a value is a model parameter rather than a format requirement, implementations should record its provenance and epistemic status.
 
@@ -1073,7 +1094,7 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
 
 ---
 
-## 13. Note on the code and the tools used to write it
+## 15. Note on the code and the tools used to write it
 
 Parts of this code were written (including some initial ones that began in other, separate projects) with assistance from LLM-integrated coding tools. If you don't like it, feel free to use other software or rewrite parts you dislike. PRs are welcome!
 
