@@ -39,14 +39,10 @@ grandiose version: (currently 0% implemented)
    - [Transport Automation Spectrum: From Manual Relays to Fully Logic-Controlled Decks](#transport-automation-spectrum-from-manual-relays-to-fully-logic-controlled-decks)
    - [Runtime Media Management, Adaptive Modes & Content-Aware Transport](#runtime-media-management-adaptive-modes--content-aware-transport)
    - [Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage](#fresh-blank-media-creation-auto-naming--out-of-band-storage)
-   - [ROM Cartridges as Tape Containers & BIOS Hook Injections](#rom-cartridges-as-tape-containers--bios-hook-injections)
-   - [Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry](#physical-cassette-shell-profiling--nominal-whole-tape-geometry)
+   - [ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)](#rom-cartridges-as-tape-containers--bios-hook-injections-platformscart_hooks)
+   - [Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)](#physical-cassette-shell-profiling--nominal-whole-tape-geometry-tapegeometry)
    - [Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
 7. [Evidence, Models, and Preservation Status](#7-evidence-models-and-preservation-status)
-   - [Status of Technical Claims](#status-of-technical-claims)
-   - [Preservation Hierarchy](#preservation-hierarchy)
-   - [Mixed-Mode Media](#mixed-mode-media)
-   - [Physical-Equivalent Cassette Modeling](#physical-equivalent-cassette-modeling)
 8. [Systematic Flavor Taxonomy & No-Intro Naming](#8-systematic-flavor-taxonomy--no-intro-naming)
 9. [CLI & Interface Conventions](#9-cli--interface-conventions)
 10. [Metadata, Checksums & Archival Packaging](#10-metadata-checksums--archival-packaging)
@@ -191,37 +187,29 @@ git submodule update --init --recursive
 
 ## 6. Representation Layers, Real-Time Planes & Hardware Gateway
 
-```text
-┌────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────┐
 │ Layer 4: Semantic File & Payload Layer        [ ] TODO │
 │   • Executable Binaries (BLOAD, Load/Exec RAM images)  │
 │   • Detokenized Plaintext Source (N-BASIC, MSX, FOCAL) │
 │   • Unicode Charsets (JIS X 0201, NEC, MSX, KOI-7)     │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
+├──────────────────────────┬───────────────────────────┤
 │ Layer 3: Filesystem & Protocol Layer          [ ] TODO │
 │   • Sector FS: FAT8, FAT12, CP/M, Coleco DDP           │
 │   • Unified Headers: Sharp MZ 128-byte (Tape/QD/Disk)  │
 │   • Stream Protocols: PC-88 (D3/24/9C), MSX (1F A6)    │
 │   • Custom Loaders: NONTAMA, Speedlock, PWM Turbo      │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
+├──────────────────────────┬───────────────────────────┤
 │ Layer 2: Physical Timing & Sector Containers  [ ] TODO │
-│   • Tape Containers: .t88, .tsx, .p6t, .uef, .cdt, .tzx│
+│   • Tape Containers: .t88, .tsx, .p6t, .uef, .cdt, .tzx │
 │   • Floppy Images  : .d88, .dsk (MSX sectors == CMT)   │
 │   • Spiral Disks   : .fds, .qd, .qdf                   │
 │   • ROM Cartridges : .rom, .crt (MSX AB, C64, cas2rom) │
-└───────────────────────────┬────────────────────────────┘
-                            │
-┌───────────────────────────▼────────────────────────────┐
+├──────────────────────────┬───────────────────────────┤
 │ Layer 1: Physical Carrier & Raw Signal Layer  [ ] TODO │
 │   • Audio Signals  : WAV, FLAC, Flexidiscs, CD Tracks  │
 │   • Raw Pulse Flux : Applesauce (.a2r), Greaseweazle   │
 │   • Physical DSP   : Time-Base Correction, AGC, Slicer │
-└────────────────────────────────────────────────────────┘
-```
+└──────────────────────────────────────────────────────┘
 
 ### Representation Layers and Orthogonal Planes
 
@@ -300,7 +288,7 @@ Physical capture time, modeled tape position, corrected media time, protocol tim
 ```
 
 #### Tri-Directional Control Mechanics
-1. **Upstream Host Control**: Senses host `REMOTE` motor relays, Shugart `/STEP`/`/MOTOR_ON` line, Commodore IEC serial bus, Atari SIO, Sharp MZ parallel bus lines, or full software transport ASIC command lines (StudyBox / Gakken GCX / Sharp X1).
+1. **Upstream Host Control**: Senses host `REMOTE` motor relays, Shugart `/STEP`/`/MOTOR_ON` lines, Commodore IEC serial bus, Atari SIO, Sharp MZ parallel bus lines, or full software transport ASIC command lines (StudyBox / Gakken GCX / Sharp X1).
 2. **Downstream Transport Control**: Drives physical deck relays/solenoids (`PLAY`, `STOP`, `REWIND`, `RECORD`), monitors capstan tachometer / reel rotation for instant tape speed feedback, and senses optical end-of-tape (EOT).
 3. **Operator / Supervisor Plane (Bidirectional)**:
    * **Inbound Commands**: Operators swap disks, flip tape sides, arm virtual recording modes, create blank save tapes, trigger motor overrides, inject cue annotations, and cycle canonicalization modes without disturbing the real-time audio/flux streaming loop.
@@ -362,62 +350,9 @@ When browsing media via the `<I>` keystroke in TTY mode:
   - If the active media was chosen from the CLI, generated dynamically, or imported → browsing starts in the Virtual Image Root.
   - If the active media was selected from a subdirectory within `--image-root` → browsing opens directly inside that subdirectory.
 * **Type-to-Navigate**: In TTY mode, typing alphanumeric characters performs in-place substring filtering across filenames.
-* **Seamless Virtual Insertion**: Pressing `<Enter>` selects an image and hot-inserted it into the active transport loop, simulating appropriate door/index pulses to the host retrocomputer without audio dropouts.
+* **Seamless Virtual Insertion**: Pressing `<Enter>` selects an image and hot-inserts it into the active transport loop, simulating appropriate door/index pulses to the host retrocomputer without audio dropouts.
 
-#### 3. Out-of-Band Import/Export Control Channel & Ephemeral Mode
-* **Ephemeral In-Memory / Crash-Safe Mode (`--ephemeral`)**: Overlays and newly created save media are held strictly in RAM and never written to disk or persistent cache, remaining clean even after sudden termination or power loss. Temporary storage uses auto-cleaned scratch directories or RAM.
-* **TTY UI Local Transfer Commands**: Running logically within the TTY frontend without interrupting the audio streaming engine, operators can issue local commands (`:import <path>`, `:export <file> <dest>`, `:save-overlay`) to transfer files into/out of the Virtual Image Root.
-* **Remote UI Upload/Download (IPC)**: Web and phone dashboards expose file upload/download endpoints over WebSocket / HTTP. Imported images immediately enter the Virtual Image Root and can be cycled via `[` / `]`.
-* **SHA1-Indexed Persistent Overlays**: In non-ephemeral mode, write overlays are stored out-of-band under `~/.cache/dwimsy/overlays/<SHA1>/`, indexed by the master tape SHA-1 hash. Selecting an image with an existing overlay presents an instant choice: `[1] Use Overlay`, `[2] Clean Master`, `[3] Delete Overlay`. Pressing `<D>` in TTY mode discards the active overlay.
-* **Pipeline / Filter Default**: Standalone filter applets and piped stream conversions default to cold, read-only mode. If a matching overlay is found in cache, `dwimsy` displays an informational notice on `stderr` explaining the `--overlay` activation flag.
-* **Deterministic Verification (`--no-overlay`)**: Explicitly bypasses overlay reading for reproducible verification and testing.
-
-#### 4. Automated Physical Side/Tape Slicing & Leader Detection (`--multi-side`)
-When digitizing continuous captures containing multiple cassette sides or tapes:
-* **Spectrographic Leader & Hiss Profiling**: Identifies non-magnetic clear leader tape and transport stops via a 15–25 dB step-change dropping from magnetic bias hiss (E_bias ≈ −50 dBFS) to electronic preamp floor (E_floor ≤ −75 dBFS).
-* **Validated Lifecycle Interlock**: Only commits a side split when the audio region satisfies a complete tape lifecycle (Leader In → Valid Program/Audio Payload → Leader Out).
-* **Default Carousel Sequencing**: Automatically assigns sequential layout (`Tape 01 Side A` → `Side B` → `Tape 02 Side A` → `Side B`) unless overridden by user metadata.
-
-#### 5. Loading Groups & Multi-Block Chaining (`transport.seeker`)
-To prevent tedious manual keystrokes during multi-block loading on systems without motor control (e.g. Sinclair ZX Spectrum games like *R-Type* or *Bubble Bobble*, Speedlock protection schemes, MSX multi-loaders, or PC-6001 NONTAMA stages):
-* **Three-Level Structural Hierarchy**:
-  1. *Block / Record (Layer 2)*: Atomic physical data frame (TZX block, 19-byte Spectrum header, MSX 16-byte chunk, PC-88 `: [addr]` record).
-  2. *Loading Group / Load Group (Layer 3)*: Contiguous sequence of blocks streamed in one continuous, uninterrupted pass by the computer's active loader without stopping the tape.
-  3. *Segment (Timeline / Mixed-Mode)*: Chronological macro-region on a composite mixed-mode tape (e.g. *Gundam 2* `Segment 01` [Data] ↔ `Segment 02` [Audio Drama]).
-* **Automated Group Boundary Detection**:
-  - *TZX / TSX / CDT Metadata*: Evaluates block pause values. Non-zero pauses stream automatically; zero-pause blocks (Block `0x20` Stop the Tape / Block `0x2A` Stop in 48K) or TZX Group markers (`0x21`/`0x22`) seal the Loading Group and engage transport auto-pause.
-  - *Audio Cadence*: Inter-block gaps < 2.0s maintain continuous streaming; silence drops ≥ 3.0s–5.0s trigger stage auto-pause.
-  - *Loader Protocol Signatures*: Recognizes linked loader patterns (Speedlock, NONTAMA, PC-88 CSAVE → MON chains) and groups them automatically.
-
-#### 6. Runtime Conversion Mode & Modulation Switching (`dsp.router`)
-Mode switching operates across two distinct dynamics:
-* **User-Driven Real-Time A/B Testing**: The operator toggles output modes on-the-fly (`Raw Passthrough` ↔ `Conditioned Filter` ↔ `Canonical Ideal` ↔ `Cassette Hardware Model`) while listening to the real hardware to diagnose edge-case demodulation issues.
-* **Inferred / Sniffed In-Stream Modulation Switching**:
-  - **Hybrid Speed Loaders**: Software often begins with a standard ROM BIOS FSK header (1200 baud) and switches mid-stream to high-speed custom PWM or Turbo tones (e.g. 3600+ baud). `dwimsy` continuously monitors pilot frequencies and dynamically hot-switches demodulators mid-stream with zero dropped samples.
-  - **Adaptive DSP Fallback**: If signal SNR or carrier eye pattern degrades below a confidence threshold, the router dynamically engages secondary phase equalization or alternate slicer hysteresis.
-
-#### 7. Multi-Platform Compilation Splitting & Multi-File Container Packaging (`tape.multiplex`)
-For compilation tapes containing programs for multiple target systems and spoken human narration (such as ASCII's *Tape Login* and *Tank Battle* series, or multi-part releases like *Gundam 2* and *Tomato Hime*):
-* **Hard Program Fencing**: Intervening human speech/commentary tracks or extended leader silences (>5s) act as hard program boundaries, preventing unrelated titles from merging.
-* **Chained Multi-File Container Integrity**: Multi-part programs (e.g., PC-88 tokenized BASIC loader → machine-language engine → graphics/map data; MSX multi-block loads; PC-6001 BASIC → NONTAMA payload) are preserved together inside a single, unified, bootable emulator container image (`.t88`, `.cas`, `.p6t`, `.t77`, `.mzt`, `.tap`, `.cdt`, `.tzx`). This ensures emulators load all subsequent stages automatically without hanging on missing sub-files.
-* **Dissected Payload Extraction**: In addition to the bootable multi-file container, individual sub-files (`.cmt`, `.bin`, detokenized `.bas`) are unpacked into a `subfiles/` directory for developer inspection.
-
-#### 8. Three-Tier Ambiguity Resolution Strategy
-Generic extensions like `.cmt` (used by PC-88, PC-6001, MSX, FM-7), `.cas` (used by MSX, Sega SC-3000, Sord M5, Casio, CoCo), `.mzt` (Sharp MZ single/multi-file dumps vs QD BSD images), and `.wav` are resolved through a deterministic hierarchy:
-1. **Tier 1: Explicit Namespaced Filter Applets**: Direct invocation of single-purpose Unix filters (`dwimsy-msx-wav2cas`, `dwimsy-sega-wav2cas`, `dwimsy-sord-wav2cas`, `dwimsy-wav2t88`, `dwimsy-t882wav`) establishes unambiguous platform context.
-2. **Tier 2: Explicit Profile Switches**: High-level commands accept `--profile=` overrides (`--profile=pc88`, `--profile=msx`, `--profile=sega-sc3000`, `--profile=sord-m5`, `--profile=pc6001`, `--profile=fm7`, `--profile=mz700`, `--profile=mz2000`, `--profile=x1`, `--profile=cpc`, `--profile=spectrum`, `--profile=famicom-basic`).
-3. **Tier 3: In-Stream Layer 3 Protocol Sniffing**: If no profile is specified, `dwimsy` parses the demodulated stream through parallel platform recognizers (checking for MSX `1F A6` sync tokens, PC-88 `0xD3`/`0x24`/`0x9C` preambles, PC-6001 mode descriptors, Sharp 128B directory blocks, Sharp X1 `.tap` headers, Family BASIC headers, Sega "SEGA CASSETTE", Sord `0x55`+`HEADER`, or FM-7/FM-8 headers).
-
-#### 9. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (`transport.seeker`)
-Instead of blind time-based skipping, `dwimsy` provides structure-aware transport navigation:
-* **Named File & Header Seeking**: Seek directly to a named file (e.g., `seek --file "STAGE2.BIN"` or `seek --type BASIC`).
-* **Loading Group Navigation**: Step forward or backward by entire loading groups (`seek --next-group`, `seek --prev-group`).
-* **Block & Record Navigation**: Step forward or backward by logical data blocks (`seek --next-block`, `seek --prev-block`).
-* **Semantic Marker Seeking**: Instantly cue to narration cue points, audio drama segments, or user cable swap prompts.
-* **Calibrated Tape Counter Seek**: Navigates using physical reel rotation models (`seek --counter "0450"`), translating between tape ticks and elapsed master FLAC time.
-* **Transport State Integrity**: While seeking in live bridge mode, `dwimsy` coordinates with the retrocomputer host by holding the virtual motor/pause state, smoothly re-engaging carrier lock at the target boundary without triggering framing errors.
-
-### Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage
+#### 3. Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage
 
 Many retrocomputing productivity tools (such as Japanese word processors on the PC-6001mkIISR, database managers on PC-88, or multi-part RPGs) explicitly prompt the user to **"Insert a formatted blank tape/disk for saving user data"**.
 
@@ -434,7 +369,7 @@ Many retrocomputing productivity tools (such as Japanese word processors on the 
   - **Remote Web/Phone UI**: Tapping "Create & Insert Save Tape".
   - **CLI IPC**: `dwimsy-ctl media new-tape --preset C-30 --auto-name`.
 
-### ROM Cartridges as Tape Containers & BIOS Hook Injections (`platforms.cart_hooks`)
+#### 4. ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)
 
 In vintage ecosystems, commercial distributors frequently re-released cassette-based games as ROM cartridges by wrapping the tape payload in a small stub that patches or intercepts ROM BIOS cassette routines (e.g., Al-Alamiah / Sakhr Arabic MSX `cas2rom` cartridges, Korean Zemmix conversions, and PC-6001mkII `mkrom.py` bank-switch cartridges):
 
@@ -455,7 +390,7 @@ In vintage ecosystems, commercial distributors frequently re-released cassette-b
 * **Encapsulation & ROM Synthesis**: Compiles standalone logical tape files into bootable cartridge ROM images (e.g. `cas2rom` for MSX or `mkrom` with Port `0xF0` / `0x7F` paging for PC-6001mkII).
 * **Provenance Correlation**: Links cartridge ROM releases to their original tape releases in the multi-level hash registry, allowing cross-verification between tape dumps and official cartridge conversions.
 
-### Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (`tape.geometry`)
+#### 5. Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)
 
 In vintage software distribution, software was duplicated onto standard or custom physical cassette shells (e.g., a 3-minute program released on a C-10 or C-15 cassette, with the remainder of Side A and the entirety of Side B left unrecorded). When synthesizing audio from logical streams or timing containers (e.g., `.t88`/`.cas`/`.cmt` → `.wav`), `dwimsy` allows declaring **nominal whole-tape geometry**:
 
@@ -464,7 +399,7 @@ In vintage software distribution, software was duplicated onto standard or custo
 * **Side B Infill & Unrecorded Replication**: Optionally produces a structurally matched, unrecorded or blank Side B waveform to mirror the complete physical retail artifact.
 * **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter (r₀ ≈ 11 mm) to calculate non-linear reel rotational speeds, giving a modeled tape-position estimate (N_counter) across fast-forward and rewind operations; accuracy depends on measured or declared tape/deck parameters and should be treated as an estimate unless independently calibrated.
 
-### Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays
+#### 6. Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays
 
 #### Five Preservation Dimensions
 1. **Artifact Preservation**: Physical scans, packaging, cassette shells, manuals, labels, and other physical-object documentation.
@@ -820,7 +755,7 @@ dwimsy join \
 
 ---
 
-## 11. Metadata, Checksums & Archival Packaging
+## 10. Metadata, Checksums & Archival Packaging
 
 ### Multi-Level Hash Registry `[ ] TODO`
 
@@ -908,7 +843,7 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 
 ---
 
-## 12. Forensic DSP & Restoration Engines
+## 11. Forensic DSP & Restoration Engines
 
 * **Physical Tape Channel Modeling (`cassette_model.py`)**: `[ ] TODO` Physical and magneto-electric tape-head interface simulation:
   * **Wallace Gap Loss**: High-frequency spatial attenuation `L_gap(f) = 20 × log₁₀(|sin(πg/λ)/(πg/λ)|)` for head gap `g` (for example, ~1.5 µm as a model parameter) at tape speed `v` (for example, 4.76 cm/s; `λ = v/f`).
@@ -937,7 +872,7 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 
 ---
 
-## 13. Multi-Phase Implementation Roadmap
+## 12. Multi-Phase Implementation Roadmap
 
 ### Phase 0: Orchestration & Adapters `[ ] TODO`
 *   Wrap `BaudAgnosticPulseRecognizer` and `T88ToWavSynthesizer` as `dwimsy` adapters.
@@ -1008,7 +943,7 @@ Tasks:
 
 ---
 
-## 14. Format & Protocol Technical Reference Guide
+## 13. Format & Protocol Technical Reference Guide
 
 The tables in this section are engineering references, not authority by themselves. Values that are format-specific, hardware-specific, or derived from reverse engineering should be independently verified before being treated as established facts. Where a value is a model parameter rather than a format requirement, implementations should record its provenance and epistemic status.
 
@@ -1094,7 +1029,7 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
 
 ---
 
-## 15. Note on the code and the tools used to write it
+## 14. Note on the code and the tools used to write it
 
 Parts of this code were written (including some initial ones that began in other, separate projects) with assistance from LLM-integrated coding tools. If you don't like it, feel free to use other software or rewrite parts you dislike. PRs are welcome!
 
