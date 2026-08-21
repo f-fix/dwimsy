@@ -12,9 +12,9 @@ grandiose version: (currently 0% implemented)
 
 ### For now, see:
 
-- **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** — working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three already have self-test suites and stdin/stdout piping. This is the most complete preview of dwimsy's planned pipeline, and its logic is the intended source for `core.fsk`, `cli.filters.t882wav`/`wav2t88`, and part of `cli.dwimsy analyze`/`inspect` (Milestone 1). It doesn't yet implement dwimsy's flavor taxonomy (Section 6) — there's no trimmed/untrimmed pairing or No-Intro-style naming — and there's no shared `core.audio`/`core.pulse` library, since each script is self-contained.
+- **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** — working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three already have self-test suites and stdin/stdout piping. This is the most complete preview of dwimsy's planned pipeline, and its logic is the intended source for `core.fsk`, `cli.filters.t882wav`/`wav2t88`, and `cli.dwimsy inspect` (Milestone 1). It doesn't yet implement dwimsy's flavor taxonomy (Section 8) — there's no trimmed/untrimmed pairing or No-Intro-style naming — and there's no shared `core.audio`/`core.pulse` library, since each script is self-contained.
   * *Refactoring Status:* Currently being integrated via adapters to prove the Bridge/LCD UI logic.
-- **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk`, `core.audio` (`flac2wav`), `dsp.filter`, and `dsp.modeler` (`cassette_model`) in Milestone 1. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that so all tape tools operate as continuous Unix streaming filters.
+- **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk` (Milestone 1), `core.audio` (`flac2wav`), `dsp.filter`, and `dsp.modeler` (`cassette_model`) in Milestone 2. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that so all tape tools operate as continuous Unix streaming filters.
   * *Refactoring Status:* Target for `dwimsy.dsp` and MSX physical layer generalization.
 - **[`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool)** — a working D88/FAT8 extractor, tested against PC-6001/PC-6001mkII/PC-6001mkIISR, PC-8801, PC-98, and even a Pasopia disk image, including PC-88/PC-98 obfuscated-save deobfuscation (N88-BASIC bit rotation and PC-88 143-byte combined XOR key recovery) and JIS-adjacent / PC-6001 semigraphics character mapping. It includes dedicated streaming line-by-line character set conversion modes (`--pc98-8bit-to-utf8`, `--pc6001-8bit-to-utf8`, `--utf8-to-pc98-8bit`, `--utf8-to-pc6001-8bit`) which will form a dedicated `dwimsy charset` verb and filter applet (`dwimsy-conv`). It's the intended source for `disk.d88`, `disk.fat8`, `core.charsets` (Milestone 2), and `core.fs` filename sanitization. The author's own README is candid that the code "started in ChatGPT" and "is uglier than sin" pending cleanup — a good example of a real candidate for dwimsy's promised readable, documented conversion steps. Tokenized-BASIC detokenization and RBYTE encode/decode (`rbyte.py`, `rbyte88.py`, `rbyte_enc.py`, `rbyte88_enc.py`) are still separate, unintegrated pieces.
   * *Refactoring Status:* Will be used as a backend for `dwimsy extract` disk workflows.
@@ -139,7 +139,7 @@ git submodule update --init --recursive
 | **`core.audio`** | Streaming WAV I/O only (no FLAC yet — that ships with MSX support in Milestone 2) | `[ ] TODO` | Milestone 1 |
 | **`core.fsk`** | FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav` | `[ ] TODO` | Milestone 1 |
 | **`cli.filters.*`** | `t882wav` and `wav2t88` only, ported directly from `pc88_tape_tools` | `[ ] TODO` | Milestone 1 |
-| **`cli.dwimsy`** | Minimal CLI exposing only `convert`, wired to `t882wav`/`wav2t88` — remaining verbs land in Milestone 2 | `[ ] TODO` | Milestone 1 |
+| **`cli.dwimsy`** | Minimal CLI exposing `convert` and structural `inspect` for T88/CMT — full multi-format/provenance inspect and remaining verbs land in Milestone 2 | `[ ] TODO` | Milestone 1 |
 | **`core.realtime`** | Live-stage contracts, bounded buffering/latency accounting, clocks, backpressure and resynchronization | `[ ] TODO` | Milestone 2 |
 | **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`, ported with MSX support) | `[ ] TODO` | Milestone 2 |
 | **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`, ported with MSX support) | `[ ] TODO` | Milestone 2 |
@@ -836,7 +836,7 @@ hashes:
     size_bytes: 27200
     crc32: "12345678"
     md5: "5d41402abc4b2a76b9719d911017c592"
-    sha1: "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    sha1: "fb43a1a63c467a92b2345d6e246736d5e305e714"
     sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
   # Layer 3: Logical Stream (Trimmed & Untrimmed Flavors)
@@ -947,19 +947,18 @@ Tasks:
 2. `[ ] TODO` Implement `dwimsy.core.audio`: streaming WAV reader/writer only. FLAC support is deferred to Phase 2, where it ships alongside MSX support (`flac2wav`).
 3. `[ ] TODO` Implement `dwimsy.core.fsk`: FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav`.
 4. `[ ] TODO` Port `t882wav` and `wav2t88` as Netpbm-style filters, directly from `pc88_tape_tools`.
-5. `[ ] TODO` Implement a minimal `dwimsy` CLI exposing only `convert`, wired to the two filters above. `restore`, `split`, `join`, and `inspect` are deferred to Phase 2, since they depend on flavor taxonomy, hash registry, and provenance features that don't exist yet.
+5. `[ ] TODO` Implement a minimal `dwimsy` CLI exposing `convert` and structural `inspect` (for `.t88`/`.cmt`). `restore`, `split`, `join`, and full multi-level hash/provenance reporting are deferred to Phase 2, since they depend on flavor taxonomy and archive features that don't exist yet.
    Verification: `[ ] TODO` Bit-exact roundtrip on a real PC-88 `.t88` sample (e.g. `input01.t88`) through `wav2t88` → `t882wav` → `wav2t88`, matching the original container byte-for-byte.
 
-### Phase 2: MSX Generalization, The TZX Bridge, Full CLI, Disk Subsystems & Flavor Matrix `[ ] TODO`
+### Phase 2: MSX Generalization, Full CLI, Disk Subsystems & Flavor Matrix `[ ] TODO`
 
 Phase 2 opens by testing whether Phase 1's abstractions actually generalize — porting a second platform (MSX) before building out anything platform-specific-heavy like disk formats.
 
 Tasks:
 1. `[ ] TODO` Port `wav2cas`, `cas2wav`, and `flac2wav` (MSX FSK codec + streaming FLAC I/O), validating that `core.audio`/`core.fsk`/`core.pulse` generalize to a second platform without a rewrite.
-2. `[ ] TODO` Implement `dwimsy.tape.tzx_family` as a universal physical-layer export target (The "KCS Bridge").
 2. `[ ] TODO` Implement `dwimsy.dsp` (`cmt_filter` wave shaper and `cassette_modeler`), ported with MSX support.
 3. `[ ] TODO` Implement `dwimsy.core.realtime` (live-stage contracts, bounded buffering/latency, resynchronization latency, backpressure), first exercised via live-capture support for PC-88 and MSX.
-4. `[ ] TODO` Expand the `dwimsy` CLI verb set: `restore`, `split`, `join`, `inspect`.
+4. `[ ] TODO` Expand the `dwimsy` CLI verb set: `restore`, `split`, `join`, and full multi-layer/archive `inspect`.
 5. `[ ] TODO` Implement `dwimsy.cli.sidechannel` (`stderr` virtual LCD, TTY keystrokes, POSIX/Win32 signal dispatcher).
 6. `[ ] TODO` Integrate `dwimsy.core.charsets` (JIS X 0201, NEC semigraphics, MSX Katakana, ASCII, streaming CLI filter applet).
 7. `[ ] TODO` Integrate `dwimsy.disk.d88` and `dwimsy.disk.fat8` (`d882fat8`, `fat82d88`, `d882t88`, `d88_explode`).
