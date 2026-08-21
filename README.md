@@ -44,10 +44,10 @@ grandiose version: (currently 0% implemented)
      - [7. Multi-Platform Compilation Splitting & Multi-File Container Packaging (tape.multiplex)](#7-multi-platform-compilation-splitting--multi-file-container-packaging-tapemultiplex)
      - [8. Three-Tier Ambiguity Resolution Strategy](#8-three-tier-ambiguity-resolution-strategy)
      - [9. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (transport.seeker)](#9-content-aware-smart-seek-intelligent-fast-forward--rewind-transportseeker)
-   - [3. Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage](#3-fresh-blank-media-creation-auto-naming--out-of-band-storage)
-   - [4. ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)](#4-rom-cartridges-as-tape-containers--bios-hook-injections-platformscart_hooks)
-   - [5. Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)](#5-physical-cassette-shell-profiling--nominal-whole-tape-geometry-tapegeometry)
-   - [6. Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#6-preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
+   - [Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage](#fresh-blank-media-creation-auto-naming--out-of-band-storage)
+   - [ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)](#rom-cartridges-as-tape-containers--bios-hook-injections-platformscart_hooks)
+   - [Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)](#physical-cassette-shell-profiling--nominal-whole-tape-geometry-tapegeometry)
+   - [Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
 7. [Evidence, Models, and Preservation Status](#7-evidence-models-and-preservation-status)
 8. [Systematic Flavor Taxonomy & No-Intro Naming](#8-systematic-flavor-taxonomy--no-intro-naming)
 9. [CLI & Interface Conventions](#9-cli--interface-conventions)
@@ -197,24 +197,24 @@ git submodule update --init --recursive
 │   • Executable Binaries (BLOAD, Load/Exec RAM images)  │
 │   • Detokenized Plaintext Source (N-BASIC, MSX, FOCAL) │
 │   • Unicode Charsets (JIS X 0201, NEC, MSX, KOI-7)     │
-├──────────────────────────┬─────────────────────────────┤
+├──────────────────────────⇕─────────────────────────────┤
 │ Layer 3: Filesystem & Protocol Layer          [ ] TODO │
 │   • Sector FS: FAT8, FAT12, CP/M, Coleco DDP           │
 │   • Unified Headers: Sharp MZ 128-byte (Tape/QD/Disk)  │
 │   • Stream Protocols: PC-88 (D3/24/9C), MSX (1F A6)    │
 │   • Custom Loaders: NONTAMA, Speedlock, PWM Turbo      │
-├──────────────────────────┬─────────────────────────────┤
+├──────────────────────────⇕─────────────────────────────┤
 │ Layer 2: Physical Timing & Sector Containers  [ ] TODO │
 │   • Tape Containers: .t88, .tsx, .p6t, .uef, .cdt, .tzx│
 │   • Floppy Images  : .d88, .dsk (MSX sectors == CMT)   │
 │   • Spiral Disks   : .fds, .qd, .qdf                   │
 │   • ROM Cartridges : .rom, .crt (MSX AB, C64, cas2rom) │
-├──────────────────────────┬─────────────────────────────┤
+├──────────────────────────⇕─────────────────────────────┤
 │ Layer 1: Physical Carrier & Raw Signal Layer  [ ] TODO │
 │   • Audio Signals  : WAV, FLAC, Flexidiscs, CD Tracks  │
 │   • Raw Pulse Flux : Applesauce (.a2r), Greaseweazle   │
 │   • Physical DSP   : Time-Base Correction, AGC, Slicer │
-└──────────────────────────┴─────────────────────────────┘
+└────────────────────────────────────────────────────────┘
 ```
 
 ### Representation Layers and Orthogonal Planes
@@ -268,7 +268,7 @@ Physical capture time, modeled tape position, corrected media time, protocol tim
                   │          TRI-DIRECTIONAL CONTROL PLANE        │
                   │                                               │
  [1] UPSTREAM     │ • Host Motor Handshake & Relay Sense (REMOTE) │ [2] DOWNSTREAM
- (Host / Emu) ◄───┼─► Parallel / Serial / IEC / Solenoid Engine   ◄───┼─► (Deck/Drive)
+ (Host / Emu) ◄───┼─► Parallel / Serial / IEC / Solenoid Engine ◄─┼───► (Deck/Drive)
                   │ • Writable Media Non-Destructive Overlays     │   (Relays, Tacho,
                   │                       │                       │    Greaseweazle)
                   │               Synchronized Event              │
@@ -409,7 +409,7 @@ Instead of blind time-based skipping, `dwimsy` provides structure-aware transpor
 * **Calibrated Tape Counter Seek**: Navigates using physical reel rotation models (`seek --counter "0450"`), translating between tape ticks and elapsed master FLAC time.
 * **Transport State Integrity**: While seeking in live bridge mode, `dwimsy` coordinates with the retrocomputer host by holding the virtual motor/pause state, smoothly re-engaging carrier lock at the target boundary without triggering framing errors.
 
-### 3. Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage
+### Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage
 
 Many retrocomputing productivity tools (such as Japanese word processors on the PC-6001mkIISR, database managers on PC-88, or multi-part RPGs) explicitly prompt the user to **"Insert a formatted blank tape/disk for saving user data"**.
 
@@ -426,7 +426,7 @@ Many retrocomputing productivity tools (such as Japanese word processors on the 
   - **Remote Web/Phone UI**: Tapping "Create & Insert Save Tape".
   - **CLI IPC**: `dwimsy-ctl media new-tape --preset C-30 --auto-name`.
 
-### 4. ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)
+### ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)
 
 In vintage ecosystems, commercial distributors frequently re-released cassette-based games as ROM cartridges by wrapping the tape payload in a small stub that patches or intercepts ROM BIOS cassette routines (e.g., Al-Alamiah / Sakhr Arabic MSX `cas2rom` cartridges, Korean Zemmix conversions, and PC-6001mkII `mkrom.py` bank-switch cartridges):
 
@@ -447,7 +447,7 @@ In vintage ecosystems, commercial distributors frequently re-released cassette-b
 * **Encapsulation & ROM Synthesis**: Compiles standalone logical tape files into bootable cartridge ROM images (e.g. `cas2rom` for MSX or `mkrom` with Port `0xF0` / `0x7F` paging for PC-6001mkII).
 * **Provenance Correlation**: Links cartridge ROM releases to their original tape releases in the multi-level hash registry, allowing cross-verification between tape dumps and official cartridge conversions.
 
-### 5. Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)
+### Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)
 
 In vintage software distribution, software was duplicated onto standard or custom physical cassette shells (e.g., a 3-minute program released on a C-10 or C-15 cassette, with the remainder of Side A and the entirety of Side B left unrecorded). When synthesizing audio from logical streams or timing containers (e.g., `.t88`/`.cas`/`.cmt` → `.wav`), `dwimsy` allows declaring **nominal whole-tape geometry**:
 
@@ -456,7 +456,7 @@ In vintage software distribution, software was duplicated onto standard or custo
 * **Side B Infill & Unrecorded Replication**: Optionally produces a structurally matched, unrecorded or blank Side B waveform to mirror the complete physical retail artifact.
 * **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter (r₀ ≈ 11 mm) to calculate non-linear reel rotational speeds, giving a modeled tape-position estimate (N_counter) across fast-forward and rewind operations; accuracy depends on measured or declared tape/deck parameters and should be treated as an estimate unless independently calibrated.
 
-### 6. Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays
+### Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays
 
 #### Five Preservation Dimensions
 1. **Artifact Preservation**: Physical scans, packaging, cassette shells, manuals, labels, and other physical-object documentation.
@@ -477,7 +477,7 @@ Media is tagged as read-only or writable (tracking physical write-protect notche
 
 ---
 
-## 7. Evidence, Models, and Preservation Status
+## Evidence, Models, and Preservation Status
 
 `dwimsy` is intended to be useful for preservation without overstating what has actually been established. Technical facts, empirical observations, inferred structure, heuristics, and generated material should remain distinguishable.
 
