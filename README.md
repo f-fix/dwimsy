@@ -21,9 +21,6 @@ grandiose version: (currently 0% implemented)
 - **[`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload)** — two working unpackers, `nontama_to_bload.py` (PC-6001mkII NONTAMA rolling-XOR loader tapes, verified against ~18 released games) and `mload_to_bload.py` (MSX "M"-loader rolling-XOR tapes with bitsum verification), plus `mkrom.py` for building bootable cartridges from the results (handling PC-6001mkII port 0xF0 bank switching and Beluga port 0x7F). Maps to `platforms.unpack` and `platforms.cart_hooks` (Milestone 2). Each unpacker is a standalone script today; dwimsy's plan is to route their output through the shared Layer 3/4 stream and payload handling rather than writing `.bin` directly.
 - **[`f-fix/cas2uef`](https://github.com/f-fix/cas2uef)** — a working, narrowly-scoped `cas2uef.py` that converts "compact" (unpadded, non-8-byte-aligned) MSX CAS from DumpListEditor directly into BBC Micro `.uef`. The author's own README flags that the result isn't archival-quality, since CAS carries no timing data and the tool heuristically inserts pauses at detected file-header boundaries. This is the intended basis for `tape.bbc` (Milestone 3), though in dwimsy it's planned to route through the shared logical-stream layer instead of converting directly, so the heuristic pause-insertion can eventually be replaced with real timing where available.
 - **[`f-fix/bin2fds`](https://github.com/f-fix/bin2fds)** — a working but self-described "super ugly" **Python 2** script that converts raw `.bin` (such as FDSStick dumps) to Famicom Disk System `.fds`, including multi-side images. Slated for a straight Python 3 port as `disk.fds` (Milestone 2); until then it's the odd one out in this list, since it isn't even Python 3 yet.
-
----
-
 ## Table of Contents
 1. [Overview & Approach](#1-overview--approach)
 2. [Development Strategy](#2-development-strategy)
@@ -47,10 +44,10 @@ grandiose version: (currently 0% implemented)
      - [7. Multi-Platform Compilation Splitting & Multi-File Container Packaging (tape.multiplex)](#7-multi-platform-compilation-splitting--multi-file-container-packaging-tapemultiplex)
      - [8. Three-Tier Ambiguity Resolution Strategy](#8-three-tier-ambiguity-resolution-strategy)
      - [9. Content-Aware "Smart Seek" (Intelligent Fast-Forward & Rewind) (transport.seeker)](#9-content-aware-smart-seek-intelligent-fast-forward--rewind-transportseeker)
-   - [Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage](#fresh-blank-media-creation-auto-naming--out-of-band-storage)
-   - [ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)](#rom-cartridges-as-tape-containers--bios-hook-injections-platformscart_hooks)
-   - [Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)](#physical-cassette-shell-profiling--nominal-whole-tape-geometry-tapegeometry)
-   - [Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
+   - [3. Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage](#3-fresh-blank-media-creation-auto-naming--out-of-band-storage)
+   - [4. ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)](#4-rom-cartridges-as-tape-containers--bios-hook-injections-platformscart_hooks)
+   - [5. Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)](#5-physical-cassette-shell-profiling--nominal-whole-tape-geometry-tapegeometry)
+   - [6. Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays](#6-preservation-dimensions-epistemic-tags--non-destructive-write-overlays)
 7. [Evidence, Models, and Preservation Status](#7-evidence-models-and-preservation-status)
 8. [Systematic Flavor Taxonomy & No-Intro Naming](#8-systematic-flavor-taxonomy--no-intro-naming)
 9. [CLI & Interface Conventions](#9-cli--interface-conventions)
@@ -59,7 +56,6 @@ grandiose version: (currently 0% implemented)
 12. [Multi-Phase Implementation Roadmap](#12-multi-phase-implementation-roadmap)
 13. [Format & Protocol Technical Reference Guide](#13-format--protocol-technical-reference-guide)
 14. [Note on the code and the tools used to write it](#14-note-on-the-code-and-the-tools-used-to-write-it)
-
 ---
 
 ## 1. Overview & Approach
@@ -413,7 +409,7 @@ Instead of blind time-based skipping, `dwimsy` provides structure-aware transpor
 * **Calibrated Tape Counter Seek**: Navigates using physical reel rotation models (`seek --counter "0450"`), translating between tape ticks and elapsed master FLAC time.
 * **Transport State Integrity**: While seeking in live bridge mode, `dwimsy` coordinates with the retrocomputer host by holding the virtual motor/pause state, smoothly re-engaging carrier lock at the target boundary without triggering framing errors.
 
-### Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage
+### 3. Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage
 
 Many retrocomputing productivity tools (such as Japanese word processors on the PC-6001mkIISR, database managers on PC-88, or multi-part RPGs) explicitly prompt the user to **"Insert a formatted blank tape/disk for saving user data"**.
 
@@ -430,7 +426,7 @@ Many retrocomputing productivity tools (such as Japanese word processors on the 
   - **Remote Web/Phone UI**: Tapping "Create & Insert Save Tape".
   - **CLI IPC**: `dwimsy-ctl media new-tape --preset C-30 --auto-name`.
 
-### ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)
+### 4. ROM Cartridges as Tape Containers & BIOS Hook Injections (platforms.cart_hooks)
 
 In vintage ecosystems, commercial distributors frequently re-released cassette-based games as ROM cartridges by wrapping the tape payload in a small stub that patches or intercepts ROM BIOS cassette routines (e.g., Al-Alamiah / Sakhr Arabic MSX `cas2rom` cartridges, Korean Zemmix conversions, and PC-6001mkII `mkrom.py` bank-switch cartridges):
 
@@ -451,7 +447,7 @@ In vintage ecosystems, commercial distributors frequently re-released cassette-b
 * **Encapsulation & ROM Synthesis**: Compiles standalone logical tape files into bootable cartridge ROM images (e.g. `cas2rom` for MSX or `mkrom` with Port `0xF0` / `0x7F` paging for PC-6001mkII).
 * **Provenance Correlation**: Links cartridge ROM releases to their original tape releases in the multi-level hash registry, allowing cross-verification between tape dumps and official cartridge conversions.
 
-### Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)
+### 5. Physical Cassette Shell Profiling & Nominal Whole-Tape Geometry (tape.geometry)
 
 In vintage software distribution, software was duplicated onto standard or custom physical cassette shells (e.g., a 3-minute program released on a C-10 or C-15 cassette, with the remainder of Side A and the entirety of Side B left unrecorded). When synthesizing audio from logical streams or timing containers (e.g., `.t88`/`.cas`/`.cmt` → `.wav`), `dwimsy` allows declaring **nominal whole-tape geometry**:
 
@@ -460,7 +456,7 @@ In vintage software distribution, software was duplicated onto standard or custo
 * **Side B Infill & Unrecorded Replication**: Optionally produces a structurally matched, unrecorded or blank Side B waveform to mirror the complete physical retail artifact.
 * **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter (r₀ ≈ 11 mm) to calculate non-linear reel rotational speeds, giving a modeled tape-position estimate (N_counter) across fast-forward and rewind operations; accuracy depends on measured or declared tape/deck parameters and should be treated as an estimate unless independently calibrated.
 
-### Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays
+### 6. Preservation Dimensions, Epistemic Tags & Non-Destructive Write Overlays
 
 #### Five Preservation Dimensions
 1. **Artifact Preservation**: Physical scans, packaging, cassette shells, manuals, labels, and other physical-object documentation.
@@ -923,7 +919,7 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 * **Adaptive Midpoint FSK Slicer**: `[ ] TODO` Fast edge detection with Schmitt-trigger dynamic hysteresis and midpoint cycle discrimination (`N_mid = (Fₛ/4) × (1/f₀ + 1/f₁)`), using local envelope tracking (AGC attack/release) to ride out fading and dropouts.
 * **Zero-Gap Demodulation**: `[ ] TODO` Snaps post-DATA carrier start ticks to the exact end tick of the preceding data block (`T_end = T_start + N_bytes × ticks_per_byte`).
 * **Multi-Copy & Multi-Revolution Consensus (Disks & Tapes)**: `[ ] TODO` Merges multiple physical copies or multi-revolution dumps (floppy SCP/A2R/D88 or tape takes) using CRC-verified block/sector consensus.
-* **Non-Linear Time harmonization & Print-Through Recovery**: `[ ] TODO` Dynamic Time Warping on pulse transitions (Δt) to align time-reversed ghost signals from opposite tape sides and repair dropouts.
+* **Non-Linear Time Harmonization & Print-Through Recovery**: `[ ] TODO` Dynamic Time Warping on pulse transitions (Δt) to align time-reversed ghost signals from opposite tape sides and repair dropouts.
 * **Context-Aware Semantic Recovery (ZX81)**: `[ ] TODO` Uses BASIC line link pointers, token tables, and disassembly branches to solve ambiguous pulse dropouts.
 * **Dual-Track Concurrent Stereo**: `[ ] TODO` Independent channel classification and crosstalk bleed rejection (Sega AI Computer, Atari 8-bit, Famicom StudyBox).
 * **Virtual Sanyo PHC-DRIII Shaper & Circuit Simulation**: `[ ] TODO` Software differentiator (d/dt), phase equalizer, and exact circuit transfer functions (`cmt_filter.py`):
