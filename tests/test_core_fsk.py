@@ -1,8 +1,10 @@
 import importlib.util
 import math
+import os
 import sys
 import unittest
 from pathlib import Path
+from typing import Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -139,15 +141,42 @@ class TestByteFramerSynthetic(unittest.TestCase):
         self.assertFalse(framer.leader_validated)
 
 
-REAL_FIXTURE_DIR = Path("/home/claude/fixtures")
-ORIGINAL_TOOL_PATH = Path("/home/claude/src/pc88_tape_tools/wav2t88.py")
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SUBMODULE_TOOL_PATH = REPO_ROOT / "deps" / "pc88_tape_tools" / "wav2t88.py"
+DEFAULT_FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
+
+
+def find_fixture_path(
+    filename: str, subdirs: Tuple[str, ...] = ("set1", "set2", "pc88", "")
+) -> Optional[Path]:
+    """Locate a sample fixture file in tests/fixtures or via DWIMSY_TEST_FIXTURES."""
+    search_roots = []
+    env_dir = os.environ.get("DWIMSY_TEST_FIXTURES")
+    if env_dir:
+        search_roots.append(Path(env_dir))
+    search_roots.append(DEFAULT_FIXTURES_DIR)
+    search_roots.append(REPO_ROOT / "fixtures")
+
+    for root in search_roots:
+        if not root.exists():
+            continue
+        direct = root / filename
+        if direct.is_file():
+            return direct
+        for sub in subdirs:
+            p = root / sub / filename
+            if p.is_file():
+                return p
+        for match in root.rglob(filename):
+            if match.is_file():
+                return match
+    return None
 
 
 @unittest.skipUnless(
-    REAL_FIXTURE_DIR.exists() and ORIGINAL_TOOL_PATH.exists(),
-    "Private tape-audio fixtures and/or the original standalone tool "
-    "aren't available in this environment — see the README's Test "
-    "Fixtures section.",
+    SUBMODULE_TOOL_PATH.exists(),
+    f"Submodule tool not found at {SUBMODULE_TOOL_PATH}. Ensure git submodules are initialized "
+    "(git submodule update --init --recursive).",
 )
 class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
     """
@@ -162,7 +191,7 @@ class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
     """
 
     def setUp(self):
-        self.orig = _load_module("orig_wav2t88_for_fsk_check", str(ORIGINAL_TOOL_PATH))
+        self.orig = _load_module("orig_wav2t88_for_fsk_check", str(SUBMODULE_TOOL_PATH))
 
     def _run_original(self, wav_path):
         orig = self.orig
@@ -214,23 +243,32 @@ class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
     def _check_file(self, wav_path):
         original_bytes = self._run_original(wav_path)
         new_bytes = self._run_new(wav_path)
-        self.assertTrue(len(original_bytes) > 0, "sanity: original path decoded nothing")
+        self.assertTrue(
+            len(original_bytes) > 0, "sanity: original path decoded nothing"
+        )
         self.assertEqual(
-            original_bytes, new_bytes,
+            original_bytes,
+            new_bytes,
             f"core.pulse + core.fsk produced different decoded bytes than "
             f"the original monolithic implementation on {wav_path}",
         )
 
     def test_equivalence_on_real_tape_snippet_1(self):
-        wav_path = REAL_FIXTURE_DIR / "set1" / "snippet.wav"
-        if not wav_path.exists():
-            self.skipTest(f"{wav_path} not present")
+        wav_path = find_fixture_path("snippet.wav", subdirs=("set1", "pc88", ""))
+        if not wav_path or not wav_path.exists():
+            self.skipTest(
+                "snippet.wav not found in tests/fixtures/ (or DWIMSY_TEST_FIXTURES). "
+                "Unpack sample data into tests/fixtures/ to run this test."
+            )
         self._check_file(wav_path)
 
     def test_equivalence_on_real_tape_snippet_2(self):
-        wav_path = REAL_FIXTURE_DIR / "set2" / "snippet2.wav"
-        if not wav_path.exists():
-            self.skipTest(f"{wav_path} not present")
+        wav_path = find_fixture_path("snippet2.wav", subdirs=("set2", "pc88", ""))
+        if not wav_path or not wav_path.exists():
+            self.skipTest(
+                "snippet2.wav not found in tests/fixtures/ (or DWIMSY_TEST_FIXTURES). "
+                "Unpack sample data into tests/fixtures/ to run this test."
+            )
         self._check_file(wav_path)
 
 
