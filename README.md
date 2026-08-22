@@ -92,7 +92,8 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 `dwimsy` employs an **Adapter-first bootstrapping strategy**. Rather than deferring the high-level Transducer/Bridge features until a perfect refactor is complete, we wrap the existing "slop" tools into the `dwimsy` orchestration layer:
 
-*   **Phase 0.5 Adapters**: Define the `PulseStream` and `ByteStream` interfaces. Wrap classes like `BaudAgnosticPulseRecognizer` from `wav2t88` to provide an immediate data source for the Bridge and LCD UI.
+*   **Phase 0.5 Adapters**: Define the `PulseStream` and `ByteStream` interfaces. Wrap classes like `BaudAgnosticPulseRecognizer` from `wav2t88` to provide an immediate data source proving the architecture's third (out-of-band status) channel is real — not to build its eventual display surfaces yet. Proof means passing the wrapped tools' *existing* status text (`--inspect` reports, confidence scores) through to `stderr` as-is; the ANSI LCD marquee, phone dashboard, and WebSocket rendering that eventually consume a structured version of it stay deferred to Milestone 2 (see `cli.sidechannel` in the roadmap).
+*   **Temporary, Named-Exit Dependencies**: The `git submodule`-vendored copies of `pc88_tape_tools`, `wav2cas`, etc. (see [Installation](#3-installation)) are scaffolding, not a permanent architecture choice. Each submodule's removal is an explicit exit criterion of the milestone that absorbs its logic into `core.*` — e.g. the `pc88_tape_tools` submodule is dropped when Phase 1 lands, `wav2cas` when Phase 2's MSX generalization lands. "Zero required dependencies" is a claim about the *finished* state of each milestone, not the bootstrap period before it.
 *   **UI-First Orchestration**: Build the ANSI Virtual LCD marquee, phone dashboard, and IPC telemetry logic early by polling status and confidence scores from adapted legacy loops.
 *   **Parallel Verification**: As legacy logic is migrated into the clean `core.fsk` and `core.pulse` modules, we run the new implementation side-by-side with the original "slop" code to ensure accuracy parity and zero regression.
 *   **Feature Injection**: Standalone tools are updated to support `stderr` standard logging and metadata dict injection prior to formal migration, allowing No-Intro naming and live telemetry to function even in the adapter phase.
@@ -935,8 +936,8 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 
 ### Phase 0: Orchestration & Adapters `[ ] TODO`
 *   Wrap `BaudAgnosticPulseRecognizer` and `T88ToWavSynthesizer` as `dwimsy` adapters.
-*   Implement the `sidechannel` ANSI LCD and Marquee ticker polling adapter stats.
-*   Standardize legacy tool `stderr` logging for UI interception.
+*   Pass the wrapped tools' existing status text (`--inspect` reports, confidence scores) straight through to `stderr` as-is, over a defined channel — proof the third channel is architecturally real, using messages that already exist rather than building new ones.
+*   Standardize legacy tool `stderr` logging so that pass-through is reliable and consistently formatted enough to be machine-parseable later.
 
 ### Phase 1: Minimum Viable Vertical Slice — PC-88 Only `[ ] TODO`
 
@@ -959,7 +960,7 @@ Tasks:
 2. `[ ] TODO` Implement `dwimsy.dsp` (`cmt_filter` wave shaper and `cassette_modeler`), ported with MSX support.
 3. `[ ] TODO` Implement `dwimsy.core.realtime` (live-stage contracts, bounded buffering/latency, resynchronization latency, backpressure), first exercised via live-capture support for PC-88 and MSX.
 4. `[ ] TODO` Expand the `dwimsy` CLI verb set: `restore`, `split`, `join`, and full multi-layer/archive `inspect`.
-5. `[ ] TODO` Implement `dwimsy.cli.sidechannel` (`stderr` virtual LCD, TTY keystrokes, POSIX/Win32 signal dispatcher).
+5. `[ ] TODO` Implement `dwimsy.cli.sidechannel`'s rendering surfaces (`stderr` ANSI virtual LCD, marquee ticker, TTY keystrokes, POSIX/Win32 signal dispatcher), replacing Phase 0's plain pass-through with structured, formatted status.
 6. `[ ] TODO` Integrate `dwimsy.core.charsets` (JIS X 0201, NEC semigraphics, MSX Katakana, ASCII, streaming CLI filter applet).
 7. `[ ] TODO` Integrate `dwimsy.disk.d88` and `dwimsy.disk.fat8` (`d882fat8`, `fat82d88`, `d882t88`, `d88_explode`).
 8. `[ ] TODO` Port `bin2fds.py` to Python 3 in `dwimsy.disk.fds` (`bin2fds` filter).
