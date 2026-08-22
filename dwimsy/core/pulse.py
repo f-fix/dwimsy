@@ -109,12 +109,16 @@ class PulseTimingRecognizer:
         center_freq: float = 1800.0,
         bandwidth: float = 2400.0,
         dc_blocker_pole: float = 0.995,
-        glitch_reject_sec: float = 0.00010,
+        glitch_reject_sec: Optional[float] = None,
     ):
         self.fs = float(sample_rate)
         self.dt = 1.0 / self.fs
         self.dc_blocker_pole = float(dc_blocker_pole)
-        self.glitch_reject_sec = float(glitch_reject_sec)
+        if glitch_reject_sec is None:
+            max_f = center_freq + bandwidth / 2.0
+            self.glitch_reject_sec = max(0.00002, 0.25 / max_f) if max_f > 0 else 0.00010
+        else:
+            self.glitch_reject_sec = float(glitch_reject_sec)
 
         # 2nd-order Biquad Bandpass filter coefficients.
         w0 = 2.0 * math.pi * center_freq / self.fs
@@ -217,6 +221,7 @@ class PulseTimingRecognizer:
                     self.neg_half_dur = 0.0
 
                     cur_sample = int(round(exact_crossing_time * self.fs))
+                    self.prev_y = bp_y
                     return PulseEvent(
                         kind="cycle",
                         time_sec=exact_crossing_time,
@@ -235,6 +240,7 @@ class PulseTimingRecognizer:
         if (self.current_time - self.last_transition_time) > 0.0015:
             if self.envelope < max(self.noise_floor * 3.0, 0.0008):
                 cur_sample = int(round(self.current_time * self.fs))
+                self.prev_y = bp_y
                 return PulseEvent(
                     kind="silence",
                     time_sec=self.current_time,
