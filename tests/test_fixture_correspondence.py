@@ -24,7 +24,9 @@ from dwimsy.core.audio import StreamingWavReader
 DEFAULT_FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
 
 
-def find_fixture_path(filename: str, subdirs: Tuple[str, ...] = ("set1", "set2", "pc88", "")) -> Optional[Path]:
+def find_fixture_path(
+    filename: str, subdirs: Tuple[str, ...] = ("set1", "set2", "pc88", "")
+) -> Optional[Path]:
     """Locate a sample fixture file in tests/fixtures or via DWIMSY_TEST_FIXTURES."""
     search_roots = []
     env_dir = os.environ.get("DWIMSY_TEST_FIXTURES")
@@ -102,14 +104,22 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
             snip_payload = snip_t88.extract_cmt_payload()
 
         # 2. Check baud rate format code in demodulated T88 (0x01CC = 1200 baud)
-        data_blocks = [b for b in snip_t88.blocks if b.tag == 0x0101 and len(b.data) >= 12]
+        data_blocks = [
+            b for b in snip_t88.blocks if b.tag == 0x0101 and len(b.data) >= 12
+        ]
         self.assertGreater(len(data_blocks), 0)
         dsh0 = pc88_tape_tools.DataSubHeader.unpack(data_blocks[0].data[:12])
-        self.assertEqual(dsh0.fmt_code, 0x01CC, "snippet.wav must demodulate at 1200 baud")
+        self.assertEqual(
+            dsh0.fmt_code, 0x01CC, "snippet.wav must demodulate at 1200 baud"
+        )
 
         # 3. Demodulate with native dwimsy.core pipeline and verify parity
         core_payload = self._demod_with_core(wav_path, baud=1200)
-        self.assertEqual(core_payload, snip_payload, "dwimsy.core and wav2t88 must produce identical bytes")
+        self.assertEqual(
+            core_payload,
+            snip_payload,
+            "dwimsy.core and wav2t88 must produce identical bytes",
+        )
 
         # 4. Verify match against input01.cmt / input01.t88
         cmt_path = find_fixture_path("input01.cmt", subdirs=("pc88", ""))
@@ -130,7 +140,9 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
                 t88_file = pc88_tape_tools.T88File.unpack(io.BytesIO(f.read()))
             input01_t88_payload = t88_file.extract_cmt_payload()
             self.assertTrue(input01_t88_payload.startswith(snip_payload))
-            in_data_blocks = [b for b in t88_file.blocks if b.tag == 0x0101 and len(b.data) >= 12]
+            in_data_blocks = [
+                b for b in t88_file.blocks if b.tag == 0x0101 and len(b.data) >= 12
+            ]
             in_dsh0 = pc88_tape_tools.DataSubHeader.unpack(in_data_blocks[0].data[:12])
             self.assertEqual(in_dsh0.fmt_code, 0x01CC)
 
@@ -148,14 +160,22 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
             snip_payload = snip_t88.extract_cmt_payload()
 
         # 2. Check baud rate format code in demodulated T88 (0x00CC = 600 baud)
-        data_blocks = [b for b in snip_t88.blocks if b.tag == 0x0101 and len(b.data) >= 12]
+        data_blocks = [
+            b for b in snip_t88.blocks if b.tag == 0x0101 and len(b.data) >= 12
+        ]
         self.assertGreater(len(data_blocks), 0)
         dsh0 = pc88_tape_tools.DataSubHeader.unpack(data_blocks[0].data[:12])
-        self.assertEqual(dsh0.fmt_code, 0x00CC, "snippet2.wav must demodulate at 600 baud")
+        self.assertEqual(
+            dsh0.fmt_code, 0x00CC, "snippet2.wav must demodulate at 600 baud"
+        )
 
         # 3. Demodulate with native dwimsy.core pipeline and verify parity
         core_payload = self._demod_with_core(wav_path, baud=600)
-        self.assertEqual(core_payload, snip_payload, "dwimsy.core and wav2t88 must produce identical bytes")
+        self.assertEqual(
+            core_payload,
+            snip_payload,
+            "dwimsy.core and wav2t88 must produce identical bytes",
+        )
 
         # 4. Verify match against input05.cmt / input05.t88
         cmt_path = find_fixture_path("input05.cmt", subdirs=("pc88", ""))
@@ -176,7 +196,9 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
                 t88_file = pc88_tape_tools.T88File.unpack(io.BytesIO(f.read()))
             input05_t88_payload = t88_file.extract_cmt_payload()
             self.assertTrue(input05_t88_payload.startswith(snip_payload))
-            in_data_blocks = [b for b in t88_file.blocks if b.tag == 0x0101 and len(b.data) >= 12]
+            in_data_blocks = [
+                b for b in t88_file.blocks if b.tag == 0x0101 and len(b.data) >= 12
+            ]
             in_dsh0 = pc88_tape_tools.DataSubHeader.unpack(in_data_blocks[0].data[:12])
             self.assertEqual(in_dsh0.fmt_code, 0x00CC)
 

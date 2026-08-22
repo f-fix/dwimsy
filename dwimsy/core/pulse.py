@@ -116,7 +116,9 @@ class PulseTimingRecognizer:
         self.dc_blocker_pole = float(dc_blocker_pole)
         if glitch_reject_sec is None:
             max_f = center_freq + bandwidth / 2.0
-            self.glitch_reject_sec = max(0.00002, 0.25 / max_f) if max_f > 0 else 0.00010
+            self.glitch_reject_sec = (
+                max(0.00002, 0.25 / max_f) if max_f > 0 else 0.00010
+            )
         else:
             self.glitch_reject_sec = float(glitch_reject_sec)
 

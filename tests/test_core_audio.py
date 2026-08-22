@@ -9,8 +9,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dwimsy.core.audio import StreamingWavReader, StreamingWavWriter
 
 
-def make_pcm_wav(samples, channels=1, bits=16, sample_rate=44100, fmt_tag=1,
-                  data_size_override=None, extra_chunk=None):
+def make_pcm_wav(
+    samples,
+    channels=1,
+    bits=16,
+    sample_rate=44100,
+    fmt_tag=1,
+    data_size_override=None,
+    extra_chunk=None,
+):
     """Hand-build a WAV file's bytes for reader-side tests, independent
     of StreamingWavWriter, so reader tests don't depend on the writer
     being correct."""
@@ -46,11 +53,17 @@ def make_pcm_wav(samples, channels=1, bits=16, sample_rate=44100, fmt_tag=1,
 
     buf.write(b"fmt ")
     buf.write(struct.pack("<I", 16))
-    buf.write(struct.pack("<HHIIHH", fmt_tag, channels, sample_rate, byte_rate,
-                          block_align, bits))
+    buf.write(
+        struct.pack(
+            "<HHIIHH", fmt_tag, channels, sample_rate, byte_rate, block_align, bits
+        )
+    )
     buf.write(b"data")
-    buf.write(struct.pack("<I", data_size_override if data_size_override is not None
-                          else len(pcm)))
+    buf.write(
+        struct.pack(
+            "<I", data_size_override if data_size_override is not None else len(pcm)
+        )
+    )
     buf.write(pcm)
     buf.seek(0)
     return buf
