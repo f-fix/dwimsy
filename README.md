@@ -1,7 +1,7 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and mastering
 
-grandiose version: (currently 0% implemented)
+grandiose version: (Phase 1 Core in active development)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear — Format-Aware Media Transducer & Preservation Gateway
 > 
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
@@ -12,7 +12,7 @@ grandiose version: (currently 0% implemented)
 
 ### For now, see:
 
-- **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** — working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three already have self-test suites and stdin/stdout piping. This is the most complete preview of dwimsy's planned pipeline, and its logic is the intended source for `core.fsk`, `cli.filters.t882wav`/`wav2t88`, and `cli.dwimsy inspect` (Milestone 1). It doesn't yet implement dwimsy's flavor taxonomy (Section 8) — there's no trimmed/untrimmed pairing or No-Intro-style naming — and there's no shared `core.audio`/`core.pulse` library, since each script is self-contained.
+- **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** — working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`acoustic`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three already have self-test suites and stdin/stdout piping. This is the most complete preview of dwimsy's planned pipeline, and its logic is the intended source for `core.fsk`, `cli.filters.t882wav`/`wav2t88`, and `cli.dwimsy inspect` (Milestone 1). It doesn't yet implement dwimsy's flavor taxonomy (Section 8) — there's no trimmed/untrimmed pairing or No-Intro-style naming — and there's no shared `core.audio`/`core.pulse` library, since each script is self-contained.
   * *Refactoring Status:* Currently being integrated via adapters to prove the Bridge/LCD UI logic.
 - **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk` (Milestone 1), `core.audio` (`flac2wav`), `dsp.filter`, and `dsp.modeler` (`cassette_model`) in Milestone 2. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that so all tape tools operate as continuous Unix streaming filters.
   * *Refactoring Status:* Target for `dwimsy.dsp` and MSX physical layer generalization.
@@ -149,9 +149,9 @@ git submodule update --init --recursive
 
 | Subsystem / Module | Description | Status | Target Milestone |
 | :--- | :--- | :---: | :---: |
-| **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), AGC — tuned first against PC-88/PC-8801's 2400/1200 Hz FSK | `[ ] TODO` | Milestone 1 |
-| **`core.audio`** | Streaming WAV I/O only (no FLAC yet — that ships with MSX support in Milestone 2) | `[ ] TODO` | Milestone 1 |
-| **`core.fsk`** | FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav` | `[ ] TODO` | Milestone 1 |
+| **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), dynamic glitch rejection, AGC — tuned first against PC-88/PC-8801's 2400/1200 Hz FSK | `[x] DONE` | Milestone 1 |
+| **`core.audio`** | Streaming WAV I/O only (no FLAC yet — that ships with MSX support in Milestone 2) | `[x] DONE` | Milestone 1 |
+| **`core.fsk`** | FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav` | `[x] DONE` | Milestone 1 |
 | **`cli.filters.*`** | `t882wav` and `wav2t88` only, ported directly from `pc88_tape_tools` | `[ ] TODO` | Milestone 1 |
 | **`cli.dwimsy`** | Minimal CLI exposing `convert` and structural `inspect` for T88/CMT — full multi-format/provenance inspect and remaining verbs land in Milestone 2 | `[ ] TODO` | Milestone 1 |
 | **`core.realtime`** | Live-stage contracts, bounded buffering/latency accounting, clocks, backpressure and resynchronization | `[ ] TODO` | Milestone 2 |
@@ -952,14 +952,14 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 *   Pass the wrapped tools' existing status text (`--inspect` reports, confidence scores) straight through to `stderr` as-is, over a defined channel — proof the third channel is architecturally real, using messages that already exist rather than building new ones.
 *   Standardize legacy tool `stderr` logging so that pass-through is reliable and consistently formatted enough to be machine-parseable later.
 
-### Phase 1: Minimum Viable Vertical Slice — PC-88 Only `[ ] TODO`
+### Phase 1: Minimum Viable Vertical Slice — PC-88 Only `[ ] IN PROGRESS`
 
 The goal of Phase 1 is a single, narrow, end-to-end path through the architecture — not breadth. No MSX, no disks, no full CLI verb set, no hardware side-channel. Just enough to prove the core abstractions hold up against one real platform with real sample files.
 
 Tasks:
-1. `[ ] TODO` Implement `dwimsy.core.pulse` (zero-crossing timer, TBC, AGC, DC-blocker), tuned initially against PC-88/PC-8801's 2400/1200 Hz FSK.
-2. `[ ] TODO` Implement `dwimsy.core.audio`: streaming WAV reader/writer only. FLAC support is deferred to Phase 2, where it ships alongside MSX support (`flac2wav`).
-3. `[ ] TODO` Implement `dwimsy.core.fsk`: FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav`.
+1. `[x] DONE` Implement `dwimsy.core.pulse` (zero-crossing timer, TBC, AGC, DC-blocker), tuned initially against PC-88/PC-8801's 2400/1200 Hz FSK.
+2. `[x] DONE` Implement `dwimsy.core.audio`: streaming WAV reader/writer only. FLAC support is deferred to Phase 2, where it ships alongside MSX support (`flac2wav`).
+3. `[x] DONE` Implement `dwimsy.core.fsk`: FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav`.
 4. `[ ] TODO` Port `t882wav` and `wav2t88` as Netpbm-style filters, directly from `pc88_tape_tools`.
 5. `[ ] TODO` Implement a minimal `dwimsy` CLI exposing `convert` and structural `inspect` (for `.t88`/`.cmt`). `restore`, `split`, `join`, and full multi-level hash/provenance reporting are deferred to Phase 2, since they depend on flavor taxonomy and archive features that don't exist yet.
    Verification: `[ ] TODO` Bit-exact roundtrip on a real PC-88 `.t88` sample (e.g. `input01.t88`) through `wav2t88` → `t882wav` → `wav2t88`, matching the original container byte-for-byte. Real sample tapes for this are a private loan for development purposes only (see [Test Fixtures & the Road to Redistributable Coverage](#test-fixtures--the-road-to-redistributable-coverage)) — they don't ship with the repo.
