@@ -102,6 +102,8 @@ class StreamingWavReader:
 
             if chunk_id == b"fmt ":
                 fmt_data = self._read_exact(chunk_size)
+                if chunk_size % 2:
+                    self._read_exact(1)
                 if len(fmt_data) < 16:
                     raise ValueError("Invalid fmt chunk size")
                 (
@@ -315,7 +317,8 @@ class StreamingWavWriter:
                     stereo_pcm.extend([0, v])
             elif smode in ("inv_right", "diff", "invert_r"):
                 for v in quantized:
-                    stereo_pcm.extend([v, -v])
+                    inv_v = -v if v != -32768 else 32767
+                    stereo_pcm.extend([v, inv_v])
             else:
                 for v in quantized:
                     stereo_pcm.extend([v, v])
