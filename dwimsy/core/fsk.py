@@ -141,8 +141,9 @@ class FSKClassifier:
             return ClassifiedPulse("B", event.period_sec, event.sample_index)
 
         period_sec = event.period_sec
+        measured_space_period = self.nominal_space_period / self.speed_factor
         boundary_period = math.sqrt(
-            self.nominal_mark_period_for_drift() * self.nominal_space_period
+            self.nominal_mark_period_for_drift() * measured_space_period
         )
 
         if event.envelope < max(
@@ -164,7 +165,7 @@ class FSKClassifier:
                         1.0 - self.drift_smoothing
                     ) * self.measured_f_mark + self.drift_smoothing * (1.0 / med_mark)
                     self.speed_factor = self.measured_f_mark / self.nominal_mark_freq
-        elif period_sec <= (self.nominal_space_period / 0.75):
+        elif period_sec <= (measured_space_period / 0.75):
             symbol = "S"
             self.mark_dur_hist.clear()
         else:
@@ -201,6 +202,7 @@ class ByteFramer:
         sample_rate: float = 44100.0,
         filter_group_delay_samples: float = 5.5,
         t88_tick_rate: float = 4800.0,
+        space_freq: float = 1200.0,
     ):
         self.nominal_baud = baud
         self.baud = float(baud)
@@ -210,6 +212,7 @@ class ByteFramer:
         self.sample_rate = float(sample_rate)
         self.filter_group_delay_samples = float(filter_group_delay_samples)
         self.t88_tick_rate = float(t88_tick_rate)
+        self.space_freq = float(space_freq)
         self.reset()
 
     def update_speed(self, speed_factor: float):
@@ -282,10 +285,10 @@ class ByteFramer:
                     self.accum_time = 0.0
                     return None
 
-                start_cycles = 1200.0 / self.nominal_baud
+                start_cycles = self.space_freq / self.nominal_baud
                 start_space_thresh = max(
                     (start_cycles - 0.35)
-                    * (1.0 / (1200.0 * (self.baud / self.nominal_baud))),
+                    * (1.0 / (self.space_freq * (self.baud / self.nominal_baud))),
                     self.bit_duration * 0.65,
                 )
                 if self.space_time >= start_space_thresh:
@@ -308,11 +311,11 @@ class ByteFramer:
                     self.mark_time = 0.0
                     self.space_time = 0.0
                     # Start-bit rewind under the time-base-corrected
-                    # clock: cur_tick is expressed in T88 ticks
-                    # (t88_tick_rate Hz, not the audio sample rate), so
-                    # the filter's group delay — inherently a number of
-                    # *audio samples* — must be converted into the same
-                    # tape-time seconds before being subtracted.
+                    # clock: cur_tick is expressed in audio samples at sample_rate.
+                    # Convert to capture seconds, scale by speed_factor for
+                    # time-base-corrected tape time, and compute the start
+                    # tick at t88_tick_rate.
+                    tape_time_sec = (cur_tick / self.sample_rate) * self.speed_factor
                     nominal_bit_dur_tape = 1.0 / self.nominal_baud
                     filter_delay_tape = (
                         self.filter_group_delay_samples
@@ -324,7 +327,7 @@ class ByteFramer:
                         int(
                             round(
                                 (
-                                    (cur_tick / self.t88_tick_rate)
+                                    tape_time_sec
                                     - nominal_bit_dur_tape
                                     - filter_delay_tape
                                 )
