@@ -181,13 +181,13 @@ def find_fixture_path(
 class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
     """
     Swaps BOTH the new PulseTimingRecognizer (core.pulse) and the new
-    FSKClassifier + ByteFramer (core.fsk) into the ORIGINAL wav2t88.py
+    FSKClassifier + ByteFramer (core.fsk) into the submodule wav2t88.py
     pipeline in place of its old inline BaudAgnosticPulseRecognizer +
     PulseToByteAcceptor, leaving only the T88 container writing stage
-    untouched (that's the next module to port). If the decoded byte
-    stream is identical to running the fully original code on the same
-    real tape audio, that's strong evidence both new modules together
-    are a faithful, lossless split of the original single class.
+    untouched. If the decoded byte stream is identical to running the
+    fully original code on the same real tape audio, that's strong
+    evidence both new modules together are a faithful, lossless split
+    of the original single class.
     """
 
     def setUp(self):

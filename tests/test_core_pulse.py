@@ -165,8 +165,8 @@ def find_fixture_path(
 )
 class TestPulseEquivalenceAgainstOriginal(unittest.TestCase):
     """
-    Swaps the new PulseTimingRecognizer into the ORIGINAL, unmodified
-    wav2t88.py pipeline in place of its old inline analog front end
+    Swaps the new PulseTimingRecognizer into the submodule wav2t88.py
+    pipeline in place of its old inline analog front end
     (BaudAgnosticPulseRecognizer.process_sample), leaving every
     downstream stage — classification thresholds, drift tracking,
     UART byte framing, T88 container writing — completely untouched.
