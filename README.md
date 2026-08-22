@@ -7,8 +7,8 @@ grandiose version: (Phase 1 Core in active development)
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
 > [!IMPORTANT]
-> **DEVELOPMENT STATUS: SPECIFICATION & ADAPTER PHASE.**
-> This repository is a specification for a unified media transducer. Implementation is being bootstrapped by **adapting and wrapping** the existing standalone tools listed below into the `dwimsy` orchestration layer.
+> **DEVELOPMENT STATUS: PHASE 1 VERTICAL SLICE IN PROGRESS.**
+> Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`) are implemented and verified in pure Python standard library. The temporary adapter phase has been consolidated into this native vertical slice for PC-88, with remaining standalone tools listed below being integrated in subsequent milestones.
 
 ### For now, see:
 
@@ -91,13 +91,14 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ## 2. Development Strategy
 
-`dwimsy` employs an **Adapter-first bootstrapping strategy**. Rather than deferring the high-level Transducer/Bridge features until a perfect refactor is complete, we wrap the existing "slop" tools into the `dwimsy` orchestration layer:
+`dwimsy` employs a **Direct Native Extraction & Two-Stage Channel Rollout** strategy, superseding temporary wrapper scaffolding:
 
-*   **Phase 0.5 Adapters**: Define the `PulseStream` and `ByteStream` interfaces. Wrap classes like `BaudAgnosticPulseRecognizer` from `wav2t88` to provide an immediate data source proving the architecture's third (out-of-band status) channel is real — not to build its eventual display surfaces yet. Proof means passing the wrapped tools' *existing* status text (`--inspect` reports, confidence scores) through to `stderr` as-is; the ANSI LCD marquee, phone dashboard, and WebSocket rendering that eventually consume a structured version of it stay deferred to Milestone 2 (see `cli.sidechannel` in the roadmap).
+*   **Phase 0 Consolidated into Phase 1**: Rather than maintaining temporary wrapper classes around monolithic legacy scripts, the PC-88 pipeline was decomposed directly into clean native modules (`core.pulse`, `core.fsk`, `core.audio`) in pure Python standard library. The standalone `pc88_tape_tools` logic is absorbed directly into Milestone 1.
+*   **Two-Stage Third-Channel Rollout ("Pass-Through First, Rendering Later")**:
+    - *Phase 1 (Foundational Channel & Instrumentation)*: Enforces strict Unix stream separation (`stdout` reserved exclusively for raw binary data; `stderr` reserved for out-of-band telemetry and diagnostics). Core primitives (`PulseEvent`, `DecodedByte`, `FSKClassifier`) are natively instrumented with real-time signal and timing telemetry (`envelope`, `peak_carrier`, `noise_floor`, `speed_factor`, per-bit `confidence`, `start_tick`).
+    - *Phase 2 (Interactive Display Surfaces & IPC)*: Rich UI consumers (`cli.sidechannel` ANSI 2-line virtual LCD marquee, TTY hotkeys, and `ui.remote` IPC daemon / WebSockets / phone dashboard) are built once there is a second platform (MSX) to generalize against.
 *   **Temporary, Named-Exit Dependencies**: The `git submodule`-vendored copies of `pc88_tape_tools`, `wav2cas`, etc. (see [Installation](#3-installation)) are scaffolding, not a permanent architecture choice. Each submodule's removal is an explicit exit criterion of the milestone that absorbs its logic into `core.*` — e.g. the `pc88_tape_tools` submodule is dropped when Phase 1 lands, `wav2cas` when Phase 2's MSX generalization lands. "Zero required dependencies" is a claim about the *finished* state of each milestone, not the bootstrap period before it.
-*   **Pass-Through First, Rendering Later**: Prove the third channel end-to-end by piping adapted legacy tools' existing status/confidence output straight to `stderr` early; the ANSI virtual LCD marquee, phone dashboard, and IPC telemetry that consume a structured version of it are built in Milestone 2, once there's a real second consumer to design them against.
-*   **Parallel Verification**: As legacy logic is migrated into the clean `core.fsk` and `core.pulse` modules, we run the new implementation side-by-side with the original "slop" code to ensure accuracy parity and zero regression.
-*   **Feature Injection**: Standalone tools are updated to support `stderr` standard logging and metadata dict injection prior to formal migration, allowing No-Intro naming and live telemetry to function even in the adapter phase.
+*   **Parallel Verification**: As legacy logic is migrated into clean `core.*` modules, we verify new implementations side-by-side against original standalone tools on identical synthetic waveforms and real captures to ensure bit-level parity and zero regressions.
 
 ### Test Fixtures & the Road to Redistributable Coverage
 
@@ -152,7 +153,7 @@ git submodule update --init --recursive
 | **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), dynamic glitch rejection, AGC — tuned first against PC-88/PC-8801's 2400/1200 Hz FSK | `[x] DONE` | Milestone 1 |
 | **`core.audio`** | Streaming WAV I/O only (no FLAC yet — that ships with MSX support in Milestone 2) | `[x] DONE` | Milestone 1 |
 | **`core.fsk`** | FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav` | `[x] DONE` | Milestone 1 |
-| **`cli.filters.*`** | `t882wav` and `wav2t88` only, ported directly from `pc88_tape_tools` | `[ ] TODO` | Milestone 1 |
+| **`cli.filters.*`** | `t882wav` and `wav2t88` only, ported directly from `pc88_tape_tools` (backed by `core.*`) | `[ ] IN PROGRESS` | Milestone 1 |
 | **`cli.dwimsy`** | Minimal CLI exposing `convert` and structural `inspect` for T88/CMT — full multi-format/provenance inspect and remaining verbs land in Milestone 2 | `[ ] TODO` | Milestone 1 |
 | **`core.realtime`** | Live-stage contracts, bounded buffering/latency accounting, clocks, backpressure and resynchronization | `[ ] TODO` | Milestone 2 |
 | **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`, ported with MSX support) | `[ ] TODO` | Milestone 2 |
@@ -947,20 +948,18 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 
 ## 12. Multi-Phase Implementation Roadmap
 
-### Phase 0: Orchestration & Adapters `[ ] TODO`
-*   Wrap `BaudAgnosticPulseRecognizer` and `T88ToWavSynthesizer` as `dwimsy` adapters.
-*   Pass the wrapped tools' existing status text (`--inspect` reports, confidence scores) straight through to `stderr` as-is, over a defined channel — proof the third channel is architecturally real, using messages that already exist rather than building new ones.
-*   Standardize legacy tool `stderr` logging so that pass-through is reliable and consistently formatted enough to be machine-parseable later.
+### Phase 0: Orchestration & Scaffolding `[x] CONSOLIDATED INTO PHASE 1`
+*   Phase 0's goal of establishing channel contracts (`stdout` binary stream vs. `stderr` out-of-band telemetry) and validating data flow was absorbed directly into the native Phase 1 implementation without requiring temporary wrapper classes.
 
 ### Phase 1: Minimum Viable Vertical Slice — PC-88 Only `[ ] IN PROGRESS`
 
-The goal of Phase 1 is a single, narrow, end-to-end path through the architecture — not breadth. No MSX, no disks, no full CLI verb set, no hardware side-channel. Just enough to prove the core abstractions hold up against one real platform with real sample files.
+The goal of Phase 1 is a single, narrow, end-to-end path through the architecture — not breadth. No MSX, no disks, no full CLI verb set. Just enough to prove the core abstractions hold up against one real platform with clean, composable libraries.
 
 Tasks:
-1. `[x] DONE` Implement `dwimsy.core.pulse` (zero-crossing timer, TBC, AGC, DC-blocker), tuned initially against PC-88/PC-8801's 2400/1200 Hz FSK.
+1. `[x] DONE` Implement `dwimsy.core.pulse` (zero-crossing timer, dynamic glitch rejection, AGC, DC-blocker), tuned initially against PC-88/PC-8801's 2400/1200 Hz FSK.
 2. `[x] DONE` Implement `dwimsy.core.audio`: streaming WAV reader/writer only. FLAC support is deferred to Phase 2, where it ships alongside MSX support (`flac2wav`).
-3. `[x] DONE` Implement `dwimsy.core.fsk`: FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav`.
-4. `[ ] TODO` Port `t882wav` and `wav2t88` as Netpbm-style filters, directly from `pc88_tape_tools`.
+3. `[x] DONE` Implement `dwimsy.core.fsk`: FSK pulse classifier with carrier drift tracking & UART byte framer, extracted from `wav2t88`/`t882wav`.
+4. `[ ] IN PROGRESS` Port `t882wav` and `wav2t88` as Netpbm-style filters (`dwimsy.cli.filters.*`), backed by `dwimsy.core.*`.
 5. `[ ] TODO` Implement a minimal `dwimsy` CLI exposing `convert` and structural `inspect` (for `.t88`/`.cmt`). `restore`, `split`, `join`, and full multi-level hash/provenance reporting are deferred to Phase 2, since they depend on flavor taxonomy and archive features that don't exist yet.
    Verification: `[ ] TODO` Bit-exact roundtrip on a real PC-88 `.t88` sample (e.g. `input01.t88`) through `wav2t88` → `t882wav` → `wav2t88`, matching the original container byte-for-byte. Real sample tapes for this are a private loan for development purposes only (see [Test Fixtures & the Road to Redistributable Coverage](#test-fixtures--the-road-to-redistributable-coverage)) — they don't ship with the repo.
 
