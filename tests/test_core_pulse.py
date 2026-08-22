@@ -100,6 +100,15 @@ class TestPulseTimingRecognizerSynthetic(unittest.TestCase):
         cycles = [e for e in events if e.kind == "cycle"]
         self.assertGreater(len(cycles), 5)
 
+    def test_higher_frequency_drift_not_rejected_as_glitch(self):
+        # Fast 4800 Hz tone (+5% speed = 5040 Hz) should not be rejected
+        fs = 44100.0
+        r = PulseTimingRecognizer(fs, center_freq=3600.0, bandwidth=4800.0)
+        self._feed_tone(r, 5040.0, 0.05, fs)
+        events = self._feed_tone(r, 5040.0, 0.05, fs)
+        cycles = [e for e in events if e.kind == "cycle"]
+        self.assertGreater(len(cycles), 20)
+
     def test_center_freq_and_bandwidth_are_configurable(self):
         # An octave-shifted "MSX fast mode"-like tone (4800/2400 Hz)
         # should be trackable once the front end is retuned up an
