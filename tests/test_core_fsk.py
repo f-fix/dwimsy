@@ -80,14 +80,14 @@ class TestFSKClassifierSynthetic(unittest.TestCase):
 
 class TestByteFramerSynthetic(unittest.TestCase):
 
-    def _make_pulses(self, symbol_durs):
-        """symbol_durs: list of (symbol, duration_sec) with an
-        arbitrary monotonically-increasing fake sample_index."""
+    def _make_pulses(self, symbol_durs, fs=44100.0):
+        """symbol_durs: list of (symbol, duration_sec) with sample_index
+        tracking elapsed audio samples at fs."""
         pulses = []
-        tick = 0
+        sample_idx = 0
         for sym, dur in symbol_durs:
-            tick += 10
-            pulses.append(ClassifiedPulse(sym, dur, tick))
+            sample_idx += int(dur * fs)
+            pulses.append(ClassifiedPulse(sym, dur, sample_idx))
         return pulses
 
     def test_decodes_a_simple_byte(self):
@@ -129,6 +129,7 @@ class TestByteFramerSynthetic(unittest.TestCase):
         decoded = results[0]
         self.assertEqual(decoded.value, 0x55)
         self.assertIn(decoded.status, ("OK", "LOW_CONFIDENCE"))
+        self.assertGreater(decoded.start_tick, 0)
 
     def test_blank_resets_idle_state(self):
         framer = ByteFramer(baud=1200)
