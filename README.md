@@ -24,6 +24,7 @@ grandiose version: (currently 0% implemented)
 ## Table of Contents
 1. [Overview & Approach](#1-overview--approach)
 2. [Development Strategy](#2-development-strategy)
+   - [Test Fixtures & the Road to Redistributable Coverage](#test-fixtures--the-road-to-redistributable-coverage)
 3. [Installation](#3-installation)
 4. [Existing Project Lineage & Asset Repositories](#4-existing-project-lineage--asset-repositories)
 5. [Component Implementation Status Matrix](#5-component-implementation-status-matrix)
@@ -97,6 +98,18 @@ It is designed to grow incrementally, adding support for new computer platforms,
 *   **Pass-Through First, Rendering Later**: Prove the third channel end-to-end by piping adapted legacy tools' existing status/confidence output straight to `stderr` early; the ANSI virtual LCD marquee, phone dashboard, and IPC telemetry that consume a structured version of it are built in Milestone 2, once there's a real second consumer to design them against.
 *   **Parallel Verification**: As legacy logic is migrated into the clean `core.fsk` and `core.pulse` modules, we run the new implementation side-by-side with the original "slop" code to ensure accuracy parity and zero regression.
 *   **Feature Injection**: Standalone tools are updated to support `stderr` standard logging and metadata dict injection prior to formal migration, allowing No-Intro naming and live telemetry to function even in the adapter phase.
+
+### Test Fixtures & the Road to Redistributable Coverage
+
+Development and verification currently rely on real cassette captures from the author's personal collection — genuine analog tape audio, plus matching container/logical-stream exports from established tools like DumpListEditor, used to validate that ported logic actually agrees with independent, trusted references. **These are not redistributable and will not be checked into this repository.** They're a private, on-loan working set for active development, not permanent project fixtures — anyone reproducing this project's test results from scratch currently can't, and that's a known, accepted gap for now rather than an oversight.
+
+The intended long-term fix isn't "find more tapes to check in" — it's to prove `dwimsy`'s own resynthesis is good enough to make the problem go away. If `t882wav`'s `tape`/`shaped` modes and `dsp.modeler`'s physical cassette-channel simulation can produce audio realistic enough to stand in for a genuine capture during testing, then **synthetic "pseudotapes," built from content that's freely redistributable from the ground up, become the project's permanent, public, CI-friendly regression fixtures** — no loaned material required at all.
+
+Validating that a pseudotape is actually realistic enough for this, though, needs two things this project doesn't currently have:
+- **Redistribution-cleared real tape captures** to compare pseudotapes against, ideally spanning several platforms and tape conditions (fresh, worn, print-through, speed drift).
+- **Real hardware access** across the project's target platforms — including some models outside the author's personal collection — to confirm pseudotapes actually load on physical machines, not just in emulators or `dwimsy`'s own demodulator.
+
+`[ ] TODO` **Open call**: solicit redistribution-OK tape captures and, ideally, contributors with real hardware access for platforms not already in the author's collection, to serve as permanent reproducibility fixtures once pseudotape resynthesis is validated against them.
 
 ---
 
@@ -949,7 +962,7 @@ Tasks:
 3. `[ ] TODO` Implement `dwimsy.core.fsk`: FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav`.
 4. `[ ] TODO` Port `t882wav` and `wav2t88` as Netpbm-style filters, directly from `pc88_tape_tools`.
 5. `[ ] TODO` Implement a minimal `dwimsy` CLI exposing `convert` and structural `inspect` (for `.t88`/`.cmt`). `restore`, `split`, `join`, and full multi-level hash/provenance reporting are deferred to Phase 2, since they depend on flavor taxonomy and archive features that don't exist yet.
-   Verification: `[ ] TODO` Bit-exact roundtrip on a real PC-88 `.t88` sample (e.g. `input01.t88`) through `wav2t88` → `t882wav` → `wav2t88`, matching the original container byte-for-byte.
+   Verification: `[ ] TODO` Bit-exact roundtrip on a real PC-88 `.t88` sample (e.g. `input01.t88`) through `wav2t88` → `t882wav` → `wav2t88`, matching the original container byte-for-byte. Real sample tapes for this are a private loan for development purposes only (see [Test Fixtures & the Road to Redistributable Coverage](#test-fixtures--the-road-to-redistributable-coverage)) — they don't ship with the repo.
 
 ### Phase 2: MSX Generalization, Full CLI, Disk Subsystems & Flavor Matrix `[ ] TODO`
 
