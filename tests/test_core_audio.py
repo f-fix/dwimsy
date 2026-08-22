@@ -106,6 +106,25 @@ class TestStreamingWavReader(unittest.TestCase):
         out = r.read_samples(1024)  # ask for more than exists
         self.assertEqual(len(out), len(samples))
 
+    def test_odd_size_fmt_chunk_padding(self):
+        # 18-byte fmt chunk
+        samples = [1000, 2000]
+        pcm = struct.pack("<2h", *samples)
+        buf = io.BytesIO()
+        buf.write(b"RIFF")
+        buf.write(struct.pack("<I", 36 + len(pcm) + 2))
+        buf.write(b"WAVE")
+        buf.write(b"fmt ")
+        buf.write(struct.pack("<I", 18))
+        buf.write(struct.pack("<HHIIHHH", 1, 1, 44100, 88200, 2, 16, 0))
+        buf.write(b"data")
+        buf.write(struct.pack("<I", len(pcm)))
+        buf.write(pcm)
+        buf.seek(0)
+        r = StreamingWavReader(buf)
+        out = r.read_samples(2)
+        self.assertEqual(len(out), 2)
+
     def test_skips_unknown_chunks_before_fmt(self):
         samples = [111, 222]
         wav = make_pcm_wav(samples, extra_chunk=(b"LIST", b"INFOICMTsomecomment"))
@@ -200,6 +219,18 @@ class TestStreamingWavWriter(unittest.TestCase):
         # round-half-to-even picks the even neighbor).
         self.assertEqual(l, 16384)
         self.assertEqual(r, -16384)
+
+    def test_clamping_out_of_range_samples_inv_right(self):
+        buf = io.BytesIO()
+        w = StreamingWavWriter(buf, channels=2, stereo_mode="inv_right")
+        w.write_pcm_samples([2.0, -2.0])
+        w.finalize()
+        buf.seek(44)
+        l1, r1, l2, r2 = struct.unpack("<hhhh", buf.read(8))
+        self.assertEqual(l1, 32767)
+        self.assertEqual(r1, -32767)
+        self.assertEqual(l2, -32768)
+        self.assertEqual(r2, 32767)
 
     def test_clamping_out_of_range_samples(self):
         buf = io.BytesIO()
