@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+
+"""Tests for dwimsy.cli.filters and the minimal dwimsy CLI."""
+
+import io
+import os
+import sys
+import unittest
+from pathlib import Path
+from typing import Optional, Tuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEPS_PC88_DIR = REPO_ROOT / "deps" / "pc88_tape_tools"
+if str(DEPS_PC88_DIR) not in sys.path:
+    sys.path.insert(0, str(DEPS_PC88_DIR))
+
+import pc88_tape_tools
+from dwimsy.cli.filters import t882wav as native_t882wav
+from dwimsy.cli.filters import wav2t88 as native_wav2t88
+from dwimsy.cli import main as dwimsy_cli
+
+DEFAULT_FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
+
+
+def find_fixture_path(
+    filename: str, subdirs: Tuple[str, ...] = ("set1", "set2", "pc88", "")
+) -> Optional[Path]:
+    search_roots = []
+    env_dir = os.environ.get("DWIMSY_TEST_FIXTURES")
+    if env_dir:
+        search_roots.append(Path(env_dir))
+    search_roots.append(DEFAULT_FIXTURES_DIR)
+    search_roots.append(REPO_ROOT / "fixtures")
+
+    for root in search_roots:
+        if not root.exists():
+            continue
+        direct = root / filename
+        if direct.is_file():
+            return direct
+        for sub in subdirs:
+            p = root / sub / filename
+            if p.is_file():
+                return p
+        for match in root.rglob(filename):
+            if match.is_file():
+                return match
+    return None
+
+
+class TestPhase1FiltersAndCLI(unittest.TestCase):
+    def test_native_t882wav_synthetic_roundtrip(self):
+        payload = b"\xd3" * 10 + b"PHASE1_FILTER_TEST"
+        t88_obj = pc88_tape_tools.T88File.from_cmt_data(payload, baud=1200)
+        t88_bytes = t88_obj.pack()
+
+        wav_out = io.BytesIO()
+        native_t882wav.convert_t88_to_wav(
+            io.BytesIO(t88_bytes), wav_out, mode="tape", quiet=True
+        )
+        wav_data = wav_out.getvalue()
+        self.assertGreater(len(wav_data), 44)
+
+        t88_out = io.BytesIO()
+        native_wav2t88.process_stream(io.BytesIO(wav_data), t88_out, quiet=True)
+        t88_demod_data = t88_out.getvalue()
+
+        demod_obj = pc88_tape_tools.T88File.unpack(io.BytesIO(t88_demod_data))
+        self.assertEqual(demod_obj.extract_cmt_payload(), payload)
+
+    def test_real_sample_input16_roundtrip_verification(self):
+        """Milestone 1 Verification: Bit-exact roundtrip on a real PC-88 sample (input16.t88)."""
+        t88_path = find_fixture_path("input16.t88", subdirs=("pc88", ""))
+        cmt_path = find_fixture_path("input16.cmt", subdirs=("pc88", ""))
+        if not (t88_path and t88_path.exists() and cmt_path and cmt_path.exists()):
+            self.skipTest("input16 fixtures not found in tests/fixtures/")
+
+        with open(t88_path, "rb") as f:
+            t88_orig_bytes = f.read()
+        with open(cmt_path, "rb") as f:
+            expected_cmt = f.read()
+
+        wav_out = io.BytesIO()
+        native_t882wav.convert_t88_to_wav(
+            io.BytesIO(t88_orig_bytes), wav_out, mode="tape", quiet=True
+        )
+        wav_bytes = wav_out.getvalue()
+
+        t88_out = io.BytesIO()
+        native_wav2t88.process_stream(io.BytesIO(wav_bytes), t88_out, quiet=True)
+        t88_demod_bytes = t88_out.getvalue()
+
+        demod_file = pc88_tape_tools.T88File.unpack(io.BytesIO(t88_demod_bytes))
+        demod_cmt = demod_file.extract_cmt_payload()
+        self.assertEqual(
+            demod_cmt,
+            expected_cmt,
+            "Demodulated CMT payload must match reference input16.cmt byte-for-byte",
+        )
+
+    def test_cli_convert_routing_t88_to_cmt(self):
+        t88_path = find_fixture_path("input16.t88", subdirs=("pc88", ""))
+        cmt_path = find_fixture_path("input16.cmt", subdirs=("pc88", ""))
+        if not (t88_path and t88_path.exists() and cmt_path and cmt_path.exists()):
+            self.skipTest("input16 fixtures not found in tests/fixtures/")
+
+        class ConvertArgs:
+            command = "convert"
+            input = str(t88_path)
+            output = "-"
+            from_format = "t88"
+            to_format = "cmt"
+            mode = "tape"
+            baud = None
+            sample_rate = 44100
+            channels = 1
+            stereo_mode = "dual"
+            channel = "auto"
+            amplitude = 0.8
+            speed = 1.0
+            confidence = 0.75
+            quiet = True
+
+        out_s = io.BytesIO()
+        old_stdout = sys.stdout
+
+        class StdoutBufferWrapper:
+            buffer = out_s
+
+        sys.stdout = StdoutBufferWrapper()
+        try:
+            dwimsy_cli.run_convert(ConvertArgs)
+        finally:
+            sys.stdout = old_stdout
+
+        with open(cmt_path, "rb") as f:
+            expected_cmt = f.read()
+        self.assertEqual(out_s.getvalue(), expected_cmt)
+
+
+if __name__ == "__main__":
+    unittest.main()

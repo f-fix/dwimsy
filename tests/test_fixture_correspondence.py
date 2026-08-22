@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """Tests verifying correspondence and equivalence between audio snippets (.wav)
 and reference container/stream images (.t88 / .cmt)."""
 
