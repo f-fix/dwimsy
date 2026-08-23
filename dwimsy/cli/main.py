@@ -1,28 +1,124 @@
-#!/usr/bin/env python3
-
 """dwimsy.cli.main — central CLI entrypoint for dwimsy.
 
-Exposes 'convert' and 'inspect' verbs for Phase 1.
+Exposes 'convert', 'inspect', 'split', and 'join' verbs.
 """
+
+from __future__ import annotations
 
 import argparse
 import io
 import os
 import sys
 from pathlib import Path
+from typing import BinaryIO
 
 from dwimsy.cli.filters import t882wav as filter_t882wav
 from dwimsy.cli.filters import wav2t88 as filter_wav2t88
+from dwimsy.tape.t88 import T88File, split_t88_file, join_t88_files
+from dwimsy.protocols.pc88 import (
+    CMTFile,
+    convert_t88_to_cmt,
+    convert_cmt_to_t88,
+    split_cmt_file,
+    join_cmt_files,
+    analyze_tape,
+)
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-DEPS_PC88_DIR = REPO_ROOT / "deps" / "pc88_tape_tools"
-if str(DEPS_PC88_DIR) not in sys.path:
-    sys.path.insert(0, str(DEPS_PC88_DIR))
 
-try:
-    import pc88_tape_tools
-except ImportError:
-    pc88_tape_tools = None
+def inspect_audio(
+    in_stream: io.BytesIO | BinaryIO, channel_mode: str = "auto", out_stream=sys.stdout
+):
+    """Deep acoustic inspection of cassette audio recordings (matching wav2t88 --inspect)."""
+    from dwimsy.core.audio import StreamingWavReader
+    from dwimsy.core.pulse import PulseTimingRecognizer
+
+    reader = StreamingWavReader(in_stream, channel_mode=channel_mode)
+    fs = reader.sample_rate
+    demod = PulseTimingRecognizer(fs)
+
+    def print_out(msg: str):
+        print(msg, file=out_stream)
+
+    print_out("======================================================================")
+    print_out("               PC-8001 / PC-8801 TAPE AUDIO INSPECTOR                 ")
+    print_out("======================================================================")
+    print_out(
+        f"Source Format : {reader.sample_rate} Hz, {reader.bits_per_sample}-bit, {reader.channels} channel(s)"
+    )
+    print_out(f"Channel Mode  : {channel_mode.upper()}")
+    print_out("Scanning tape audio signal...")
+
+    total_samples = 0
+    mark_cycles = 0
+    space_cycles = 0
+    speed_samples: list[float] = []
+    mark_dur_hist: list[float] = []
+    measured_f_mark = 2400.0
+
+    while True:
+        samples = reader.read_samples(2048)
+        if not samples:
+            break
+        total_samples += len(samples)
+        for s in samples:
+            ev = demod.process_sample(s)
+            if ev and ev.kind == "cycle":
+                nominal_mark_period = 1.0 / measured_f_mark
+                boundary_period = nominal_mark_period * 1.414
+
+                if ev.envelope < max(
+                    ev.peak_carrier * 0.22, ev.noise_floor * 2.0, 0.0005
+                ):
+                    mark_dur_hist.clear()
+                elif ev.period_sec < boundary_period:
+                    mark_cycles += 1
+                    mark_dur_hist.append(ev.period_sec)
+                    if len(mark_dur_hist) > 80:
+                        mark_dur_hist.pop(0)
+                    if len(mark_dur_hist) >= 20:
+                        med_mark = sorted(mark_dur_hist)[len(mark_dur_hist) // 2]
+                        if 0.00032 <= med_mark <= 0.00052:
+                            measured_f_mark = 0.96 * measured_f_mark + 0.04 * (
+                                1.0 / med_mark
+                            )
+                            speed_samples.append(measured_f_mark)
+                elif ev.period_sec <= (1.0 / (1200.0 * 0.75)):
+                    space_cycles += 1
+                    mark_dur_hist.clear()
+                else:
+                    mark_dur_hist.clear()
+
+    dur_sec = total_samples / fs
+    m = int(dur_sec // 60)
+    s = dur_sec % 60
+
+    print_out("----------------------------------------------------------------------")
+    print_out(f"Total Duration       : {m:02d}:{s:06.3f} ({total_samples} samples)")
+    if reader.channels > 1:
+        print_out(f"Left Channel Energy  : {reader.l_energy:.1f}")
+        print_out(f"Right Channel Energy : {reader.r_energy:.1f}")
+        if reader.l_energy > reader.r_energy * 2.0:
+            print_out(
+                "Recommendation       : Data is predominantly on LEFT channel. Use '--channel left'."
+            )
+        elif reader.r_energy > reader.l_energy * 2.0:
+            print_out(
+                "Recommendation       : Data is predominantly on RIGHT channel. Use '--channel right'."
+            )
+
+    print_out(f"2400 Hz Mark Cycles  : {mark_cycles}")
+    print_out(f"1200 Hz Space Cycles : {space_cycles}")
+
+    if speed_samples:
+        avg_f_mark = sum(speed_samples) / len(speed_samples)
+        speed_offset_pct = (avg_f_mark / 2400.0 - 1.0) * 100.0
+        print_out(
+            f"Avg Carrier Freq     : {avg_f_mark:.1f} Hz (Deck Motor Speed: {speed_offset_pct:+.2f}%)"
+        )
+    else:
+        print_out("Carrier Signal       : WARNING: No 2400 Hz Mark tone detected.")
+
+    print_out("======================================================================")
 
 
 def run_convert(args):
@@ -43,7 +139,6 @@ def run_convert(args):
         in_ext = "" if in_path == "-" else os.path.splitext(in_path)[1].lower()
         out_ext = "" if out_path == "-" else os.path.splitext(out_path)[1].lower()
 
-        # Route by extension / target format
         if (in_ext == ".wav" or args.from_format == "wav") and (
             out_ext == ".t88" or args.to_format == "t88"
         ):
@@ -68,27 +163,58 @@ def run_convert(args):
                 stereo_mode=args.stereo_mode,
                 amplitude=args.amplitude,
                 speed_factor=args.speed,
+                invert_polarity=getattr(args, "invert", False),
                 baud_override=args.baud,
                 quiet=args.quiet,
             )
         elif (in_ext == ".t88" or args.from_format == "t88") and (
             out_ext == ".cmt" or args.to_format == "cmt"
         ):
-            if pc88_tape_tools is None:
-                raise RuntimeError("pc88_tape_tools backend not available.")
-            t88_obj = pc88_tape_tools.T88File.unpack(in_stream)
+            t88_obj = T88File.unpack(in_stream)
             out_stream.write(t88_obj.extract_cmt_payload())
         elif (in_ext == ".cmt" or args.from_format == "cmt") and (
             out_ext == ".t88" or args.to_format == "t88"
         ):
-            if pc88_tape_tools is None:
-                raise RuntimeError("pc88_tape_tools backend not available.")
             cmt_data = in_stream.read()
             baud = args.baud if args.baud else 1200
-            t88_obj = pc88_tape_tools.T88File.from_cmt_data(cmt_data, baud=baud)
+            t88_obj = T88File.from_cmt_data(cmt_data, baud=baud)
             out_stream.write(t88_obj.pack())
+        elif (in_ext == ".wav" or args.from_format == "wav") and (
+            out_ext == ".cmt" or args.to_format == "cmt"
+        ):
+            t88_buf = io.BytesIO()
+            supported = (args.baud,) if args.baud else (600, 1200)
+            filter_wav2t88.process_stream(
+                in_stream,
+                t88_buf,
+                supported_bauds=supported,
+                channel_mode=args.channel,
+                confidence_threshold=args.confidence,
+                quiet=args.quiet,
+            )
+            t88_obj = T88File.unpack(io.BytesIO(t88_buf.getvalue()))
+            out_stream.write(t88_obj.extract_cmt_payload())
+        elif (in_ext == ".cmt" or args.from_format == "cmt") and (
+            out_ext == ".wav" or args.to_format == "wav"
+        ):
+            cmt_data = in_stream.read()
+            baud = args.baud if args.baud else 1200
+            t88_obj = T88File.from_cmt_data(cmt_data, baud=baud)
+            t88_buf = io.BytesIO(t88_obj.pack())
+            filter_t882wav.convert_t88_to_wav(
+                t88_buf,
+                out_stream,
+                mode=args.mode,
+                sample_rate=args.sample_rate,
+                channels=args.channels,
+                stereo_mode=args.stereo_mode,
+                amplitude=args.amplitude,
+                speed_factor=args.speed,
+                invert_polarity=getattr(args, "invert", False),
+                baud_override=args.baud,
+                quiet=args.quiet,
+            )
         else:
-            # Fallback routing
             if in_ext == ".wav":
                 filter_wav2t88.process_stream(in_stream, out_stream, quiet=args.quiet)
             else:
@@ -104,6 +230,8 @@ def run_convert(args):
 
 def run_inspect(args):
     in_path = args.input
+    channel_mode = getattr(args, "channel", "auto")
+
     if in_path == "-":
         in_stream = sys.stdin.buffer
     else:
@@ -114,38 +242,58 @@ def run_inspect(args):
         in_stream.seek(0)
 
         if head.startswith(b"RIFF"):
-            from dwimsy.core.audio import StreamingWavReader
-
-            reader = StreamingWavReader(in_stream)
-            print(
-                "======================================================================"
-            )
-            print(
-                "                 DWIMSY CASSETTE AUDIO INSPECTOR                      "
-            )
-            print(
-                "======================================================================"
-            )
-            print(f"Format     : RIFF/WAVE PCM ({reader.bits_per_sample}-bit)")
-            print(f"Sample Rate: {reader.sample_rate} Hz")
-            print(f"Channels   : {reader.channels}")
-            print(
-                "======================================================================"
-            )
-        elif pc88_tape_tools and (
-            head.startswith(b"PC-8801 Tape Image")
-            or head.startswith(b"PC-8001 Tape Image")
-        ):
-            report = pc88_tape_tools.analyze_tape(in_path, verbose=args.verbose)
-            print(report)
-        elif pc88_tape_tools:
-            report = pc88_tape_tools.analyze_tape(in_path, verbose=args.verbose)
-            print(report)
+            inspect_audio(in_stream, channel_mode=channel_mode, out_stream=sys.stdout)
         else:
-            print(f"Inspecting {in_path}: {len(head)} header bytes read.")
+            if in_path == "-":
+                report = analyze_tape(in_stream, verbose=args.verbose)
+            else:
+                report = analyze_tape(in_path, verbose=args.verbose)
+            print(report)
     finally:
         if in_stream is not sys.stdin.buffer:
             in_stream.close()
+
+
+def run_split(args):
+    fmt = (args.format or "cmt").lower()
+    if fmt in ("t88", ".t88"):
+        summary = split_t88_file(
+            args.input,
+            output_dir=args.output_dir,
+            comment=args.comment,
+            baud=args.baud,
+        )
+    else:
+        summary = split_cmt_file(args.input, output_dir=args.output_dir)
+
+    print(f"\n[SUCCESS] Split '{args.input}' into {len(summary)} file(s):\n")
+    print(
+        f"{'#':<3} | {'Filename':<12} | {'File Format / Type':<32} | {'Size (Bytes)':<12} | Saved Path"
+    )
+    print("-" * 90)
+    for idx, (fname, ftype, size, path) in enumerate(summary, start=1):
+        print(f"{idx:<3} | {fname:<12} | {ftype:<32} | {size:<12} | {path}")
+    print("-" * 90)
+
+
+def run_join(args):
+    out_ext = os.path.splitext(args.output)[1].lower()
+    fmt = (
+        args.format.lower() if args.format else ("t88" if out_ext == ".t88" else "cmt")
+    )
+
+    if fmt in ("t88", ".t88"):
+        out_file = join_t88_files(
+            args.inputs,
+            args.output,
+            comment=args.comment,
+            baud=args.baud,
+            cmt_baud=args.cmt_baud,
+        )
+    else:
+        out_file = join_cmt_files(args.inputs, args.output)
+
+    print(f"[SUCCESS] Merged {len(args.inputs)} file(s) -> {out_file}")
 
 
 def main():
@@ -213,6 +361,7 @@ def main():
     p_conv.add_argument(
         "--speed", type=float, default=1.0, help="Speed multiplier (default: 1.0)"
     )
+    p_conv.add_argument("--invert", action="store_true", help="Invert audio polarity")
     p_conv.add_argument(
         "--confidence",
         type=float,
@@ -226,9 +375,60 @@ def main():
     p_insp = subparsers.add_parser(
         "inspect", help="Inspect media container headers and structural contents."
     )
-    p_insp.add_argument("input", help="Input file to inspect")
+    p_insp.add_argument("input", help="Input file or '-' to inspect")
     p_insp.add_argument(
         "-v", "--verbose", action="store_true", help="Show verbose block structure"
+    )
+    p_insp.add_argument(
+        "-c",
+        "--channel",
+        default="auto",
+        choices=["auto", "left", "right", "mix", "diff"],
+        help="Audio channel routing mode for WAV inspection (default: auto)",
+    )
+
+    p_split = subparsers.add_parser(
+        "split", help="Split multi-file tape images into individual program files."
+    )
+    p_split.add_argument("input", help="Input .cmt or .t88 file")
+    p_split.add_argument(
+        "-o", "--output-dir", default=None, help="Output directory for split files"
+    )
+    p_split.add_argument(
+        "--format",
+        choices=["cmt", "t88"],
+        default=None,
+        help="Target split format: 'cmt' (default) or 't88'",
+    )
+    p_split.add_argument(
+        "-b", "--baud", type=int, default=None, help="Baud rate override for T88 output"
+    )
+    p_split.add_argument(
+        "--comment", default="", help="Optional comment embedded in T88 headers"
+    )
+
+    p_join = subparsers.add_parser(
+        "join", help="Join multiple files into a single .cmt or .t88 tape image."
+    )
+    p_join.add_argument("inputs", nargs="+", help="Input files to merge")
+    p_join.add_argument("-o", "--output", required=True, help="Output destination path")
+    p_join.add_argument(
+        "--format",
+        choices=["cmt", "t88"],
+        default=None,
+        help="Target output format ('cmt' or 't88', inferred from output extension by default)",
+    )
+    p_join.add_argument(
+        "-b", "--baud", type=int, default=None, help="Baud rate override for T88 output"
+    )
+    p_join.add_argument(
+        "--cmt-baud",
+        type=int,
+        default=1200,
+        help="Default baud rate for raw .cmt inputs when producing .t88",
+    )
+    p_join.add_argument(
+        "--comment", default="", help="Optional comment embedded in T88 header"
     )
 
     if len(sys.argv) == 1:
@@ -240,6 +440,10 @@ def main():
         run_convert(args)
     elif args.command == "inspect":
         run_inspect(args)
+    elif args.command == "split":
+        run_split(args)
+    elif args.command == "join":
+        run_join(args)
     else:
         parser.print_help(sys.stderr)
         sys.exit(1)

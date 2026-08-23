@@ -13,12 +13,10 @@ from typing import Optional, Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEPS_PC88_DIR = REPO_ROOT / "deps" / "pc88_tape_tools"
-if str(DEPS_PC88_DIR) not in sys.path:
-    sys.path.insert(0, str(DEPS_PC88_DIR))
 
-import pc88_tape_tools
-import wav2t88
+from dwimsy.tape.t88 import T88File, DataSubHeader
+from dwimsy.protocols.pc88 import CMTFile
+from dwimsy.cli.filters import wav2t88 as native_wav2t88
 from dwimsy.core.pulse import PulseTimingRecognizer
 from dwimsy.core.fsk import FSKClassifier, ByteFramer
 from dwimsy.core.audio import StreamingWavReader
@@ -98,11 +96,11 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
         if not wav_path or not wav_path.exists():
             self.skipTest("snippet.wav not found in tests/fixtures/")
 
-        # 1. Demodulate snippet.wav with reference wav2t88
+        # 1. Demodulate snippet.wav with native filter
         with open(wav_path, "rb") as f:
             out_t88 = io.BytesIO()
-            wav2t88.process_stream(f, out_t88, quiet=True)
-            snip_t88 = pc88_tape_tools.T88File.unpack(io.BytesIO(out_t88.getvalue()))
+            native_wav2t88.process_stream(f, out_t88, quiet=True)
+            snip_t88 = T88File.unpack(io.BytesIO(out_t88.getvalue()))
             snip_payload = snip_t88.extract_cmt_payload()
 
         # 2. Check baud rate format code in demodulated T88 (0x01CC = 1200 baud)
@@ -110,7 +108,7 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
             b for b in snip_t88.blocks if b.tag == 0x0101 and len(b.data) >= 12
         ]
         self.assertGreater(len(data_blocks), 0)
-        dsh0 = pc88_tape_tools.DataSubHeader.unpack(data_blocks[0].data[:12])
+        dsh0 = DataSubHeader.unpack(data_blocks[0].data[:12])
         self.assertEqual(
             dsh0.fmt_code, 0x01CC, "snippet.wav must demodulate at 1200 baud"
         )
@@ -133,19 +131,19 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
                 input01_cmt.startswith(snip_payload),
                 f"input01.cmt must start with snippet.wav payload ({snip_payload!r})",
             )
-            fname, ftype = pc88_tape_tools.CMTFile.extract_file_info(input01_cmt)
+            fname, ftype = CMTFile.extract_file_info(input01_cmt)
             self.assertEqual(fname, "DOOR")
             self.assertEqual(ftype, "MON Machine Language Header (0x24)")
 
         if t88_path and t88_path.exists():
             with open(t88_path, "rb") as f:
-                t88_file = pc88_tape_tools.T88File.unpack(io.BytesIO(f.read()))
+                t88_file = T88File.unpack(io.BytesIO(f.read()))
             input01_t88_payload = t88_file.extract_cmt_payload()
             self.assertTrue(input01_t88_payload.startswith(snip_payload))
             in_data_blocks = [
                 b for b in t88_file.blocks if b.tag == 0x0101 and len(b.data) >= 12
             ]
-            in_dsh0 = pc88_tape_tools.DataSubHeader.unpack(in_data_blocks[0].data[:12])
+            in_dsh0 = DataSubHeader.unpack(in_data_blocks[0].data[:12])
             self.assertEqual(in_dsh0.fmt_code, 0x01CC)
 
     def test_snippet2_corresponds_to_input05_digdug_600_baud(self):
@@ -154,11 +152,11 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
         if not wav_path or not wav_path.exists():
             self.skipTest("snippet2.wav not found in tests/fixtures/")
 
-        # 1. Demodulate snippet2.wav with reference wav2t88
+        # 1. Demodulate snippet2.wav with native filter
         with open(wav_path, "rb") as f:
             out_t88 = io.BytesIO()
-            wav2t88.process_stream(f, out_t88, quiet=True)
-            snip_t88 = pc88_tape_tools.T88File.unpack(io.BytesIO(out_t88.getvalue()))
+            native_wav2t88.process_stream(f, out_t88, quiet=True)
+            snip_t88 = T88File.unpack(io.BytesIO(out_t88.getvalue()))
             snip_payload = snip_t88.extract_cmt_payload()
 
         # 2. Check baud rate format code in demodulated T88 (0x00CC = 600 baud)
@@ -166,7 +164,7 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
             b for b in snip_t88.blocks if b.tag == 0x0101 and len(b.data) >= 12
         ]
         self.assertGreater(len(data_blocks), 0)
-        dsh0 = pc88_tape_tools.DataSubHeader.unpack(data_blocks[0].data[:12])
+        dsh0 = DataSubHeader.unpack(data_blocks[0].data[:12])
         self.assertEqual(
             dsh0.fmt_code, 0x00CC, "snippet2.wav must demodulate at 600 baud"
         )
@@ -189,19 +187,19 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
                 input05_cmt.startswith(snip_payload),
                 f"input05.cmt must start with snippet2.wav payload ({snip_payload!r})",
             )
-            fname, ftype = pc88_tape_tools.CMTFile.extract_file_info(input05_cmt)
+            fname, ftype = CMTFile.extract_file_info(input05_cmt)
             self.assertEqual(fname, "DIGDUG")
             self.assertEqual(ftype, "BASIC Program (0xD3)")
 
         if t88_path and t88_path.exists():
             with open(t88_path, "rb") as f:
-                t88_file = pc88_tape_tools.T88File.unpack(io.BytesIO(f.read()))
+                t88_file = T88File.unpack(io.BytesIO(f.read()))
             input05_t88_payload = t88_file.extract_cmt_payload()
             self.assertTrue(input05_t88_payload.startswith(snip_payload))
             in_data_blocks = [
                 b for b in t88_file.blocks if b.tag == 0x0101 and len(b.data) >= 12
             ]
-            in_dsh0 = pc88_tape_tools.DataSubHeader.unpack(in_data_blocks[0].data[:12])
+            in_dsh0 = DataSubHeader.unpack(in_data_blocks[0].data[:12])
             self.assertEqual(in_dsh0.fmt_code, 0x00CC)
 
 

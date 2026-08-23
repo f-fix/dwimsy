@@ -156,10 +156,10 @@ git submodule update --init --recursive
 | **`core.fsk`** | FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav` | `[x] DONE` | Milestone 1 |
 | **`cli.filters.*`** | `t882wav` and `wav2t88` streaming filters, backed by `dwimsy.core.*` | `[x] DONE` | Milestone 1 |
 | **`cli.dwimsy` (v1)** | Minimal CLI exposing `convert` and basic `inspect` for T88/CMT | `[x] DONE` | Milestone 1 |
-| **`tape.t88`** | T88 container reader/writer (`T88File`, `T88Block`, `DataSubHeader`, lead-in/gap synthesis) | `[ ] TODO` | Milestone 1.5 |
-| **`protocols.pc88`** | PC-88 ROM protocol state machine: BASIC (0xD3), MON (0x24/0x3A), ASCII (0x9C), NONTAMA (0xFF) | `[ ] TODO` | Milestone 1.5 |
-| **`cli.split_join`** | PC-88 tape splitting (`split-cmt`, `split-t88`) and concatenation (`join-cmt`, `join-t88`) | `[ ] TODO` | Milestone 1.5 |
-| **`cli.inspect` (deep)** | Full structural ROM-level inspection report (replacing `pc88_tape_tools.py analyze`) | `[ ] TODO` | Milestone 1.5 |
+| **`tape.t88`** | T88 container reader/writer (`T88File`, `T88Block`, `DataSubHeader`, lead-in/gap synthesis, split/join) | `[ ] TODO` | Milestone 1.5 |
+| **`protocols.pc88`** | PC-88 ROM protocol state machine: BASIC (0xD3), MON (0x24/0x3A), ASCII (0x9C), NONTAMA (0xFF), MON O/I | `[ ] TODO` | Milestone 1.5 |
+| **`cli.split_join`** | PC-88 tape splitting (`dwimsy split --format cmt/t88`) and concatenation (`dwimsy join`) | `[ ] TODO` | Milestone 1.5 |
+| **`cli.inspect` (deep)** | Full acoustic audio inspection (energy, cycles, speed drift) & deep structural ROM/T88 report | `[ ] TODO` | Milestone 1.5 |
 | **`core.realtime`** | Live-stage contracts, bounded buffering/latency accounting, clocks, backpressure and resynchronization | `[ ] TODO` | Milestone 2 |
 | **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`, ported with MSX support) | `[ ] TODO` | Milestone 2 |
 | **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`, ported with MSX support) | `[ ] TODO` | Milestone 2 |
@@ -970,15 +970,16 @@ Tasks:
 
 ### Phase 1.5: Full PC-88 Parity & Submodule Ejection `[ ] IN PROGRESS`
 
-The goal of Phase 1.5 is 100% functional and structural parity with the full `pc88_tape_tools` feature set, providing a complete, self-contained PC-88 reference implementation and cleanly ejecting the `pc88_tape_tools` submodule before expanding to other platforms.
+The goal of Phase 1.5 is 100% functional, parameter, and diagnostic parity with the full `pc88_tape_tools` feature set (`pc88_tape_tools.py`, `t882wav.py`, `wav2t88.py`), providing a complete, self-contained PC-88 reference implementation and cleanly ejecting the `pc88_tape_tools` submodule before expanding to other platforms.
 
 Tasks:
-1. `[ ] TODO` Implement `dwimsy.tape.t88`: native container reader, writer, block model (`T88File`, `T88Block`, `DataSubHeader`), and lead-in/carrier/gap synthesis.
-2. `[ ] TODO` Implement `dwimsy.protocols.pc88` (or `dwimsy.core.cmt`): authentic ROM BIOS and Monitor state machine parsers for Tokenized BASIC (`0xD3`), MON Machine Language (`0x24`/`0x3A`), ASCII Sequential (`0x9C`), and custom bootstrap loaders (`0xFF` NONTAMA).
+1. `[ ] TODO` Implement `dwimsy.tape.t88`: native container reader, writer, block model (`T88File`, `T88Block`, `DataSubHeader`), lead-in/carrier/gap synthesis, and `split_t88_file` / `join_t88_files`.
+2. `[ ] TODO` Implement `dwimsy.protocols.pc88` (or `dwimsy.core.cmt`): authentic ROM BIOS and Monitor state machine parsers for Tokenized BASIC (`0xD3`), MON Machine Language (`0x24`/`0x3A`), ASCII Sequential (`0x9C`), custom bootstrap loaders (`0xFF` NONTAMA), and headerless MON O/I streams.
 3. `[ ] TODO` Implement `dwimsy split` for PC-88: program-aware slicing of multi-file `.cmt` and `.t88` images into individual standalone files with preserved carrier lead-ins.
 4. `[ ] TODO` Implement `dwimsy join` for PC-88: concatenation of multiple `.cmt` and `.t88` files into unified multi-part images with standard inter-block gap and carrier tags.
-5. `[ ] TODO` Port `pc88_tape_tools.py analyze` into deep structural `dwimsy inspect --verbose` (reporting memory load ranges, BASIC line numbers, record counts, and baud rates).
-6. `[ ] TODO` **Submodule Ejection**: Remove `deps/pc88_tape_tools` from `git submodule` and verify that `dwimsy` fully replaces and obsoletes `pc88_tape_tools` with zero feature loss.
+5. `[ ] TODO` Port `pc88_tape_tools.py analyze`, `t882wav.py --inspect`, and `wav2t88.py --inspect` into unified native `dwimsy inspect` (reporting stereo channel energy balance/recommendations, Mark/Space cycle counts, carrier drift speed offset, memory load ranges, BASIC line numbers, record counts, and baud rates).
+6. `[ ] TODO` Port all CLI flags and aliases (`--flavor`, `--bauds`, `--invert`, `-a`/`-v`/`--volume`, `--channel`, `-v`/`--verbose`, `--help-all`) and standalone executable filter applet support.
+7. `[ ] TODO` **Submodule Ejection**: Remove `deps/pc88_tape_tools` from `git submodule` and verify that `dwimsy` fully replaces and obsoletes `pc88_tape_tools` with 100% test pass rate and zero feature loss.
 
 ### Phase 2: MSX Generalization, Full CLI, Disk Subsystems & Flavor Matrix `[ ] TODO`
 
