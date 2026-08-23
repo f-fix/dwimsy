@@ -98,6 +98,27 @@ class TestTapeT88(unittest.TestCase):
                 rejoined.extract_cmt_payload(), t88_orig.extract_cmt_payload()
             )
 
+    def test_join_t88_per_input_baud(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            f1 = os.path.join(tmpdir, "f1.cmt")
+            f2 = os.path.join(tmpdir, "f2.cmt")
+            out_t88 = os.path.join(tmpdir, "multi_baud.t88")
+            with open(f1, "wb") as f:
+                f.write(self.ml_file)
+            with open(f2, "wb") as f:
+                f.write(self.basic_file)
+
+            # Test per-input baud specification via (path, baud) tuples
+            join_t88_files([(f1, 600), (f2, 1200)], out_t88)
+            with open(out_t88, "rb") as f:
+                joined = T88File.unpack(io.BytesIO(f.read()))
+            dblocks = [b for b in joined.blocks if b.tag == 0x0101]
+            self.assertGreaterEqual(len(dblocks), 2)
+            dsh1 = DataSubHeader.unpack(dblocks[0].data[:12])
+            dsh2 = DataSubHeader.unpack(dblocks[-1].data[:12])
+            self.assertEqual(dsh1.fmt_code, 0x00CC)  # 600 baud
+            self.assertEqual(dsh2.fmt_code, 0x01CC)  # 1200 baud
+
 
 if __name__ == "__main__":
     unittest.main()
