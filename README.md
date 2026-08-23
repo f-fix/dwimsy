@@ -25,7 +25,7 @@ grandiose version: (Phase 1 & Milestone 1.5 Complete, Phase 2 in progress)
 1. [Overview & Approach](#1-overview--approach)
 2. [Development Strategy](#2-development-strategy)
    - [Test Fixtures & the Road to Redistributable Coverage](#test-fixtures--the-road-to-redistributable-coverage)
-3. [Installation](#3-installation)
+3. [Installation & Usage](#3-installation--usage)
 4. [Existing Project Lineage & Asset Repositories](#4-existing-project-lineage--asset-repositories)
 5. [Component Implementation Status Matrix](#5-component-implementation-status-matrix)
 6. [Representation Layers, Real-Time Planes & Hardware Gateway](#6-representation-layers-real-time-planes--hardware-gateway)
@@ -98,7 +98,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 *   **Two-Stage Third-Channel Rollout ("Pass-Through First, Rendering Later")**:
     - *Phase 1 (Foundational Channel & Core Instrumentation)*: Enforces strict Unix stream separation (`stdout` reserved exclusively for raw binary stream data; `stderr` reserved for out-of-band telemetry and diagnostic reports). Core primitives (`PulseEvent`, `DecodedByte`, `FSKClassifier`) are natively instrumented with real-time signal and timing metrics (`envelope`, `peak_carrier`, `noise_floor`, `speed_factor`, per-bit `confidence`, `start_tick`).
     - *Phase 2 (Interactive Display Surfaces & IPC)*: Rich UI consumers (`cli.sidechannel` ANSI 2-line virtual LCD marquee, interactive TTY hotkeys, and `ui.remote` IPC daemon / WebSockets / phone dashboard) are implemented once there is a second platform (MSX) to generalize against.
-*   **Temporary, Named-Exit Dependencies**: The `git submodule`-vendored copies of `pc88_tape_tools`, `wav2cas`, etc. (see [Installation](#3-installation)) are scaffolding, not a permanent architecture choice. Each submodule's removal is an explicit exit criterion of the milestone that absorbs its logic — `pc88_tape_tools` is ejected when Milestone 1.5 lands, `wav2cas` when Phase 2's MSX generalization lands. "Zero required dependencies" is a claim about the *finished* state of each milestone, not the bootstrap period before it.
+*   **Temporary, Named-Exit Dependencies**: The `git submodule`-vendored copies of `pc88_tape_tools`, `wav2cas`, etc. (see [Installation & Usage](#3-installation--usage)) are scaffolding, not a permanent architecture choice. Each submodule's removal is an explicit exit criterion of the milestone that absorbs its logic — `pc88_tape_tools` is ejected when Milestone 1.5 lands, `wav2cas` when Phase 2's MSX generalization lands. "Zero required dependencies" is a claim about the *finished* state of each milestone, not the bootstrap period before it.
 *   **Parallel Verification**: As legacy logic is migrated into clean `core.*` modules, we verify new implementations side-by-side against original standalone tools on identical synthetic waveforms and real captures to ensure bit-level parity and zero regressions.
 
 ### Test Fixtures & the Road to Redistributable Coverage
@@ -115,7 +115,7 @@ Validating that a pseudotape is actually realistic enough for this, though, need
 
 ---
 
-## 3. Installation
+## 3. Installation & Usage
 
 ### For Developers (Git Submodules)
 `dwimsy` orchestrates several specialized tools. To fetch the complete source tree including all sub-component logic, use the recursive clone or update commands:
@@ -130,6 +130,209 @@ If you have already cloned the repository but the `deps/` directories are empty:
 ```bash
 git pull
 git submodule update --init --recursive
+```
+
+### Usage
+
+`dwimsy` is invoked as `python3 -m dwimsy <command> ...` (or via a `dwimsy` entry point once installed). As of Milestone 1, four commands exist: `convert`, `inspect`, `split`, and `join` — all four operate on PC-88 `.wav`/`.t88`/`.cmt` media, which is the only platform ported so far. Run `dwimsy --help-all` to see every subcommand's full option list at once.
+
+```text
+$ dwimsy --help
+usage: dwimsy [-h] [--help-all] <command> ...
+
+dwimsy — retrocomputing media preservation, demodulation, and conversion.
+
+positional arguments:
+  <command>
+    convert   Convert between media representations (WAV, T88, CMT).
+    inspect   Inspect media container headers and structural contents.
+    split     Split multi-file tape images into individual program files.
+    join      Join multiple files into a single .cmt or .t88 tape image.
+
+options:
+  -h, --help  show this help message and exit
+  --help-all  Show full detailed help for all subcommands at once and exit
+
+Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.
+```
+
+#### `dwimsy convert`
+
+Converts between `.wav` (audio), `.t88` (container), and `.cmt` (logical stream) — in either direction, inferred from file extensions unless `--from-format`/`--to-format` are given explicitly. `-` means stdin/stdout, so all three stages chain through standard pipes.
+
+```text
+$ dwimsy convert --help
+usage: dwimsy convert [-h] [--from-format FROM_FORMAT] [--to-format TO_FORMAT]
+                      [--mode {tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}]
+                      [--baud {600,1200}] [--bauds BAUDS]
+                      [--flavor {verbatim,reconstructed,kinematic-infilled,rom-authentic,canonical}]
+                      [--sample-rate SAMPLE_RATE] [--channels {1,2}]
+                      [--stereo-mode {dual,left,right,diff}]
+                      [--channel {auto,left,right,mix,diff}]
+                      [--amplitude AMPLITUDE] [--speed SPEED] [--invert]
+                      [--confidence CONFIDENCE] [-q]
+                      input output
+
+positional arguments:
+  input                 Input file or '-' for stdin
+  output                Output file or '-' for stdout
+
+options:
+  -h, --help            show this help message and exit
+  --from-format FROM_FORMAT
+                        Explicit input format (wav, t88, cmt)
+  --to-format TO_FORMAT
+                        Explicit output format (wav, t88, cmt)
+  --mode {tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}, -m {tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}, --wave {tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}
+                        Synthesis mode
+  --baud {600,1200}, -b {600,1200}
+                        Baud rate override (600 or 1200)
+  --bauds BAUDS         Comma-separated candidate baud rates for autodetect
+                        mode (default: 600,1200)
+  --flavor {verbatim,reconstructed,kinematic-infilled,rom-authentic,canonical}
+                        Demodulation timing flavor (default: reconstructed)
+  --sample-rate SAMPLE_RATE, -r SAMPLE_RATE
+                        Audio sample rate (default: 44100)
+  --channels {1,2}, -c {1,2}
+                        Audio channels (default: 1)
+  --stereo-mode {dual,left,right,diff}
+                        Stereo routing
+  --channel {auto,left,right,mix,diff}
+                        Input channel
+  --amplitude AMPLITUDE, -a AMPLITUDE, --volume AMPLITUDE, -v AMPLITUDE
+                        Audio amplitude 0.01..1.0 (default: 0.80)
+  --speed SPEED, -s SPEED
+                        Speed multiplier (default: 1.0)
+  --invert              Invert audio polarity
+  --confidence CONFIDENCE, -C CONFIDENCE, --min-confidence CONFIDENCE
+                        Minimum byte confidence (default: 0.75)
+  -q, --quiet           Suppress progress output
+```
+
+```bash
+# Demodulate a real cassette capture to a T88 container, forcing 600 baud
+dwimsy convert capture.wav game.t88 --baud 600
+
+# Extract the T88's logical byte stream to .cmt
+dwimsy convert game.t88 game.cmt
+
+# Re-synthesize audio from a T88 for playback into real hardware
+dwimsy convert game.t88 game.wav --mode tape
+
+# Chain through stdin/stdout
+cat capture.wav | dwimsy convert - - --to-format t88 > game.t88
+```
+
+#### `dwimsy inspect`
+
+Reports T88/CMT structure: block breakdown, tick timing, detected baud, and any recognized program files on the tape.
+
+```text
+$ dwimsy inspect --help
+usage: dwimsy inspect [-h] [-v] [-c {auto,left,right,mix,diff}] input
+
+positional arguments:
+  input                 Input file or '-' to inspect
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Show verbose block structure
+  -c {auto,left,right,mix,diff}, --channel {auto,left,right,mix,diff}
+                        Audio channel routing mode for WAV inspection
+                        (default: auto)
+```
+
+Real example, run against an actual 1980s cassette capture of *Dig Dug* (Dempa Micomsoft, PC-8801):
+
+```text
+$ dwimsy convert snippet2.wav game.t88 --baud 600
+$ dwimsy inspect game.t88 -v
+================================================================================
+TAPE ANALYSIS REPORT: game.t88
+================================================================================
+File Size: 135 bytes
+Format:    .t88 Container (Manuke Station / X88000)
+Magic:     b'PC-8801 Tape Image(T88)'
+Version:   0x0100
+Blocks:    8
+Duration:  00:03.733 (17,919 ticks @ 4800 Hz)
+Payload:   21 data bytes
+Tones:     2 Mark (2400 Hz), 1 Space (1200 Hz), 1 Blank Gaps
+Est. Baud: 600 baud (~88.0 ticks/byte)
+
+--- T88 Block Breakdown ---
+  #000 | VERSION | len=    2 bytes
+  #001 | GAP     | tick        0..159      (   159 ticks,  0.033s)
+  #002 | SPACE   | tick      159..12872    ( 12713 ticks,  2.649s)
+  #003 | MARK    | tick    12872..15163    (  2291 ticks,  0.477s)
+  #004 | DATA    | tick    15163..16571    (  1408 ticks,  0.293s) | dlen=   16 [600 baud] [name='DIGDUG' type='BASIC Program (0xD3)']
+  #005 | MARK    | tick    16571..17479    (   908 ticks,  0.189s)
+  #006 | DATA    | tick    17479..17919    (   440 ticks,  0.092s) | dlen=    5 [600 baud] b'(\x00d\x00\x9d'
+  #007 | END     | len=    0 bytes
+
+--- Cassette Content / Programs on Tape ---
+Total Programs / Streams Detected: 1
+#   | Filename     | File Format / Type                  | Size (Bytes) | Details
+------------------------------------------------------------------------------------------
+1   | DIGDUG       | BASIC Program (0xD3)                | 21           | Code: 21B
+```
+
+#### `dwimsy split`
+
+Splits a multi-file tape image into one output file per detected program.
+
+```text
+$ dwimsy split --help
+usage: dwimsy split [-h] [-o OUTPUT_DIR] [--format {cmt,t88}] [-b BAUD]
+                    [--comment COMMENT]
+                    input
+
+positional arguments:
+  input                 Input .cmt or .t88 file
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT_DIR, --output-dir OUTPUT_DIR
+                        Output directory for split files
+  --format {cmt,t88}    Target split format: 'cmt' (default) or 't88'
+  -b BAUD, --baud BAUD  Baud rate override for T88 output
+  --comment COMMENT     Optional comment embedded in T88 headers
+```
+
+```bash
+dwimsy split multi_game.t88 -o ./extracted/ --format t88
+```
+
+#### `dwimsy join`
+
+Merges multiple `.cmt`/`.t88` files into one combined tape image, supporting per-input baud overrides.
+
+```text
+$ dwimsy join --help
+usage: dwimsy join [-h] -o OUTPUT [--format {cmt,t88}] [-b BAUD]
+                   [--bauds BAUDS] [--cmt-baud CMT_BAUD] [--comment COMMENT]
+                   inputs [inputs ...]
+
+positional arguments:
+  inputs                Input files to merge (supports positional -b/--baud a
+                        la SoX)
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        Output destination path
+  --format {cmt,t88}    Target output format ('cmt' or 't88', inferred from
+                        output extension by default)
+  -b BAUD, --baud BAUD  Global baud rate override for all T88 outputs
+  --bauds BAUDS         Sequential comma-separated baud rates per input (e.g.
+                        '1200,600')
+  --cmt-baud CMT_BAUD   Default baud rate for raw .cmt inputs when producing
+                        .t88
+  --comment COMMENT     Optional comment embedded in T88 header
+```
+
+```bash
+dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
 ```
 
 ---
