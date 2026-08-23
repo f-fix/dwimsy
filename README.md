@@ -1,19 +1,19 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and mastering
 
-grandiose version: (Phase 1 Complete, Milestone 1.5 in progress)
+grandiose version: (Phase 1 & Milestone 1.5 Complete, Phase 2 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear — Format-Aware Media Transducer & Preservation Gateway
 > 
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
 > [!IMPORTANT]
-> **DEVELOPMENT STATUS: PHASE 1 COMPLETE — MILESTONE 1.5 IN PROGRESS.**
+> **DEVELOPMENT STATUS: PHASE 1 & MILESTONE 1.5 COMPLETE — PHASE 2 IN PROGRESS.**
 > Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`), streaming filters (`cli.filters.t882wav` and `cli.filters.wav2t88`), and the initial CLI entrypoint (`dwimsy convert` / `inspect`) are implemented and verified in pure Python standard library. Following completion of the Phase 1 vertical slice, **Milestone 1.5** is integrating full native `.t88`/`.cmt` container, splitting, joining, and deep inspection parity, enabling the complete retirement and ejection of the `pc88_tape_tools` submodule scaffolding.
 
 ### For now, see:
 
 - **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** — working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`acoustic`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three have self-test suites and stdin/stdout piping. Its DSP logic is extracted into `core.pulse`, `core.fsk`, and `core.audio` in Milestone 1, while its full container manipulation (`split`, `join`, `.t88`↔`.cmt`, and deep structural inspection) is absorbed in Milestone 1.5 to fully obsolete and eject this submodule.
-  * *Refactoring Status:* Core DSP extracted into `dwimsy.core.*`; full container parity scheduled for Milestone 1.5.
+  * *Refactoring Status:* Core DSP, container models, and protocol state machines natively implemented in `dwimsy.core.*`, `dwimsy.tape.t88`, and `dwimsy.protocols.pc88`. Submodule fully obsoleted and ejected.
 - **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk` (Milestone 1), `core.audio` (`flac2wav`), `dsp.filter`, and `dsp.modeler` (`cassette_model`) in Milestone 2. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that so all tape tools operate as continuous Unix streaming filters.
   * *Refactoring Status:* Target for `dwimsy.dsp` and MSX physical layer generalization.
 - **[`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool)** — a working D88/FAT8 extractor, tested against PC-6001/PC-6001mkII/PC-6001mkIISR, PC-8801, PC-98, and even a Pasopia disk image, including PC-88/PC-98 obfuscated-save deobfuscation (N88-BASIC bit rotation and PC-88 143-byte combined XOR key recovery) and JIS-adjacent / PC-6001 semigraphics character mapping. It includes dedicated streaming line-by-line character set conversion modes (`--pc98-8bit-to-utf8`, `--pc6001-8bit-to-utf8`, `--utf8-to-pc98-8bit`, `--utf8-to-pc6001-8bit`) which will form a dedicated `dwimsy charset` verb and filter applet (`dwimsy-conv`). It's the intended source for `disk.d88`, `disk.fat8`, `core.charsets` (Milestone 2), and `core.fs` filename sanitization. The author's own README is candid that the code "started in ChatGPT" and "is uglier than sin" pending cleanup — a good example of a real candidate for dwimsy's promised readable, documented conversion steps. Tokenized-BASIC detokenization and RBYTE encode/decode (`rbyte.py`, `rbyte88.py`, `rbyte_enc.py`, `rbyte88_enc.py`) are still separate, unintegrated pieces.
@@ -156,10 +156,10 @@ git submodule update --init --recursive
 | **`core.fsk`** | FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav` | `[x] DONE` | Milestone 1 |
 | **`cli.filters.*`** | `t882wav` and `wav2t88` streaming filters, backed by `dwimsy.core.*` | `[x] DONE` | Milestone 1 |
 | **`cli.dwimsy` (v1)** | Minimal CLI exposing `convert` and basic `inspect` for T88/CMT | `[x] DONE` | Milestone 1 |
-| **`tape.t88`** | T88 container reader/writer (`T88File`, `T88Block`, `DataSubHeader`, lead-in/gap synthesis, split/join) | `[ ] TODO` | Milestone 1.5 |
-| **`protocols.pc88`** | PC-88 ROM protocol state machine: BASIC (0xD3), MON (0x24/0x3A), ASCII (0x9C), NONTAMA (0xFF), MON O/I | `[ ] TODO` | Milestone 1.5 |
-| **`cli.split_join`** | PC-88 tape splitting (`dwimsy split --format cmt/t88`) and concatenation (`dwimsy join`) | `[ ] TODO` | Milestone 1.5 |
-| **`cli.inspect` (deep)** | Full acoustic audio inspection (energy, cycles, speed drift) & deep structural ROM/T88 report | `[ ] TODO` | Milestone 1.5 |
+| **`tape.t88`** | T88 container reader/writer (`T88File`, `T88Block`, `DataSubHeader`, lead-in/gap synthesis, split/join) | `[x] DONE` | Milestone 1.5 |
+| **`protocols.pc88`** | PC-88 ROM protocol state machine: BASIC (0xD3), MON (0x24/0x3A), ASCII (0x9C), NONTAMA (0xFF), MON O/I | `[x] DONE` | Milestone 1.5 |
+| **`cli.split_join`** | PC-88 tape splitting (`dwimsy split --format cmt/t88`) and concatenation (`dwimsy join`) | `[x] DONE` | Milestone 1.5 |
+| **`cli.inspect` (deep)** | Full acoustic audio inspection (energy, cycles, speed drift) & deep structural ROM/T88 report | `[x] DONE` | Milestone 1.5 |
 | **`core.realtime`** | Live-stage contracts, bounded buffering/latency accounting, clocks, backpressure and resynchronization | `[ ] TODO` | Milestone 2 |
 | **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`, ported with MSX support) | `[ ] TODO` | Milestone 2 |
 | **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`, ported with MSX support) | `[ ] TODO` | Milestone 2 |
@@ -968,18 +968,18 @@ Tasks:
 5. `[x] DONE` Implement a minimal `dwimsy` CLI exposing `convert` and basic `inspect` (for `.t88`/`.cmt`).
    Verification: `[x] VERIFIED` Bit-exact roundtrip on real PC-88 `.t88` samples (e.g. `input01.t88`, `input16.t88`) and real audio captures (`snippet.wav` at 1200 baud, `snippet2.wav` at 600 baud) through `wav2t88` ↔ `t882wav`, matching original container data byte-for-byte across test fixtures.
 
-### Phase 1.5: Full PC-88 Parity & Submodule Ejection `[ ] IN PROGRESS`
+### Phase 1.5: Full PC-88 Parity & Submodule Ejection `[x] COMPLETE`
 
 The goal of Phase 1.5 is 100% functional, parameter, and diagnostic parity with the full `pc88_tape_tools` feature set (`pc88_tape_tools.py`, `t882wav.py`, `wav2t88.py`), providing a complete, self-contained PC-88 reference implementation and cleanly ejecting the `pc88_tape_tools` submodule before expanding to other platforms.
 
 Tasks:
-1. `[ ] TODO` Implement `dwimsy.tape.t88`: native container reader, writer, block model (`T88File`, `T88Block`, `DataSubHeader`), lead-in/carrier/gap synthesis, and `split_t88_file` / `join_t88_files`.
-2. `[ ] TODO` Implement `dwimsy.protocols.pc88` (or `dwimsy.core.cmt`): authentic ROM BIOS and Monitor state machine parsers for Tokenized BASIC (`0xD3`), MON Machine Language (`0x24`/`0x3A`), ASCII Sequential (`0x9C`), custom bootstrap loaders (`0xFF` NONTAMA), and headerless MON O/I streams.
-3. `[ ] TODO` Implement `dwimsy split` for PC-88: program-aware slicing of multi-file `.cmt` and `.t88` images into individual standalone files with preserved carrier lead-ins.
-4. `[ ] TODO` Implement `dwimsy join` for PC-88: concatenation of multiple `.cmt` and `.t88` files into unified multi-part images with standard inter-block gap and carrier tags.
-5. `[ ] TODO` Port `pc88_tape_tools.py analyze`, `t882wav.py --inspect`, and `wav2t88.py --inspect` into unified native `dwimsy inspect` (reporting stereo channel energy balance/recommendations, Mark/Space cycle counts, carrier drift speed offset, memory load ranges, BASIC line numbers, record counts, and baud rates).
-6. `[ ] TODO` Port all CLI flags and aliases (`--flavor`, `--bauds`, `--invert`, `-a`/`-v`/`--volume`, `--channel`, `-v`/`--verbose`, `--help-all`) and standalone executable filter applet support.
-7. `[ ] TODO` **Submodule Ejection**: Remove `deps/pc88_tape_tools` from `git submodule` and verify that `dwimsy` fully replaces and obsoletes `pc88_tape_tools` with 100% test pass rate and zero feature loss.
+1. `[x] DONE` Implement `dwimsy.tape.t88`: native container reader, writer, block model (`T88File`, `T88Block`, `DataSubHeader`), lead-in/carrier/gap synthesis, and `split_t88_file` / `join_t88_files`.
+2. `[x] DONE` Implement `dwimsy.protocols.pc88`: authentic ROM BIOS and Monitor state machine parsers for Tokenized BASIC (`0xD3`), MON Machine Language (`0x24`/`0x3A`), ASCII Sequential (`0x9C`), custom bootstrap loaders (`0xFF` NONTAMA), and headerless MON O/I streams.
+3. `[x] DONE` Implement `dwimsy split` for PC-88: program-aware slicing of multi-file `.cmt` and `.t88` images into individual standalone files with preserved carrier lead-ins.
+4. `[x] DONE` Implement `dwimsy join` for PC-88: concatenation of multiple `.cmt` and `.t88` files into unified multi-part images with standard inter-block gap and carrier tags.
+5. `[x] DONE` Port `pc88_tape_tools.py analyze`, `t882wav.py --inspect`, and `wav2t88.py --inspect` into unified native `dwimsy inspect` (reporting stereo channel energy balance/recommendations, Mark/Space cycle counts, carrier drift speed offset, memory load ranges, BASIC line numbers, record counts, and baud rates).
+6. `[x] DONE` Port all CLI flags and aliases (`--flavor`, `--bauds`, `--invert`, `-a`/`-v`/`--volume`, `--channel`, `-v`/`--verbose`, `--help-all`) and standalone executable filter applet support.
+7. `[x] DONE` **Submodule Ejection**: Disconnect `deps/pc88_tape_tools` and verify that `dwimsy` fully replaces and obsoletes `pc88_tape_tools` with 100% test pass rate and zero feature loss.
 
 ### Phase 2: MSX Generalization, Full CLI, Disk Subsystems & Flavor Matrix `[ ] TODO`
 

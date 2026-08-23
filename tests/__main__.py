@@ -9,15 +9,11 @@ from pathlib import Path
 tests_dir = Path(__file__).resolve().parent
 repo_root = tests_dir.parent
 
-# Ensure repository root and dependencies are on sys.path
+# Ensure repository root is on sys.path
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 if str(tests_dir) not in sys.path:
     sys.path.insert(0, str(tests_dir))
-
-deps_pc88_dir = repo_root / "deps" / "pc88_tape_tools"
-if str(deps_pc88_dir) not in sys.path:
-    sys.path.insert(0, str(deps_pc88_dir))
 
 
 class TestProgram(unittest.TestProgram):

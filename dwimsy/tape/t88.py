@@ -1,15 +1,19 @@
-"""dwimsy.tape.t88 — T88 tape image container primitives, reader, writer, and object model.
-
-Provides canonical constants, data structures, and streaming/in-memory implementations
-for NEC PC-8001/PC-8801 .t88 format files.
-"""
+"""dwimsy.tape.t88 — T88 tape image container primitives, reader, writer, and object model."""
 
 from __future__ import annotations
 
 import io
 import os
 import struct
-from typing import BinaryIO, Dict, Generator, List, Optional, Tuple
+import sys
+from pathlib import Path
+from typing import BinaryIO, Dict, Generator, List, Optional, Tuple, Union
+
+# Bootstrap sys.path if executed directly as a script
+for p in Path(__file__).resolve().parents:
+    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+        break
 
 __all__ = [
     "T88Tag",
@@ -692,14 +696,20 @@ def split_t88_file(
 
 
 def join_t88_files(
-    input_paths: List[str],
+    input_paths: List[Union[str, Tuple[str, Optional[int]]]],
     output_path: str,
     comment: str = "",
     baud: Optional[int] = None,
     default_baud: int = 1200,
     cmt_baud: Optional[int] = None,
+    bauds: Optional[Union[List[Optional[int]], str]] = None,
     chunk_size: int = 32000,
 ) -> str:
+    """Joins multiple .t88 and .cmt files into a single .t88 container.
+
+    Supports per-input baud rates (positional tuple or --bauds list),
+    global overrides (baud), and default cmt_baud fallback.
+    """
     from dwimsy.protocols.pc88 import ProtocolRegistry
 
     combined_blocks: List[T88Block] = []
@@ -713,9 +723,21 @@ def join_t88_files(
     if cmt_baud is not None:
         default_baud = cmt_baud
 
+    parsed_bauds: List[Optional[int]] = []
+    if isinstance(bauds, str):
+        parsed_bauds = [int(b.strip()) if b.strip() else None for b in bauds.split(",")]
+    elif isinstance(bauds, list):
+        parsed_bauds = list(bauds)
+
     current_tick = 0
 
-    for path_idx, path in enumerate(input_paths):
+    for path_idx, item in enumerate(input_paths):
+        if isinstance(item, tuple):
+            path, item_baud = item
+        else:
+            path = item
+            item_baud = parsed_bauds[path_idx] if path_idx < len(parsed_bauds) else None
+
         with open(path, "rb") as f:
             data = f.read()
 
@@ -739,11 +761,13 @@ def join_t88_files(
                 file_start_tick = current_tick
                 file_max_end = current_tick
 
+                effective_t88_baud = baud if baud is not None else item_baud
+
                 for b in file_blocks:
                     if b.tag in (T88Tag.GAP, T88Tag.SPACE, T88Tag.MARK):
                         if len(b.data) >= 8:
                             st, lt = struct.unpack("<II", b.data[:8])
-                            if baud is None:
+                            if effective_t88_baud is None:
                                 new_st = file_start_tick + max(0, st - min_tick)
                                 file_max_end = max(file_max_end, new_st + lt)
                             else:
@@ -765,20 +789,22 @@ def join_t88_files(
                                 dsh.fmt_code,
                             )
                             payload = b.data[12 : 12 + dlen]
-                            if baud is None:
+                            if effective_t88_baud is None:
                                 new_st = file_start_tick + max(0, st - min_tick)
                                 new_lt = lt
                                 file_max_end = max(file_max_end, new_st + new_lt)
                                 new_fmt = res
                             else:
                                 ticks_per_byte = ProtocolRegistry.get_ticks_per_byte(
-                                    baud
+                                    effective_t88_baud
                                 )
                                 new_lt = dlen * ticks_per_byte
                                 new_st = current_tick
                                 current_tick += new_lt
                                 file_max_end = current_tick
-                                new_fmt = ProtocolRegistry.get_fmt_code(baud)
+                                new_fmt = ProtocolRegistry.get_fmt_code(
+                                    effective_t88_baud
+                                )
                             new_b_data = (
                                 DataSubHeader(new_st, new_lt, dlen, new_fmt).pack()
                                 + payload
@@ -804,7 +830,11 @@ def join_t88_files(
             )
             current_tick += 9600
 
-        effective_cmt_baud = baud if baud is not None else default_baud
+        effective_cmt_baud = (
+            baud
+            if baud is not None
+            else (item_baud if item_baud is not None else default_baud)
+        )
         ticks_per_byte = ProtocolRegistry.get_ticks_per_byte(effective_cmt_baud)
         fmt_code = ProtocolRegistry.get_fmt_code(effective_cmt_baud)
         mark_len = 9600

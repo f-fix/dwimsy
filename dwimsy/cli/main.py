@@ -10,7 +10,13 @@ import io
 import os
 import sys
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, List, Tuple
+
+# Bootstrap sys.path if executed directly as a script
+for p in Path(__file__).resolve().parents:
+    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+        break
 
 from dwimsy.cli.filters import t882wav as filter_t882wav
 from dwimsy.cli.filters import wav2t88 as filter_wav2t88
@@ -121,6 +127,23 @@ def inspect_audio(
     print_out("======================================================================")
 
 
+def format_all_help(parser: argparse.ArgumentParser) -> str:
+    out = io.StringIO()
+    parser.print_help(out)
+    out.write("\n\n" + "=" * 80 + "\n")
+    out.write("DETAILED SUBCOMMAND HELP\n")
+    out.write("=" * 80 + "\n")
+
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            for choice, subparser in action.choices.items():
+                out.write(f"\n--- Subcommand: {choice} ---\n")
+                sub_out = io.StringIO()
+                subparser.print_help(sub_out)
+                out.write(sub_out.getvalue().strip() + "\n")
+    return out.getvalue()
+
+
 def run_convert(args):
     in_path = args.input
     out_path = args.output
@@ -142,13 +165,22 @@ def run_convert(args):
         if (in_ext == ".wav" or args.from_format == "wav") and (
             out_ext == ".t88" or args.to_format == "t88"
         ):
-            supported = (args.baud,) if args.baud else (600, 1200)
+            if args.baud:
+                supported = (args.baud,)
+            elif getattr(args, "bauds", None):
+                supported = tuple(
+                    int(b.strip()) for b in args.bauds.split(",") if b.strip()
+                )
+            else:
+                supported = (600, 1200)
+
             filter_wav2t88.process_stream(
                 in_stream,
                 out_stream,
                 supported_bauds=supported,
                 channel_mode=args.channel,
                 confidence_threshold=args.confidence,
+                flavor=getattr(args, "flavor", "reconstructed"),
                 quiet=args.quiet,
             )
         elif (in_ext == ".t88" or args.from_format == "t88") and (
@@ -190,6 +222,7 @@ def run_convert(args):
                 supported_bauds=supported,
                 channel_mode=args.channel,
                 confidence_threshold=args.confidence,
+                flavor=getattr(args, "flavor", "reconstructed"),
                 quiet=args.quiet,
             )
             t88_obj = T88File.unpack(io.BytesIO(t88_buf.getvalue()))
@@ -276,31 +309,67 @@ def run_split(args):
     print("-" * 90)
 
 
-def run_join(args):
+def _parse_scoped_join_inputs(raw_argv: List[str]) -> List[Tuple[str, Optional[int]]]:
+    """Parses positional SoX-style scoped options before input paths (e.g. -b 1200 f1 -b 600 f2)."""
+    parsed: List[Tuple[str, Optional[int]]] = []
+    current_baud: Optional[int] = None
+    i = 0
+    while i < len(raw_argv):
+        arg = raw_argv[i]
+        if arg in ("-b", "--baud") and i + 1 < len(raw_argv):
+            try:
+                current_baud = int(raw_argv[i + 1])
+                i += 2
+                continue
+            except ValueError:
+                pass
+        parsed.append((arg, current_baud))
+        current_baud = None
+        i += 1
+    return parsed
+
+
+def run_join(args, raw_inputs: Optional[List[str]] = None):
     out_ext = os.path.splitext(args.output)[1].lower()
     fmt = (
         args.format.lower() if args.format else ("t88" if out_ext == ".t88" else "cmt")
     )
 
+    # If raw positional inputs contain scoped -b / --baud arguments, parse them a la SoX
+    if raw_inputs:
+        scoped_items = _parse_scoped_join_inputs(raw_inputs)
+    else:
+        scoped_items = [(p, None) for p in args.inputs]
+
     if fmt in ("t88", ".t88"):
         out_file = join_t88_files(
-            args.inputs,
+            scoped_items,
             args.output,
             comment=args.comment,
             baud=args.baud,
             cmt_baud=args.cmt_baud,
+            bauds=getattr(args, "bauds", None),
         )
     else:
-        out_file = join_cmt_files(args.inputs, args.output)
+        input_paths_only = [item[0] for item in scoped_items]
+        out_file = join_cmt_files(input_paths_only, args.output)
 
-    print(f"[SUCCESS] Merged {len(args.inputs)} file(s) -> {out_file}")
+    print(f"[SUCCESS] Merged {len(scoped_items)} file(s) -> {out_file}")
 
 
 def main():
     parser = argparse.ArgumentParser(
         prog="dwimsy",
         description="dwimsy — retrocomputing media preservation, demodulation, and conversion.",
+        epilog="Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument(
+        "--help-all",
+        action="store_true",
+        help="Show full detailed help for all subcommands at once and exit",
+    )
+
     subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
     p_conv = subparsers.add_parser(
@@ -316,25 +385,57 @@ def main():
     )
     p_conv.add_argument(
         "--mode",
+        "-m",
+        "--wave",
         default="tape",
-        choices=["tape", "acoustic", "shaped", "ideal"],
+        choices=[
+            "tape",
+            "cassette",
+            "acoustic",
+            "motor",
+            "spinup",
+            "shaped",
+            "pc",
+            "ideal",
+            "square",
+        ],
         help="Synthesis mode",
     )
     p_conv.add_argument(
         "--baud",
+        "-b",
         type=int,
         choices=[600, 1200],
         default=None,
         help="Baud rate override (600 or 1200)",
     )
     p_conv.add_argument(
+        "--bauds",
+        default="600,1200",
+        help="Comma-separated candidate baud rates for autodetect mode (default: 600,1200)",
+    )
+    p_conv.add_argument(
+        "--flavor",
+        default="reconstructed",
+        choices=[
+            "verbatim",
+            "reconstructed",
+            "kinematic-infilled",
+            "rom-authentic",
+            "canonical",
+        ],
+        help="Demodulation timing flavor (default: reconstructed)",
+    )
+    p_conv.add_argument(
         "--sample-rate",
+        "-r",
         type=int,
         default=44100,
         help="Audio sample rate (default: 44100)",
     )
     p_conv.add_argument(
         "--channels",
+        "-c",
         type=int,
         choices=[1, 2],
         default=1,
@@ -354,16 +455,25 @@ def main():
     )
     p_conv.add_argument(
         "--amplitude",
+        "-a",
+        "--volume",
+        "-v",
         type=float,
         default=0.80,
         help="Audio amplitude 0.01..1.0 (default: 0.80)",
     )
     p_conv.add_argument(
-        "--speed", type=float, default=1.0, help="Speed multiplier (default: 1.0)"
+        "--speed",
+        "-s",
+        type=float,
+        default=1.0,
+        help="Speed multiplier (default: 1.0)",
     )
     p_conv.add_argument("--invert", action="store_true", help="Invert audio polarity")
     p_conv.add_argument(
         "--confidence",
+        "-C",
+        "--min-confidence",
         type=float,
         default=0.75,
         help="Minimum byte confidence (default: 0.75)",
@@ -410,7 +520,11 @@ def main():
     p_join = subparsers.add_parser(
         "join", help="Join multiple files into a single .cmt or .t88 tape image."
     )
-    p_join.add_argument("inputs", nargs="+", help="Input files to merge")
+    p_join.add_argument(
+        "inputs",
+        nargs="+",
+        help="Input files to merge (supports positional -b/--baud a la SoX)",
+    )
     p_join.add_argument("-o", "--output", required=True, help="Output destination path")
     p_join.add_argument(
         "--format",
@@ -419,7 +533,16 @@ def main():
         help="Target output format ('cmt' or 't88', inferred from output extension by default)",
     )
     p_join.add_argument(
-        "-b", "--baud", type=int, default=None, help="Baud rate override for T88 output"
+        "-b",
+        "--baud",
+        type=int,
+        default=None,
+        help="Global baud rate override for all T88 outputs",
+    )
+    p_join.add_argument(
+        "--bauds",
+        default=None,
+        help="Sequential comma-separated baud rates per input (e.g. '1200,600')",
     )
     p_join.add_argument(
         "--cmt-baud",
@@ -436,6 +559,11 @@ def main():
         sys.exit(0)
 
     args = parser.parse_args()
+
+    if args.help_all:
+        print(format_all_help(parser))
+        sys.exit(0)
+
     if args.command == "convert":
         run_convert(args)
     elif args.command == "inspect":

@@ -1,3 +1,10 @@
+from pathlib import Path
+import sys
+
+for p in Path(__file__).resolve().parents:
+    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+        break
 """dwimsy.cli.filters.t882wav — streaming T88 to WAV audio synthesizer filter.
 
 Backed directly by dwimsy.core.audio (StreamingWavWriter).
@@ -319,3 +326,107 @@ def convert_t88_to_wav(
 
     flush_samples(force=True)
     writer.finalize()
+
+
+def log_diag(msg: str):
+    sys.stderr.write(f"[t882wav] {msg}\n")
+    sys.stderr.flush()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="dwimsy-t882wav",
+        description="Stream PC-8001 / PC-8801 .t88 tape container image to standard WAV audio.",
+    )
+    parser.add_argument(
+        "input", nargs="?", default=None, help="Input .t88 file or '-' for stdin"
+    )
+    parser.add_argument(
+        "output", nargs="?", default=None, help="Output .wav file or '-' for stdout"
+    )
+    parser.add_argument(
+        "--mode",
+        "-m",
+        "--wave",
+        default="tape",
+        choices=["tape", "acoustic", "shaped", "ideal"],
+        help="Synthesis mode",
+    )
+    parser.add_argument(
+        "--sample-rate",
+        "-r",
+        type=int,
+        default=44100,
+        help="Audio sample rate (default: 44100)",
+    )
+    parser.add_argument(
+        "--channels",
+        "-c",
+        type=int,
+        default=1,
+        choices=[1, 2],
+        help="Channels: 1 (mono) or 2 (stereo)",
+    )
+    parser.add_argument(
+        "--stereo-mode",
+        default="dual",
+        choices=["dual", "left", "right", "diff"],
+        help="Stereo routing",
+    )
+    parser.add_argument(
+        "--amplitude",
+        "-a",
+        "--volume",
+        "-v",
+        type=float,
+        default=0.80,
+        help="Peak amplitude 0.01..1.0",
+    )
+    parser.add_argument(
+        "--baud",
+        "-b",
+        type=int,
+        choices=[600, 1200],
+        default=None,
+        help="Baud override",
+    )
+    parser.add_argument(
+        "--speed", "-s", type=float, default=1.0, help="Speed multiplier"
+    )
+    parser.add_argument("--invert", action="store_true", help="Invert polarity")
+    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress progress")
+
+    args = parser.parse_args()
+    if not args.input or args.input == "-":
+        in_s = sys.stdin.buffer
+    else:
+        in_s = open(args.input, "rb")
+
+    if not args.output or args.output == "-":
+        out_s = sys.stdout.buffer
+    else:
+        out_s = open(args.output, "wb")
+
+    try:
+        convert_t88_to_wav(
+            in_s,
+            out_s,
+            mode=args.mode,
+            sample_rate=args.sample_rate,
+            channels=args.channels,
+            stereo_mode=args.stereo_mode,
+            amplitude=args.amplitude,
+            speed_factor=args.speed,
+            invert_polarity=args.invert,
+            baud_override=args.baud,
+            quiet=args.quiet,
+        )
+    finally:
+        if in_s is not sys.stdin.buffer:
+            in_s.close()
+        if out_s is not sys.stdout.buffer:
+            out_s.close()
+
+
+if __name__ == "__main__":
+    main()

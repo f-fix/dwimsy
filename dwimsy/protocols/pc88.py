@@ -1,16 +1,21 @@
-"""dwimsy.protocols.pc88 — NEC PC-8001/PC-8801 ROM protocols and CMT stream handling.
-
-Provides state-machine parsing, splitting, joining, analysis, and format conversion
-for raw sequential tape dumps (.cmt) and container images (.t88).
-"""
+"""dwimsy.protocols.pc88 — NEC PC-8001/PC-8801 ROM protocols and CMT stream handling."""
 
 from __future__ import annotations
 
+import argparse
 import io
 import os
 import re
 import struct
+import sys
+from pathlib import Path
 from typing import BinaryIO, Dict, List, Optional, Tuple, TYPE_CHECKING
+
+# Bootstrap sys.path if executed directly as a script
+for p in Path(__file__).resolve().parents:
+    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+        break
 
 if TYPE_CHECKING:
     from dwimsy.tape.t88 import T88File

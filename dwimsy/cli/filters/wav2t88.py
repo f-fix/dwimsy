@@ -1,3 +1,10 @@
+from pathlib import Path
+import sys
+
+for p in Path(__file__).resolve().parents:
+    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+        break
 """dwimsy.cli.filters.wav2t88 — streaming WAV to T88 demodulator filter.
 
 Backed directly by dwimsy.core.pulse, dwimsy.core.fsk, dwimsy.core.audio,
@@ -297,3 +304,78 @@ def process_stream(
         writer.write_space(state_start_tick, cur_tick - state_start_tick)
 
     writer.write_end()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="dwimsy-wav2t88",
+        description="Stream PC-8001 / PC-8801 WAV audio to standard .t88 tape image.",
+    )
+    parser.add_argument(
+        "input", nargs="?", default=None, help="Input WAV file or '-' for stdin"
+    )
+    parser.add_argument(
+        "output", nargs="?", default=None, help="Output .t88 file or '-' for stdout"
+    )
+    parser.add_argument(
+        "--baud",
+        "-b",
+        type=int,
+        choices=[600, 1200],
+        default=None,
+        help="Forced baud rate",
+    )
+    parser.add_argument(
+        "--channel",
+        "-c",
+        default="auto",
+        choices=["auto", "left", "right", "mix", "diff"],
+        help="Input channel",
+    )
+    parser.add_argument("--bauds", default="600,1200", help="Candidate baud rates")
+    parser.add_argument("--flavor", default="reconstructed", help="Timing flavor")
+    parser.add_argument(
+        "--confidence",
+        "-C",
+        "--min-confidence",
+        type=float,
+        default=0.75,
+        help="Minimum confidence threshold",
+    )
+    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress logging")
+
+    args = parser.parse_args()
+    if not args.input or args.input == "-":
+        in_s = sys.stdin.buffer
+    else:
+        in_s = open(args.input, "rb")
+
+    if not args.output or args.output == "-":
+        out_s = sys.stdout.buffer
+    else:
+        out_s = open(args.output, "wb")
+
+    try:
+        bauds = (
+            (args.baud,)
+            if args.baud
+            else tuple(int(b.strip()) for b in args.bauds.split(",") if b.strip())
+        )
+        process_stream(
+            in_s,
+            out_s,
+            supported_bauds=bauds,
+            channel_mode=args.channel,
+            confidence_threshold=args.confidence,
+            flavor=args.flavor,
+            quiet=args.quiet,
+        )
+    finally:
+        if in_s is not sys.stdin.buffer:
+            in_s.close()
+        if out_s is not sys.stdout.buffer:
+            out_s.close()
+
+
+if __name__ == "__main__":
+    main()
