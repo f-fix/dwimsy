@@ -236,8 +236,15 @@ class ByteFramer:
         self.leader_validated = False
         self.bit_confidences: List[float] = []
 
-    def feed(self, pulse: ClassifiedPulse) -> Optional[DecodedByte]:
-        sym, dur_sec, cur_tick = pulse.symbol, pulse.duration_sec, pulse.sample_index
+    def feed(
+        self, pulse: ClassifiedPulse, cur_tick: Optional[int] = None
+    ) -> Optional[DecodedByte]:
+        sym, dur_sec = pulse.symbol, pulse.duration_sec
+        if cur_tick is None:
+            tape_time_sec = (pulse.sample_index / self.sample_rate) * self.speed_factor
+            tick_val = int(round(tape_time_sec * self.t88_tick_rate))
+        else:
+            tick_val = cur_tick
 
         if sym == "B":
             self.state = "IDLE"
@@ -315,7 +322,6 @@ class ByteFramer:
                     # Convert to capture seconds, scale by speed_factor for
                     # time-base-corrected tape time, and compute the start
                     # tick at t88_tick_rate.
-                    tape_time_sec = (cur_tick / self.sample_rate) * self.speed_factor
                     nominal_bit_dur_tape = 1.0 / self.nominal_baud
                     filter_delay_tape = (
                         self.filter_group_delay_samples
@@ -327,7 +333,7 @@ class ByteFramer:
                         int(
                             round(
                                 (
-                                    tape_time_sec
+                                    (tick_val / self.t88_tick_rate)
                                     - nominal_bit_dur_tape
                                     - filter_delay_tape
                                 )
@@ -335,7 +341,7 @@ class ByteFramer:
                             )
                         ),
                     )
-                    self.last_activity_tick = cur_tick
+                    self.last_activity_tick = tick_val
                     self.consecutive_mark_time = 0.0
                     self.leader_validated = False
 
@@ -358,14 +364,14 @@ class ByteFramer:
                     self.accum_time = 0.0
                 self.mark_time = 0.0
                 self.space_time = 0.0
-                self.last_activity_tick = cur_tick
+                self.last_activity_tick = tick_val
 
                 if self.bit_index == 8:
                     self.state = "STOP"
 
         elif self.state == "STOP":
             if self.accum_time >= (self.bit_duration * 1.50):
-                self.last_activity_tick = cur_tick
+                self.last_activity_tick = tick_val
                 tot = self.mark_time + self.space_time
                 stop_conf = (self.mark_time / tot) if tot > 0 else 0.0
                 self.bit_confidences.append(stop_conf)

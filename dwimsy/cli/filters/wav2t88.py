@@ -1,6 +1,7 @@
 """dwimsy.cli.filters.wav2t88 — streaming WAV to T88 demodulator filter.
 
-Backed directly by dwimsy.core.pulse, dwimsy.core.fsk, and dwimsy.core.audio.
+Backed directly by dwimsy.core.pulse, dwimsy.core.fsk, dwimsy.core.audio,
+and dwimsy.tape.t88.
 """
 
 import argparse
@@ -14,104 +15,16 @@ from typing import BinaryIO, List, Optional, Tuple
 from dwimsy.core.audio import StreamingWavReader
 from dwimsy.core.fsk import ByteFramer, FSKClassifier
 from dwimsy.core.pulse import PulseTimingRecognizer
+from dwimsy.tape.t88 import (
+    DataSubHeader,
+    T88StreamWriter,
+    T88Tag,
+)
 
 
-class T88Tag:
-    END: int = 0x0000
-    VERSION: int = 0x0001
-    COMMENT: int = 0x0010
-    GAP: int = 0x0100
-    DATA: int = 0x0101
-    SPACE: int = 0x0102
-    MARK: int = 0x0103
-
-
-class DataSubHeader:
-    STRUCT_FORMAT: str = "<IIHH"
-    SIZE: int = 12
-
-    def __init__(
-        self,
-        start_tick: int = 0,
-        length_ticks: int = 0,
-        data_len: int = 0,
-        fmt_code: int = 0x01CC,
-    ):
-        self.start_tick = int(start_tick)
-        self.length_ticks = int(length_ticks)
-        self.data_len = int(data_len)
-        self.fmt_code = int(fmt_code)
-
-    def pack(self) -> bytes:
-        return struct.pack(
-            self.STRUCT_FORMAT,
-            self.start_tick,
-            self.length_ticks,
-            self.data_len,
-            self.fmt_code,
-        )
-
-    @classmethod
-    def unpack(cls, data: bytes) -> "DataSubHeader":
-        st, lt, dlen, fmt = struct.unpack(cls.STRUCT_FORMAT, data[:12])
-        return cls(st, lt, dlen, fmt)
-
-
-class T88StreamWriter:
-    def __init__(self, out_stream: BinaryIO):
-        self.out = out_stream
-        self.header_written = False
-
-    def write_header(self):
-        if not self.header_written:
-            hdr = (
-                b"PC-8801 Tape Image(T88)\x00"
-                + struct.pack("<HHHH", 0x0001, 0x0002, 0x0100, 0x0000)[:6]
-            )
-            self.out.write(hdr)
-            self.header_written = True
-            self.out.flush()
-
-    def _write_tag(self, tag_id: int, payload: bytes):
-        self.write_header()
-        self.out.write(struct.pack("<HH", tag_id, len(payload)) + payload)
-        self.out.flush()
-
-    def write_blank(self, start_tick: int, length_tick: int):
-        if length_tick > 0:
-            self._write_tag(
-                T88Tag.GAP, struct.pack("<II", int(start_tick), int(length_tick))
-            )
-
-    def write_space(self, start_tick: int, length_tick: int):
-        if length_tick > 0:
-            self._write_tag(
-                T88Tag.SPACE, struct.pack("<II", int(start_tick), int(length_tick))
-            )
-
-    def write_mark(self, start_tick: int, length_tick: int):
-        if length_tick > 0:
-            self._write_tag(
-                T88Tag.MARK, struct.pack("<II", int(start_tick), int(length_tick))
-            )
-
-    def write_data(self, start_tick: int, baud: int, data_bytes: bytes):
-        if not data_bytes:
-            return
-        fmt = 0x01CC if baud >= 1200 else 0x00CC
-        ticks_per_byte = int(round(11.0 * 4800.0 / baud))
-        offset = 0
-        cur_tick = start_tick
-        while offset < len(data_bytes):
-            chunk = data_bytes[offset : offset + 32768]
-            length_tick = len(chunk) * ticks_per_byte
-            hdr = DataSubHeader(cur_tick, length_tick, len(chunk), fmt).pack()
-            self._write_tag(T88Tag.DATA, hdr + chunk)
-            offset += len(chunk)
-            cur_tick += length_tick
-
-    def write_end(self):
-        self._write_tag(T88Tag.END, b"")
+def log_diag(msg: str):
+    sys.stderr.write(f"[wav2t88] {msg}\n")
+    sys.stderr.flush()
 
 
 def process_stream(
@@ -125,18 +38,20 @@ def process_stream(
 ):
     reader = StreamingWavReader(in_stream, channel_mode=channel_mode)
     fs = reader.sample_rate
+    dt = 1.0 / fs
 
     candidate_order = (
         tuple(sorted(supported_bauds)) if len(supported_bauds) > 1 else supported_bauds
     )
 
-    recognizer = PulseTimingRecognizer(fs)
+    recognizer = PulseTimingRecognizer(sample_rate=fs)
     classifier = FSKClassifier(mark_freq=2400.0, space_freq=1200.0)
     framers = {
-        b: ByteFramer(b, confidence_threshold=confidence_threshold, sample_rate=fs)
+        b: ByteFramer(baud=b, confidence_threshold=confidence_threshold, sample_rate=fs)
         for b in candidate_order
     }
     active_framer: Optional[ByteFramer] = None
+
     writer = T88StreamWriter(out_stream)
 
     state = "BLANK"
@@ -153,6 +68,8 @@ def process_stream(
     session_locked_baud: Optional[int] = None
     candidate_buffers = {b: [] for b in candidate_order}
 
+    tape_time = 0.0
+
     while True:
         samples = reader.read_samples(1024)
         if not samples:
@@ -160,7 +77,7 @@ def process_stream(
 
         for s in samples:
             ev = recognizer.process_sample(s)
-            tape_time = recognizer.current_time * classifier.speed_factor
+            tape_time += dt * classifier.speed_factor
             cur_tick = int(round(tape_time * 4800.0))
 
             if ev is not None:
@@ -178,7 +95,7 @@ def process_stream(
 
                     for baud in active_candidates:
                         f_obj = framers[baud]
-                        dec = f_obj.feed(pulse)
+                        dec = f_obj.feed(pulse, cur_tick=cur_tick)
                         if dec is not None:
                             if dec.status == "OK":
                                 candidate_buffers[baud] = [
@@ -215,7 +132,7 @@ def process_stream(
                         for b in candidate_order:
                             candidate_buffers[b].clear()
                 else:
-                    dec = active_framer.feed(pulse)
+                    dec = active_framer.feed(pulse, cur_tick=cur_tick)
                     if dec is not None and dec.status == "OK":
                         data_buffer.append(dec.value)
                         block_confidences.append(dec.confidence)
@@ -368,7 +285,6 @@ def process_stream(
                     mark_counter = 0
                     space_counter = 0
 
-    cur_tick = int(round(recognizer.current_time * classifier.speed_factor * 4800.0))
     if state == "DATA" and data_buffer and active_framer is not None:
         writer.write_data(
             data_start_tick, int(active_framer.nominal_baud), bytes(data_buffer)
