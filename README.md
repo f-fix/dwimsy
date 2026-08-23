@@ -94,7 +94,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 `dwimsy` employs a **Direct Native Extraction & Two-Stage Channel Rollout** strategy, superseding temporary wrapper scaffolding:
 
 *   **Phase 0 Consolidated into Phase 1**: Rather than maintaining temporary wrapper classes around monolithic legacy scripts, the PC-88 demodulation and synthesis pipeline was decomposed directly into clean native modules (`core.pulse`, `core.fsk`, `core.audio`) in pure Python standard library.
-*   **Milestone 1.5 for Full PC-88 Parity & Submodule Ejection**: Milestone 1 proves the core streaming vertical slice (audio capture $\leftrightarrow$ FSK pulses $\leftrightarrow$ container stream). To prevent scope bloat in Milestone 2 while fulfilling the submodule exit criterion with zero feature regressions, **Milestone 1.5** brings full parity for all container-level operations (`dwimsy.tape.t88`, `dwimsy.protocols.pc88`, `split`, `join`, `.t88` $\leftrightarrow$ `.cmt`, and deep structural inspection) and permanently ejects the `pc88_tape_tools` submodule.
+*   **Milestone 1.5 for Full PC-88 Parity & Submodule Ejection**: Milestone 1 proves the core streaming vertical slice (audio capture ↔ FSK pulses ↔ container stream). To prevent scope bloat in Milestone 2 while fulfilling the submodule exit criterion with zero feature regressions, **Milestone 1.5** brings full parity for all container-level operations (`dwimsy.tape.t88`, `dwimsy.protocols.pc88`, `split`, `join`, `.t88` ↔ `.cmt`, and deep structural inspection) and permanently ejects the `pc88_tape_tools` submodule.
 *   **Two-Stage Third-Channel Rollout ("Pass-Through First, Rendering Later")**:
     - *Phase 1 (Foundational Channel & Core Instrumentation)*: Enforces strict Unix stream separation (`stdout` reserved exclusively for raw binary stream data; `stderr` reserved for out-of-band telemetry and diagnostic reports). Core primitives (`PulseEvent`, `DecodedByte`, `FSKClassifier`) are natively instrumented with real-time signal and timing metrics (`envelope`, `peak_carrier`, `noise_floor`, `speed_factor`, per-bit `confidence`, `start_tick`).
     - *Phase 2 (Interactive Display Surfaces & IPC)*: Rich UI consumers (`cli.sidechannel` ANSI 2-line virtual LCD marquee, interactive TTY hotkeys, and `ui.remote` IPC daemon / WebSockets / phone dashboard) are implemented once there is a second platform (MSX) to generalize against.
@@ -535,6 +535,17 @@ lossless source capture
 ```
 
 A later derivative may be more useful for emulation or regeneration than the source capture, but it does not supersede it. When a transformation is lossy, synthetic, or heuristic, the source and the transformation parameters should remain available so that the result can be re-evaluated as algorithms improve.
+
+### Deliberate Algorithmic Deviations from the Ported Reference Tools
+
+`core.pulse` and `core.fsk` are ports of `pc88_tape_tools`/`wav2t88`/`t882wav`'s demodulation logic, and are held to a high bar: any behavioral difference from those reference tools needs to be either a bug, or a deliberate, justified, and documented improvement — not an incidental side effect of refactoring. Four differences were evaluated against that bar and kept:
+
+* **Sub-sample interpolation always uses the true previous sample.** The original code skipped updating its zero-crossing reference value on the specific sample where a full cycle completed, meaning the *following* transition's interpolated timing could read a stale value from two samples back rather than one. There's no signal-processing reason to prefer the stale value; this was corrected.
+* **The Space-tone classification ceiling now scales with measured tape speed drift**, the same way the Mark-tone boundary already did. Mark and Space tones share a common tape-transport clock, so real motor speed variation shifts both proportionally — the original only adapted the Mark side, which could misclassify genuine (correspondingly slow) Space cycles as gaps on a sufficiently slow-running deck.
+* **The UART start-bit threshold's `1200.0 Hz` literal is now the configured `space_freq` parameter**, removing a hardcoded assumption in an otherwise-parameterized module.
+* **The glitch-rejection window is derived from the configured `center_freq`/`bandwidth`** rather than a fixed 100 microseconds, so it doesn't reject genuine short half-cycles at higher tone frequencies (e.g. MSX's octave-shifted fast mode, whose Mark half-cycles are only ~104 microseconds nominally — uncomfortably close to a fixed 100µs floor under any real drift). This is the one change that alters PC-88's own literal default behavior (100µs → ~83µs), so it carried the highest bar for evidence before being kept.
+
+All four were verified the same way: running `dwimsy convert` against real, hash-fingerprinted 1980s cassette captures and diffing the resulting `.t88` container **byte-for-byte** against the actual, current, unmodified `wav2t88.py` reference tool on the same input. All four are active simultaneously in that comparison, and the result still matches exactly — meaning none of them changes any classification decision on real, measurably-drifting tape audio, while all four close a real gap for tone frequencies or drift conditions the two available real captures don't happen to exercise.
 
 ### Mixed-Mode Media
 
