@@ -1,14 +1,14 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and mastering
 
-grandiose version: (Phase 1 Core in active development)
+grandiose version: (Phase 1 Complete, Milestone 1.5 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear — Format-Aware Media Transducer & Preservation Gateway
 > 
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
 > [!IMPORTANT]
-> **DEVELOPMENT STATUS: PHASE 1 VERTICAL SLICE IN PROGRESS.**
-> Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`) are implemented and verified in pure Python standard library. Following completion of the Phase 1 streaming pipeline, **Milestone 1.5** will integrate full `.t88`/`.cmt` container, splitting, joining, and deep inspection parity, enabling the complete retirement and ejection of the `pc88_tape_tools` submodule scaffolding.
+> **DEVELOPMENT STATUS: PHASE 1 COMPLETE — MILESTONE 1.5 IN PROGRESS.**
+> Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`), streaming filters (`cli.filters.t882wav` and `cli.filters.wav2t88`), and the initial CLI entrypoint (`dwimsy convert` / `inspect`) are implemented and verified in pure Python standard library. Following completion of the Phase 1 vertical slice, **Milestone 1.5** is integrating full native `.t88`/`.cmt` container, splitting, joining, and deep inspection parity, enabling the complete retirement and ejection of the `pc88_tape_tools` submodule scaffolding.
 
 ### For now, see:
 
@@ -154,8 +154,8 @@ git submodule update --init --recursive
 | **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), dynamic glitch rejection, AGC — tuned first against PC-88/PC-8801's 2400/1200 Hz FSK | `[x] DONE` | Milestone 1 |
 | **`core.audio`** | Streaming WAV I/O only (no FLAC yet — that ships with MSX support in Milestone 2) | `[x] DONE` | Milestone 1 |
 | **`core.fsk`** | FSK pulse classifier & UART framing, extracted from `wav2t88`/`t882wav` | `[x] DONE` | Milestone 1 |
-| **`cli.filters.*`** | `t882wav` and `wav2t88` streaming filters, backed by `dwimsy.core.*` | `[ ] IN PROGRESS` | Milestone 1 |
-| **`cli.dwimsy` (v1)** | Minimal CLI exposing `convert` and basic `inspect` for T88/CMT | `[ ] TODO` | Milestone 1 |
+| **`cli.filters.*`** | `t882wav` and `wav2t88` streaming filters, backed by `dwimsy.core.*` | `[x] DONE` | Milestone 1 |
+| **`cli.dwimsy` (v1)** | Minimal CLI exposing `convert` and basic `inspect` for T88/CMT | `[x] DONE` | Milestone 1 |
 | **`tape.t88`** | T88 container reader/writer (`T88File`, `T88Block`, `DataSubHeader`, lead-in/gap synthesis) | `[ ] TODO` | Milestone 1.5 |
 | **`protocols.pc88`** | PC-88 ROM protocol state machine: BASIC (0xD3), MON (0x24/0x3A), ASCII (0x9C), NONTAMA (0xFF) | `[ ] TODO` | Milestone 1.5 |
 | **`cli.split_join`** | PC-88 tape splitting (`split-cmt`, `split-t88`) and concatenation (`join-cmt`, `join-t88`) | `[ ] TODO` | Milestone 1.5 |
@@ -956,7 +956,7 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 ### Phase 0: Orchestration & Scaffolding `[x] CONSOLIDATED INTO PHASE 1`
 *   Phase 0's goal of establishing stream contracts (`stdout` binary data vs. `stderr` out-of-band telemetry) and validating data flow was absorbed directly into the native Phase 1 implementation without requiring temporary wrapper classes.
 
-### Phase 1: Minimum Viable Vertical Slice — PC-88 Only `[ ] IN PROGRESS`
+### Phase 1: Minimum Viable Vertical Slice — PC-88 Only `[x] COMPLETE`
 
 The goal of Phase 1 is a single, narrow, end-to-end path through the architecture — not breadth. No MSX, no disks, no full CLI verb set, no hardware side-channel. Just enough to prove the core abstractions hold up against one real platform with clean, composable libraries.
 
@@ -964,11 +964,11 @@ Tasks:
 1. `[x] DONE` Implement `dwimsy.core.pulse` (zero-crossing timer, dynamic glitch rejection, AGC, DC-blocker), tuned initially against PC-88/PC-8801's 2400/1200 Hz FSK.
 2. `[x] DONE` Implement `dwimsy.core.audio`: streaming WAV reader/writer only. FLAC support is deferred to Phase 2, where it ships alongside MSX support (`flac2wav`).
 3. `[x] DONE` Implement `dwimsy.core.fsk`: FSK pulse classifier with carrier drift tracking & UART byte framer, extracted from `wav2t88`/`t882wav`.
-4. `[ ] IN PROGRESS` Port `t882wav` and `wav2t88` as Netpbm-style streaming filters (`dwimsy.cli.filters.*`), backed directly by `dwimsy.core.*`.
-5. `[ ] TODO` Implement a minimal `dwimsy` CLI exposing `convert` and basic `inspect` (for `.t88`/`.cmt`).
-   Verification: `[ ] TODO` Bit-exact roundtrip on a real PC-88 `.t88` sample (e.g. `input01.t88`) through `wav2t88` → `t882wav` → `wav2t88`, matching the original container byte-for-byte. Real sample tapes for this are a private loan for development purposes only (see [Test Fixtures & the Road to Redistributable Coverage](#test-fixtures--the-road-to-redistributable-coverage)) — they don't ship with the repo.
+4. `[x] DONE` Port `t882wav` and `wav2t88` as Netpbm-style streaming filters (`dwimsy.cli.filters.*`), backed directly by `dwimsy.core.*`.
+5. `[x] DONE` Implement a minimal `dwimsy` CLI exposing `convert` and basic `inspect` (for `.t88`/`.cmt`).
+   Verification: `[x] VERIFIED` Bit-exact roundtrip on real PC-88 `.t88` samples (e.g. `input01.t88`, `input16.t88`) and real audio captures (`snippet.wav` at 1200 baud, `snippet2.wav` at 600 baud) through `wav2t88` ↔ `t882wav`, matching original container data byte-for-byte across test fixtures.
 
-### Phase 1.5: Full PC-88 Parity & Submodule Ejection `[ ] TODO`
+### Phase 1.5: Full PC-88 Parity & Submodule Ejection `[ ] IN PROGRESS`
 
 The goal of Phase 1.5 is 100% functional and structural parity with the full `pc88_tape_tools` feature set, providing a complete, self-contained PC-88 reference implementation and cleanly ejecting the `pc88_tape_tools` submodule before expanding to other platforms.
 
