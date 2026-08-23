@@ -25,6 +25,7 @@ grandiose version: (Phase 1 & Milestone 1.5 Complete, Phase 2 in progress)
 1. [Overview & Approach](#1-overview--approach)
 2. [Development Strategy](#2-development-strategy)
    - [Test Fixtures & the Road to Redistributable Coverage](#test-fixtures--the-road-to-redistributable-coverage)
+   - [Running the Test Suite](#running-the-test-suite)
 3. [Installation & Usage](#3-installation--usage)
 4. [Existing Project Lineage & Asset Repositories](#4-existing-project-lineage--asset-repositories)
 5. [Component Implementation Status Matrix](#5-component-implementation-status-matrix)
@@ -113,6 +114,27 @@ Validating that a pseudotape is actually realistic enough for this, though, need
 
 `[ ] TODO` **Open call**: solicit redistribution-OK tape captures and, ideally, contributors with real hardware access for platforms not already in the author's collection, to serve as permanent reproducibility fixtures once pseudotape resynthesis is validated against them.
 
+### Running the Test Suite
+
+```bash
+# Default mode: dots for passes, summary at the end
+python3 tests
+
+# Verbose mode: every test name and its result
+python3 tests -v
+```
+
+`python3 tests` works because `tests/__main__.py` makes the directory directly executable, the same way `python3 dwimsy ...` does for the package itself (see [Installation & Usage](#3-installation--usage)) — `python3 -m unittest discover -s tests` is equivalent if you'd rather spell it out.
+
+`pytest` also runs the suite as-is (it discovers and runs `unittest.TestCase`-based tests without any changes needed) and its output is arguably easier to scan, though it's an optional convenience, not a project dependency, consistent with dwimsy's zero-required-dependencies principle:
+
+```bash
+python3 -m pytest tests/       # default
+python3 -m pytest tests/ -v    # verbose
+```
+
+**Installing the private test fixtures**, if you have access to them (see above — they aren't in this repository and won't be requested): place them under `tests/fixtures/`, following the layout `tests/fixtures/README.md` documents (currently `snippet.wav`/`snippet2.wav`, plus corresponding real `.t88`/`.cmt` samples like `input01`–`input16` that several tests look for). Without them, the tests that depend on real captures skip cleanly rather than failing — the run above shows `2 skipped` for exactly this reason. A custom fixture location can be pointed to instead via the `DWIMSY_TEST_FIXTURES` environment variable, which every fixture-dependent test checks before falling back to `tests/fixtures/`.
+
 ---
 
 ## 3. Installation & Usage
@@ -135,6 +157,15 @@ git submodule update --init --recursive
 ### Usage
 
 `dwimsy` is invoked as `python3 -m dwimsy <command> ...` (or via a `dwimsy` entry point once installed). As of Milestone 1, four commands exist: `convert`, `inspect`, `split`, and `join` — all four operate on PC-88 `.wav`/`.t88`/`.cmt` media, which is the only platform ported so far. Run `dwimsy --help-all` to see every subcommand's full option list at once.
+
+`python3 -m dwimsy` is the recommended form (it works regardless of current directory, since Python resolves the module via `sys.path` rather than a literal filesystem path). But `dwimsy/__main__.py` also makes the package directory itself directly executable — `python3 path/to/dwimsy <command> ...`, pointing at the `dwimsy/` directory rather than a file — which behaves identically:
+
+```bash
+# Equivalent invocations, verified to produce byte-identical output:
+python3 -m dwimsy convert game.wav game.t88 --baud 600
+python3 path/to/dwimsy convert game.wav game.t88 --baud 600      # from elsewhere on disk
+python3 dwimsy convert game.wav game.t88 --baud 600              # from the repo root
+```
 
 ```text
 $ dwimsy --help
@@ -334,6 +365,86 @@ options:
 ```bash
 dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
 ```
+
+### Standalone Filter Applets
+
+The `convert` verb's PC-88 logic is also directly reachable as two independent, Netpbm-style single-purpose filters — matching the architecture's `cli.filters.*` design goal, and useful for shell pipelines that don't need the unified verb's format auto-detection. These predate `dwimsy convert` and haven't yet been reconciled with it option-for-option (see the note on `--mode`/`--flavor` divergence below) — that reconciliation is Milestone 1.5 work, not done yet.
+
+#### `dwimsy-wav2t88` (`dwimsy/cli/filters/wav2t88.py`)
+
+```text
+$ python3 dwimsy/cli/filters/wav2t88.py --help
+usage: dwimsy-wav2t88 [-h] [--baud {600,1200}]
+                      [--channel {auto,left,right,mix,diff}] [--bauds BAUDS]
+                      [--flavor FLAVOR] [--confidence CONFIDENCE] [-q]
+                      [input] [output]
+
+Stream PC-8001 / PC-8801 WAV audio to standard .t88 tape image.
+
+positional arguments:
+  input                 Input WAV file or '-' for stdin
+  output                Output .t88 file or '-' for stdout
+
+options:
+  -h, --help            show this help message and exit
+  --baud {600,1200}, -b {600,1200}
+                        Forced baud rate
+  --channel {auto,left,right,mix,diff}, -c {auto,left,right,mix,diff}
+                        Input channel
+  --bauds BAUDS         Candidate baud rates
+  --flavor FLAVOR       Timing flavor
+  --confidence CONFIDENCE, -C CONFIDENCE, --min-confidence CONFIDENCE
+                        Minimum confidence threshold
+  -q, --quiet           Suppress logging
+```
+
+```bash
+python3 dwimsy/cli/filters/wav2t88.py capture.wav game.t88 --baud 600
+```
+
+#### `dwimsy-t882wav` (`dwimsy/cli/filters/t882wav.py`)
+
+```text
+$ python3 dwimsy/cli/filters/t882wav.py --help
+usage: dwimsy-t882wav [-h] [--mode {tape,acoustic,shaped,ideal}]
+                      [--sample-rate SAMPLE_RATE] [--channels {1,2}]
+                      [--stereo-mode {dual,left,right,diff}]
+                      [--amplitude AMPLITUDE] [--baud {600,1200}]
+                      [--speed SPEED] [--invert] [-q]
+                      [input] [output]
+
+Stream PC-8001 / PC-8801 .t88 tape container image to standard WAV audio.
+
+positional arguments:
+  input                 Input .t88 file or '-' for stdin
+  output                Output .wav file or '-' for stdout
+
+options:
+  -h, --help            show this help message and exit
+  --mode {tape,acoustic,shaped,ideal}, -m {tape,acoustic,shaped,ideal}, --wave {tape,acoustic,shaped,ideal}
+                        Synthesis mode
+  --sample-rate SAMPLE_RATE, -r SAMPLE_RATE
+                        Audio sample rate (default: 44100)
+  --channels {1,2}, -c {1,2}
+                        Channels: 1 (mono) or 2 (stereo)
+  --stereo-mode {dual,left,right,diff}
+                        Stereo routing
+  --amplitude AMPLITUDE, -a AMPLITUDE, --volume AMPLITUDE, -v AMPLITUDE
+                        Peak amplitude 0.01..1.0
+  --baud {600,1200}, -b {600,1200}
+                        Baud override
+  --speed SPEED, -s SPEED
+                        Speed multiplier
+  --invert              Invert polarity
+  -q, --quiet           Suppress progress
+```
+
+```bash
+# Pipe directly into another process rather than writing an intermediate file
+python3 dwimsy/cli/filters/t882wav.py game.t88 - --mode tape | play -t wav -
+```
+
+**Known divergence from `dwimsy convert`, not yet reconciled:** `dwimsy-t882wav --mode` currently only accepts `{tape,acoustic,shaped,ideal}`, versus `dwimsy convert --mode`'s full `{tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}`; and `dwimsy-wav2t88 --flavor` takes any free-form string rather than being constrained to the five named choices `dwimsy convert --flavor` validates against. Both filters and `dwimsy convert` currently call into the same underlying `core.pulse`/`core.fsk`/`core.audio` logic, so this is purely a CLI-surface inconsistency between two front ends, not a difference in what actually gets decoded/synthesized — but it means these two entry points aren't fully interchangeable yet for every option.
 
 ---
 
