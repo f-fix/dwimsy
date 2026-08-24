@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""tests.test_core_fsk - Verify FSK tone classification and UART byte framing."""
 
 import importlib.util
 import math
