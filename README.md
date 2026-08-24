@@ -192,9 +192,9 @@ git submodule update --init --recursive
 
 ### Usage
 
-`dwimsy` is invoked as `python3 -m dwimsy <command> ...` (or via the `dwimsy` command-line entry point once a packaged version exists via `pip install -e .`). As of Milestone 1.6, five primary commands exist: `convert`, `inspect`, `split`, `join`, and `test` — alongside direct format applet shortcuts (`t882wav`, `wav2t88`). Run `dwimsy --help-all` to see every subcommand's full option list at once.
+`dwimsy` is currently invoked from a checkout as `python3 -m dwimsy <command> ...`. **The package is not yet packaged for installation**: there is currently no `pyproject.toml`/`setup.py` console-script entry point, so `pip install -e .` and the bare `dwimsy` command are future Milestone 1.6 work. The currently implemented primary commands are exactly four: `convert`, `inspect`, `split`, and `join`. Two standalone filter applets are also implemented: `t882wav` and `wav2t88`. The `test`, `help`, `readme`, `changelog`, `license`, and `meta` commands described later in this section are **planned Milestone 1.6 interfaces and are not currently available**. The current CLI does implement `--help-all`; use `python3 -m dwimsy --help`, `python3 -m dwimsy --help-all`, or `python3 -m dwimsy <command> --help` from the repository environment.
 
-`python3 -m dwimsy` is the recommended form (it works regardless of current directory, since Python resolves the module via `sys.path` rather than a literal filesystem path). But `dwimsy/__main__.py` also makes the package directory itself directly executable — `python3 path/to/dwimsy <command> ...`, pointing at the `dwimsy/` directory rather than a file — which behaves identically:
+`python3 -m dwimsy` is the recommended form when the repository is the current directory (or the checkout has otherwise been added to `PYTHONPATH`/installed). It does **not** work from an arbitrary directory in the current un-packaged checkout. `dwimsy/__main__.py` also makes the package directory itself directly executable — `python3 path/to/dwimsy <command> ...`, pointing at the `dwimsy/` directory rather than a file — which does work from elsewhere on disk:
 
 ```bash
 # Equivalent invocations, verified to produce byte-identical output:
@@ -204,30 +204,17 @@ python3 dwimsy convert game.wav game.t88 --baud 600              # from the repo
 ```
 
 ```text
-$ dwimsy --help
+$ python3 -m dwimsy --help
 usage: dwimsy [-h] [--help-all] <command> ...
 
 dwimsy — retrocomputing media preservation, demodulation, and conversion.
 
-primary media commands:
-  convert     Convert between media representations (WAV, T88, CMT, CAS).
-  inspect     Inspect media container headers, track tables, and audio.
-  split       Split multi-file tape/disk images into individual program files.
-  join        Join multiple files into a combined container image.
-
-general utilities:
-  test        Run built-in unit and integration test suite.
-  help        Display interactive technical reference manual.
-  readme      Display canonical README documentation.
-  changelog   Display revision history from CHANGELOG.md.
-  license     Display project license.
-
-maintainer / repository lifecycle:
-  meta        Maintainer tools (bundle, bundle-fixtures, version-bump, fetch-deps, integrity).
-
-streaming filter shortcuts:
-  t882wav     Stream PC-88 .t88 container to audio WAV.
-  wav2t88     Stream audio WAV to PC-88 .t88 container.
+positional arguments:
+  <command>
+    convert   Convert between media representations (WAV, T88, CMT).
+    inspect   Inspect media container headers and structural contents.
+    split     Split multi-file tape images into individual program files.
+    join      Join multiple files into a single .cmt or .t88 tape image.
 
 options:
   -h, --help  show this help message and exit
@@ -238,7 +225,7 @@ Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed optio
 
 #### `dwimsy convert`
 
-> **Status:** [x] `COMPLETE` (PC-88 WAV ↔ T88 ↔ CMT in Milestone 1; MSX/Disk formats [ ] `TODO` in Milestone 2)
+> **Status:** [x] `COMPLETE` for the currently implemented PC-88 WAV ↔ T88 ↔ CMT paths (Milestone 1). MSX, CAS, and disk-format conversion remain [ ] `TODO` in later milestones.
 
 Converts between `.wav` (audio), `.t88` (container), and `.cmt` (logical stream) — in either direction, inferred from file extensions unless `--from-format`/`--to-format` are given explicitly. `-` means stdin/stdout, so all three stages chain through standard pipes.
 
@@ -424,9 +411,11 @@ dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
 ```
 
 
-#### `dwimsy test`
+#### `dwimsy test` *(planned; not currently implemented)*
 
 > **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+>
+> **Current reality:** There is no `dwimsy test` subcommand yet. The repository does contain a pytest/unittest-style test suite under `tests/`, but it is not currently exposed through the `dwimsy` CLI.
 
 Runs the built-in unit and integration test suite, supporting custom fixture paths, verbosity levels, and subsystem filters:
 
@@ -460,9 +449,11 @@ dwimsy test -v --fixtures /path/to/fixtures/
 dwimsy test fsk -v
 ```
 
-#### `dwimsy help`
+#### `dwimsy help` *(planned; not currently implemented)*
 
 > **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+>
+> **Current reality:** There is no `dwimsy help` subcommand yet. The examples below describe the planned interface.
 
 Displays the interactive technical reference manual for any CLI verb or core subsystem:
 
@@ -474,9 +465,11 @@ dwimsy help fsk
 dwimsy help t88
 ```
 
-#### `dwimsy readme` & `dwimsy license`
+#### `dwimsy readme` & `dwimsy license` *(planned; not currently implemented)*
 
 > **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+>
+> **Current reality:** These subcommands do not exist yet. The examples below describe the planned interface.
 
 Outputs the project `README.md` and `LICENSE` files. When run on an interactive terminal, outputs via a terminal pager (`pydoc.pager`); when redirected to a pipe or file, streams plain Markdown text.
 
@@ -494,9 +487,11 @@ dwimsy readme > README.md
 dwimsy license > LICENSE
 ```
 
-#### `dwimsy changelog`
+#### `dwimsy changelog` *(planned; not currently implemented)*
 
 > **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+>
+> **Current reality:** This subcommand does not exist yet. The example below describes the planned interface.
 
 Inspects recent project revision history from the canonical `CHANGELOG.md` file (or `blztar` fallback when installed):
 
@@ -505,9 +500,11 @@ Inspects recent project revision history from the canonical `CHANGELOG.md` file 
 dwimsy changelog -n 5 -v
 ```
 
-#### `dwimsy meta` (Maintainer & Repository Lifecycle)
+#### `dwimsy meta` (Maintainer & Repository Lifecycle) *(planned; not currently implemented)*
 
 > **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+>
+> **Current reality:** The `dwimsy.meta` package and `dwimsy meta` command do not exist yet. The subsections below describe the planned maintainer interface; none of these commands are currently runnable.
 
 Maintainer and packaging tooling is consolidated under `dwimsy meta <command>` to keep the top-level user CLI clean:
 
