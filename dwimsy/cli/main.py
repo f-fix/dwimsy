@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """dwimsy.cli.main — central CLI entrypoint for dwimsy.
 
 Exposes 'convert', 'inspect', 'split', and 'join' verbs.
@@ -29,6 +31,7 @@ from dwimsy.protocols.pc88 import (
     join_cmt_files,
     analyze_tape,
 )
+from dwimsy.meta.integrity import version as get_version
 
 
 def inspect_audio(
@@ -357,12 +360,18 @@ def run_join(args, raw_inputs: Optional[List[str]] = None):
     print(f"[SUCCESS] Merged {len(scoped_items)} file(s) -> {out_file}")
 
 
-def main():
+def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         prog="dwimsy",
         description="dwimsy — retrocomputing media preservation, demodulation, and conversion.",
         epilog="Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"%(prog)s {get_version()}",
     )
     parser.add_argument(
         "--help-all",
@@ -554,11 +563,12 @@ def main():
         "--comment", default="", help="Optional comment embedded in T88 header"
     )
 
-    if len(sys.argv) == 1:
+    effective_argv = sys.argv[1:] if argv is None else list(argv)
+    if not effective_argv:
         parser.print_help(sys.stderr)
         sys.exit(0)
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.help_all:
         print(format_all_help(parser))
