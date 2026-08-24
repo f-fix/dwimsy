@@ -127,14 +127,38 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SUBMODULE_TOOL_PATH = REPO_ROOT / "deps" / "pc88_tape_tools" / "wav2t88.py"
 
 
+def _has_submodule(rel_path: str) -> bool:
+    disk_p = REPO_ROOT / rel_path
+    if disk_p.is_file():
+        return True
+    from dwimsy.meta import unbundle
+    try:
+        unbundle.get_asset(rel_path)
+        return True
+    except Exception:
+        return False
+
+
+def _load_submodule(name: str, rel_path: str):
+    disk_p = REPO_ROOT / rel_path
+    if disk_p.is_file():
+        return _load_module(name, str(disk_p))
+    from dwimsy.meta import unbundle
+    code_text = unbundle.get_asset_text(rel_path)
+    spec = importlib.util.spec_from_loader(name, loader=None)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    exec(code_text, mod.__dict__)
+    return mod
+
+
 @unittest.skipUnless(
-    SUBMODULE_TOOL_PATH.exists(),
-    f"Submodule tool not found at {SUBMODULE_TOOL_PATH}. Ensure git submodules are initialized "
-    "(git submodule update --init --recursive).",
+    _has_submodule("deps/pc88_tape_tools/wav2t88.py"),
+    f"Submodule tool not found at {SUBMODULE_TOOL_PATH} and not available in bundle payload.",
 )
 class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
     def setUp(self):
-        self.orig = _load_module("orig_wav2t88_for_fsk_check", str(SUBMODULE_TOOL_PATH))
+        self.orig = _load_submodule("orig_wav2t88_for_fsk_check", "deps/pc88_tape_tools/wav2t88.py")
 
     def _run_original(self, wav_path):
         orig = self.orig
