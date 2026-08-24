@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dwimsy.tests.__main__ - In-process CLI test runner for 'python -m dwimsy.tests'."""
+"""dwimsy.tests.__main__ - In-process CLI test runner for python3 -m dwimsy.tests."""
 
 import argparse
 import sys
