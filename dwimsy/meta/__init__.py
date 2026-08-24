@@ -1,1 +1,1 @@
-"""dwimsy.meta - meta-tools / maintainer-oriented machinery for the dwimsy project"""
+"""dwimsy.meta - meta-tools and maintainer-oriented machinery for the dwimsy project."""
