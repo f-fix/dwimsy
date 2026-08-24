@@ -562,6 +562,33 @@ def main(argv: Optional[List[str]] = None):
         "--comment", default="", help="Optional comment embedded in T88 header"
     )
 
+    p_meta = subparsers.add_parser(
+        "meta", help="Maintainer tools and repository lifecycle management."
+    )
+    meta_subparsers = p_meta.add_subparsers(dest="meta_command", metavar="<meta-command>")
+
+    p_meta_bundle = meta_subparsers.add_parser(
+        "bundle", help="Generate a self-extracting single-file Python unpacker bundle of dwimsy."
+    )
+    p_meta_bundle.add_argument(
+        "-o", "--output", default=None, help="Output script path or '-' for stdout (default: auto-derived)"
+    )
+    p_meta_bundle.add_argument(
+        "-t", "--tag", default=None, help="Optional short descriptive tag/label (e.g. 'parser-fix')"
+    )
+    p_meta_bundle.add_argument(
+        "--baseline", action="store_true", help="Directly emit the installed canonical baseline bundle module (dwimsy/meta/unbundle.py) as output without bundling working tree"
+    )
+    p_meta_bundle.add_argument(
+        "--with-deps", action="store_true", help="Include legacy submodule scaffolding from deps/"
+    )
+    p_meta_bundle.add_argument(
+        "--status", action="store_true", help="List uncommitted/modified and untracked files before bundling"
+    )
+    p_meta_bundle.add_argument(
+        "--diff", action="store_true", help="Display working tree git diff on stderr before bundling"
+    )
+
     effective_argv = sys.argv[1:] if argv is None else list(argv)
     if not effective_argv:
         parser.print_help(sys.stderr)
@@ -581,6 +608,13 @@ def main(argv: Optional[List[str]] = None):
         run_split(args)
     elif args.command == "join":
         run_join(args)
+    elif args.command == "meta":
+        from dwimsy.meta.bundle import run_meta_bundle
+        if args.meta_command == "bundle":
+            run_meta_bundle(args)
+        else:
+            p_meta.print_help(sys.stderr)
+            sys.exit(1)
     else:
         parser.print_help(sys.stderr)
         sys.exit(1)
