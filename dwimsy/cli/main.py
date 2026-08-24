@@ -588,6 +588,15 @@ def main(argv: Optional[List[str]] = None):
     p_meta_bundle.add_argument(
         "--diff", action="store_true", help="Display working tree git diff on stderr before bundling"
     )
+    p_meta_fetch_deps = meta_subparsers.add_parser(
+        "fetch-deps", help="Fetch or materialize legacy reference submodules into deps/."
+    )
+    p_meta_fetch_deps.add_argument(
+        "--baseline", action="store_true", help="Extract frozen reference submodules directly from the bundled baseline payload without network access"
+    )
+    p_meta_fetch_deps.add_argument(
+        "-f", "--force", action="store_true", help="Overwrite existing deps/ directory if present"
+    )
 
     effective_argv = sys.argv[1:] if argv is None else list(argv)
     if not effective_argv:
@@ -609,9 +618,11 @@ def main(argv: Optional[List[str]] = None):
     elif args.command == "join":
         run_join(args)
     elif args.command == "meta":
-        from dwimsy.meta.bundle import run_meta_bundle
+        from dwimsy.meta.bundle import run_meta_bundle, run_meta_fetch_deps
         if args.meta_command == "bundle":
             run_meta_bundle(args)
+        elif args.meta_command == "fetch-deps":
+            run_meta_fetch_deps(args)
         else:
             p_meta.print_help(sys.stderr)
             sys.exit(1)
