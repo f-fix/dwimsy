@@ -1202,29 +1202,28 @@ To provide clean, immediate usability in emulators while maintaining complete ar
 └───────────────────────────┴───────────────────────────────────┴───────────────────────────────┘
 ```
 
-### CLI Command Reference & Examples
-
-#### 1. Implemented PC-88 Media Commands `[x] COMPLETE`
+### Main CLI Verbs
 
 ```bash
-# Convert between PC-88 WAV audio, T88 container, and CMT logical byte streams
+# === 1. IMPLEMENTED COMMANDS [x] COMPLETE ===
+
+# Inspect intermediate containers, headers, track tables, and baud rates (PC-88 T88 & CMT)
+dwimsy inspect game.t88 -v
+
+# Convert between format representations (PC-88 WAV, T88, CMT)
 dwimsy convert capture.wav game.t88 --baud 600
 dwimsy convert game.t88 game.cmt
 dwimsy convert game.t88 game.wav --mode tape
 
-# Inspect PC-88 T88 and CMT structure and program listings
-dwimsy inspect game.t88 -v
-
-# Split multi-file PC-88 tape into individual programs
+# Split multi-file tape images into individual program files (PC-88 T88/CMT)
 dwimsy split multi_game.t88 -o ./extracted/ --format t88
 
-# Join multiple PC-88 files with sequential baud overrides
+# Join multiple files into a single tape image (PC-88 T88/CMT)
 dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
-```
 
-#### 2. Tooling, Packaging & Test Commands `[ ] IN PROGRESS (Milestone 1.6)`
 
-```bash
+# === 2. TOOLING, PACKAGING & TESTING COMMANDS [ ] IN PROGRESS (Milestone 1.6) ===
+
 # Run unit and integration tests (synthetic tests run out-of-the-box in ~0.5s)
 dwimsy test
 dwimsy test -v --fixtures /path/to/fixtures/
@@ -1257,25 +1256,43 @@ dwimsy help t88
 
 # Clone dependencies in non-git checkouts
 dwimsy fetch-deps
-```
 
-#### 3. Planned Disk, Cartridge, Extraction & Bridge Commands `[ ] TODO (Phase 2 & Beyond)`
 
-```bash
-# Extract filesystem contents from D88 floppy disk images
+# === 3. PLANNED COMMANDS & RECOVERY WORKFLOWS [ ] TODO (Phase 2 & Beyond) ===
+
+# Inspect intermediate containers, headers, track tables, and baud rates (D88 Disks)
+dwimsy inspect disk.d88
+
+# Demodulate and recover data with confidence metrics and epistemic metadata
+dwimsy recover capture.flac --profile=pc88-cmt
+
+# Extract filesystem contents preserving epistemic tags and raw dumps
 dwimsy extract disk.d88 -o ./payloads/
 
-# Extract encapsulated tape logical stream (.cas) from a Sakhr cas2rom cartridge
+# Extract encapsulated tape logical stream (.cas) from a Sakhr/Al-Alamiah cas2rom cartridge
 dwimsy extract game_sakhr.rom --target-stream-type cas -o game.cas
 
-# Compile a tape game into a bootable MSX or PC-6001mkII ROM cartridge (cas2rom / mkrom)
-dwimsy package game.cas --target-cart-type msx-sakhr -o game.rom
-dwimsy package game.p6 --target-cart-type p6001mk2 -o game_cart.rom
+# Convert between format representations (inferred from extensions or explicit profiles)
+dwimsy convert input.flac output.t88
+dwimsy convert game.d88 game.wav --target-tape-type t88
 
-# Launch real-time hardware bridge with 2-line LCD file browser
+# Disambiguate generic .cmt, .cas, and .wav files across platforms
+dwimsy convert capture.wav output.cas --profile=msx
+dwimsy convert capture.wav output.cas --profile=sega-sc3000
+dwimsy convert game.cmt game.wav --profile=pc88
+dwimsy convert game.cmt game.t77 --profile=fm7
+dwimsy convert game.cmt game.tap --profile=x1
+
+# Extract Family BASIC tokenized code, BG graphic tables & level maps
+dwimsy extract game.mzt --profile=famicom-basic -o ./famicom_src/
+
+# Launch live bridge in empty tape deck mode (zero initial inputs, ready for development)
+dwimsy bridge --deck /dev/ttyUSB0
+
+# Launch live bridge with image root directory for 2-line LCD browser
 dwimsy bridge --image-root ./games/ --deck /dev/ttyUSB0
 
-# Launch real-time hardware bridge in ephemeral mode (all overlays and saves kept in RAM)
+# Launch live bridge in ephemeral mode (overlays and created tapes kept only in RAM/temp)
 dwimsy bridge --ephemeral --image-root ./games/
 
 # Split continuous multi-side tape rip automatically on clear leader / hiss dropouts
@@ -1291,18 +1308,68 @@ dwimsy archive "Tank_Battle.flac" \
     --provisional \
     -o ./Tank_Battle_Archive/
 
-# Perform forensic recovery on degraded captures
-dwimsy recover capture.flac --profile=pc88-cmt
+# Archive with full user-supplied No-Intro metadata, P6T autoboot footer & provisional tag
+dwimsy archive capture.flac \
+    --title "Crazy Newton" \
+    --publisher "Computer Land Hokkaido" \
+    --region "Japan" \
+    --system "PC-6001" \
+    --ram 32K \
+    --basic-mode 2 \
+    --pages 2 \
+    --load-cmd "CLOAD-RUN" \
+    --provisional \
+    -o ./Crazy_Newton_Archive/
 
-# Stream character set conversion (JIS X 0201 / NEC / MSX -> UTF-8 / ASCII)
-dwimsy charset --from=pc98 --to=utf8 < input.txt > output.txt
+# Archive a PC-88 tape with full No-Intro long name, catalog ID, and loading command
+dwimsy archive input01.t88 \
+    --name "Door Door (Side A) (1983-02) (Enix) (Japan) (PC-8801 N88-BASIC V1 Mode) [E-G002 102-13-10] [_] [MON-R-GE000]" \
+    -o ./Door_Door_Archive/
 
-# Remote transport control and smart-seek daemon commands
+# Archive multi-tape MSX sets with BLOAD syntax and composite side tagging (Tomato Hime model)
+dwimsy archive salad_tape1_a.flac \
+    --name "Salad no Kuni no Tomato Hime 1 (Side 1A) (Hudson Soft) [_] [BLOAD'CAS-',R]" \
+    -o ./Tomato_Hime_Archive/
+
+# Compile a tape game into a bootable MSX or PC-6001mkII ROM cartridge (cas2rom / mkrom)
+dwimsy package game.cas --target-cart-type msx-sakhr -o game.rom
+dwimsy package game.p6 --target-cart-type p6001mk2 -o game_cart.rom
+
+# Synthesize audio with nominal publisher tape geometry (e.g., C-15 shell with blank Side B)
+dwimsy convert game.t88 game_c15.wav --tape-length C-15 --generate-side-b --lead-in 8s
+
+# Restore audio or clean up container timing (w2w / t2t)
+dwimsy restore degraded.flac clean.wav --canonical
+
+# Slice into tracks (lossless PCM audio or container splits)
+dwimsy split tape.flac -o ./extracted_tracks/
+
+# Join tracks or folders into a single image (reads cue if present)
+dwimsy join ./extracted_tracks/ -o master.wav
+
+# Content-aware smart seek to specific file, block, or calibrated tape counter
 dwimsy-ctl seek --file "STAGE2.BAS"
 dwimsy-ctl seek --counter "0350"
+dwimsy-ctl seek --next-group
+dwimsy-ctl seek --next-block
+
+# Media changing, blank save creation & carousel policy configuration
 dwimsy-ctl media new-tape --preset C-30 --auto-name
+dwimsy-ctl media new-disk --format fat8-2d --auto-name
 dwimsy-ctl media swap-disk "Game_Disk2.d88"
+dwimsy-ctl media flip-side
+dwimsy-ctl media policy set auto-advance-loop
+
+# Transport arming & record interlock control
 dwimsy-ctl transport arm-record
+dwimsy-ctl transport set-record-policy auto-arm
+
+# Runtime conversion mode & profile switching
+dwimsy-ctl profile set canonical-ideal
+dwimsy-ctl profile set hardware-model --deck "Sanyo-PHC-DRIII"
+
+# Stream character set conversion (JIS X 0201 / NEC / PC-6001 / MSX -> UTF-8 / ASCII)
+dwimsy charset --from=pc98 --to=utf8 < input.txt > output.txt
 ```
 
 ### Streaming Pipes & Filters `[ ] TODO (Milestone 2.1 - 2.3)`
