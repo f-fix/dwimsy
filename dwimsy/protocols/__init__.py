@@ -1,1 +1,3 @@
-"""dwimsy.protocols — platform-specific cassette & filesystem protocols."""
+"""dwimsy.protocols - Platform-specific cassette protocols and format decoders."""
+
+from __future__ import annotations
