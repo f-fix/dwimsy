@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""tests.test_core_audio - Verify streaming WAV reader and writer audio codecs."""
 
 import io
 import struct
