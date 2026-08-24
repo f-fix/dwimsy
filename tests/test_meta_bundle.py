@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_meta_bundle - verify dwimsy meta bundling and unbundling machinery."""
+"""tests.test_meta_bundle - Verify bundling, unbundling, and self-extraction machinery."""
 
 import io
 import os
@@ -14,7 +14,7 @@ pkg_root = Path(__file__).resolve().parent.parent
 if str(pkg_root) not in sys.path:
     sys.path.insert(0, str(pkg_root))
 
-from dwimsy.cli.main import main
+from dwimsy.cli.__main__ import main
 from dwimsy.meta import bundle, integrity, unbundle
 
 
