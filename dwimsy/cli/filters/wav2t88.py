@@ -343,8 +343,13 @@ def main():
         help="Minimum confidence threshold",
     )
     parser.add_argument("-q", "--quiet", action="store_true", help="Suppress logging")
+    parser.add_argument("-T", "--test", action="store_true", help="Run filter self-tests in-process and exit")
 
     args = parser.parse_args()
+    if getattr(args, "test", False):
+        from dwimsy.tests import run_tests
+        rc = run_tests(["wav2t88"])
+        sys.exit(rc)
     if not args.input or args.input == "-":
         in_s = sys.stdin.buffer
     else:
