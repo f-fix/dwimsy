@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
+"""tests.test_fixture_correspondence - Verify audio captures against reference containers.
 
-"""Tests verifying correspondence and equivalence between audio snippets (.wav)
+Tests verifying correspondence and equivalence between audio snippets (.wav)
 and reference container/stream images (.t88 / .cmt)."""
 
 import io
