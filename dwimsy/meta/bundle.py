@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dwimsy.meta.bundle - Maintainer tool for building self-extracting dwimsy bundles."""
+"""dwimsy.meta.bundle - Standalone self-extracting bundle generator and package bundler."""
 
 from __future__ import annotations
 
@@ -37,8 +37,15 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
 def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
     """Create a deterministic in-memory TAR byte stream of the repository tree."""
     buf = io.BytesIO()
+    v_mtime = None
+    v_file = repo_root / "dwimsy" / "_version.py"
+    if v_file.is_file():
+        try:
+            v_mtime = v_file.stat().st_mtime
+        except OSError:
+            pass
+
     with tarfile.open(fileobj=buf, mode="w") as tar:
-        # 1. Collect disk entries
         disk_entries = {}
         for p in repo_root.rglob("*"):
             rel = p.relative_to(repo_root)
@@ -58,7 +65,6 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
             arcname = "./" + rel.as_posix()
             disk_entries[arcname] = p
 
-        # 2. If with_deps and deps/ is not on disk (or empty), fallback to in-memory bundle asset
         fallback_entries = {}
         fallback_data = {}
         has_disk_deps = any(arc.startswith("./deps/") for arc in disk_entries.keys())
@@ -96,10 +102,24 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                 tarinfo.gid = 0
                 tarinfo.uname = ""
                 tarinfo.gname = ""
+
                 if full_p.is_file():
-                    with open(full_p, "rb") as f:
-                        tar.addfile(tarinfo, f)
+                    if full_p.suffix in (".py", ".md", ".txt") or full_p.name in ("LICENSE", ".gitignore", ".gitmodules"):
+                        raw = full_p.read_bytes()
+                        normalized = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+                        if not normalized.endswith(b"\n"):
+                            normalized += b"\n"
+                        tarinfo.size = len(normalized)
+                        tar.addfile(tarinfo, io.BytesIO(normalized))
+                    else:
+                        with open(full_p, "rb") as f:
+                            tar.addfile(tarinfo, f)
                 elif full_p.is_dir():
+                    child_mtimes = [f.stat().st_mtime for f in full_p.rglob("*") if f.is_file()]
+                    if child_mtimes:
+                        tarinfo.mtime = max(child_mtimes)
+                    elif v_mtime is not None:
+                        tarinfo.mtime = v_mtime
                     tar.addfile(tarinfo)
             elif arcname in fallback_entries:
                 tarinfo = fallback_entries[arcname]
@@ -215,3 +235,13 @@ def run_meta_fetch_deps(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
     extracted = unbundle.extract_deps(repo_root)
     print(f"[SUCCESS] Materialized {len(extracted)} bundled reference files into {deps_dir}", file=stderr)
     return 0
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Build dwimsy standalone bundle")
+    parser.add_argument("-o", "--output", default=None, help="Output bundle path")
+    parser.add_argument("-t", "--tag", default=None, help="Optional tag")
+    parser.add_argument("--baseline", action="store_true", help="Emit baseline unbundle.py")
+    parser.add_argument("--with-deps", action="store_true", help="Include deps")
+    args = parser.parse_args()
+    sys.exit(run_meta_bundle(args))
