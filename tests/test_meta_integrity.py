@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""tests.test_meta_integrity - verify dwimsy file and package integrity mechanisms"""
 
 import os
 import tempfile
