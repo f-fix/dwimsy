@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""tests.test_core_pulse - Verify pulse timing recognition and zero-crossing detection."""
 
 import importlib.util
 import io
