@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+"""dwimsy.cli.filters.wav2t88 - Streaming WAV audio capture to T88 tape image demodulator."""
+
 from pathlib import Path
 import sys
 
@@ -5,11 +8,7 @@ for p in Path(__file__).resolve().parents:
     if (p / "dwimsy").is_dir() and str(p) not in sys.path:
         sys.path.insert(0, str(p))
         break
-"""dwimsy.cli.filters.wav2t88 — streaming WAV to T88 demodulator filter.
 
-Backed directly by dwimsy.core.pulse, dwimsy.core.fsk, dwimsy.core.audio,
-and dwimsy.tape.t88.
-"""
 
 import argparse
 import io
