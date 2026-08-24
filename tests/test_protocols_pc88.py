@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""tests.test_protocols_pc88 - Verify PC-88 CMT tape protocols, splitting, and joining."""
 
 import io
 import os
