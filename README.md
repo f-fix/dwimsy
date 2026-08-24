@@ -1,14 +1,16 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and mastering
 
-grandiose version: (Phase 1 & Milestone 1.5 Complete, Phase 2 in progress)
+**Version: 0.1.6.0-dev** (Milestone 1.6 [IN PROGRESS], 2026-08-23)
+
+grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear — Format-Aware Media Transducer & Preservation Gateway
 > 
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
 > [!IMPORTANT]
 > **DEVELOPMENT STATUS: PHASE 1 & MILESTONE 1.5 COMPLETE; MILESTONE 1.6 IN PROGRESS.**
-> Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`), streaming filters (`cli.filters.t882wav` and `cli.filters.wav2t88`), the unified CLI (`dwimsy convert`, `inspect`, `split`, `join`), and native PC-88 container/protocol modules (`tape.t88`, `protocols.pc88`) are implemented in pure Python standard library. **Milestone 1.6** is solidifying the reference state-machine parser (`protocols.pc88`), complete MON checksum validation, fault-tolerant "emit & tag" (`fsck` model) error recovery, WAV `data` chunk boundary clamping (`core.audio`), T88 container truncation hardening (`tape.t88`), CLI verb/filter-applet harmonization, and integrated unit testing (`dwimsy test` / `--test` with `--fixtures`), finalizing the permanent ejection of the `pc88_tape_tools` submodule scaffolding before Phase 2 begins.
+> Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`), streaming filters (`cli.filters.t882wav` and `cli.filters.wav2t88`), the unified CLI (`dwimsy convert`, `inspect`, `split`, `join`), and native PC-88 container/protocol modules (`tape.t88`, `protocols.pc88`) are implemented in pure Python standard library. **Milestone 1.6** is establishing the complete self-packaging, tooling, testing, and documentation infrastructure (`dwimsy bundle`, `dwimsy bundle-fixtures`, `dwimsy version-bump`, `dwimsy changelog`, `dwimsy cache`, `dwimsy help`, `dwimsy readme`, `dwimsy license`, `dwimsy test`, and `dwimsy.core.integrity`), modularizing the documentation into `dwimsy.docs`, and preparing the test harness before Milestone 1.7 state-machine parser hardening and final submodule ejection.
 
 ### For now, see:
 
@@ -25,8 +27,24 @@ grandiose version: (Phase 1 & Milestone 1.5 Complete, Phase 2 in progress)
 1. [Overview & Approach](#1-overview--approach)
 2. [Development Strategy](#2-development-strategy)
    - [Test Fixtures & the Road to Redistributable Coverage](#test-fixtures--the-road-to-redistributable-coverage)
+   - [Content-Addressed Fixture Indexing & Discovery](#content-addressed-fixture-indexing--discovery)
    - [Running the Test Suite](#running-the-test-suite)
 3. [Installation & Usage](#3-installation--usage)
+   - [For Developers (Git Submodules)](#for-developers-git-submodules)
+   - [Usage](#usage)
+     - [`dwimsy convert`](#dwimsy-convert)
+     - [`dwimsy inspect`](#dwimsy-inspect)
+     - [`dwimsy split`](#dwimsy-split)
+     - [`dwimsy join`](#dwimsy-join)
+     - [`dwimsy test`](#dwimsy-test)
+     - [`dwimsy bundle`](#dwimsy-bundle)
+     - [`dwimsy bundle-fixtures`](#dwimsy-bundle-fixtures)
+     - [`dwimsy version-bump` & `dwimsy changelog`](#dwimsy-version-bump--dwimsy-changelog)
+     - [`dwimsy cache`](#dwimsy-cache)
+     - [`dwimsy readme` & `dwimsy license`](#dwimsy-readme--dwimsy-license)
+     - [`dwimsy help`](#dwimsy-help)
+     - [`dwimsy fetch-deps`](#dwimsy-fetch-deps)
+   - [Standalone Filter Applets](#standalone-filter-applets)
 4. [Existing Project Lineage & Asset Repositories](#4-existing-project-lineage--asset-repositories)
 5. [Component Implementation Status Matrix](#5-component-implementation-status-matrix)
 6. [Representation Layers, Real-Time Planes & Hardware Gateway](#6-representation-layers-real-time-planes--hardware-gateway)
@@ -57,9 +75,9 @@ grandiose version: (Phase 1 & Milestone 1.5 Complete, Phase 2 in progress)
 11. [Forensic DSP & Restoration Engines](#11-forensic-dsp--restoration-engines)
 12. [Multi-Phase Implementation Roadmap](#12-multi-phase-implementation-roadmap)
 13. [Format & Protocol Technical Reference Guide](#13-format--protocol-technical-reference-guide)
-14. [Note on the code and the tools used to write it](#14-note-on-the-code-and-the-tools-used-to-write-it)
+14. [Revision History](#14-revision-history)
+15. [Note on the code and the tools used to write it](#15-note-on-the-code-and-the-tools-used-to-write-it)
 ---
-
 ## 1. Overview & Approach
 
 `dwimsy` is a modular Python toolkit and real-time media transducer for decoding, restoring, converting, and analyzing vintage computer media (cassette audio, disk images, ROM cartridges, and stream dumps). 
@@ -113,6 +131,17 @@ Validating that a pseudotape is actually realistic enough for this, though, need
 - **Real hardware access** across the project's target platforms — including some models outside the author's personal collection — to confirm pseudotapes actually load on physical machines, not just in emulators or `dwimsy`'s own demodulator.
 
 `[ ] TODO` **Open call**: solicit redistribution-OK tape captures and, ideally, contributors with real hardware access for platforms not already in the author's collection, to serve as permanent reproducibility fixtures once pseudotape resynthesis is validated against them.
+
+
+
+### Content-Addressed Fixture Indexing & Discovery
+
+To ensure long-term reproducibility and eliminate fragile filename assumptions (where one user names a capture `snippet.wav`, another `door_door_1200.wav`, and another `input01.t88`), `dwimsy` uses **content-addressed fixture indexing** (`dwimsy.tests.fixtures`):
+
+* **Semantic Fixture Registry (`FIXTURE_REGISTRY`)**: Maps canonical IDs (e.g. `pc88_door_door_1200_wav`, `pc88_door_door_1200_t88`, `pc88_digdug_600_wav`) to verified SHA-1, CRC32, file size, and descriptive metadata.
+* **Filename-Agnostic Discovery (`FixturePool`)**: Scans candidate directories (`--fixtures`, `DWIMSY_TEST_FIXTURES`, in-tree `tests/fixtures/`, `~/.local/share/dwimsy/fixtures/`), indexes files by SHA-1 hash, and automatically binds them to tests.
+* **Informative Skip Diagnostics**: If a private fixture is missing, tests skip cleanly with the exact title and hash:
+  `skipped 'Fixture "Door Door (Enix)" (SHA1: e24687b3...) not found in fixture pool.'`
 
 ### Running the Test Suite
 
@@ -198,6 +227,8 @@ Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed optio
 
 #### `dwimsy convert`
 
+> **Status:** [x] `COMPLETE` (PC-88 WAV ↔ T88 ↔ CMT in Milestone 1; MSX/Disk formats [ ] `TODO` in Milestone 2)
+
 Converts between `.wav` (audio), `.t88` (container), and `.cmt` (logical stream) — in either direction, inferred from file extensions unless `--from-format`/`--to-format` are given explicitly. `-` means stdin/stdout, so all three stages chain through standard pipes.
 
 ```text
@@ -265,6 +296,8 @@ cat capture.wav | dwimsy convert - - --to-format t88 > game.t88
 
 #### `dwimsy inspect`
 
+> **Status:** [x] `COMPLETE` (PC-88 T88 & CMT structural analysis in Milestone 1.5; multi-layer/archive inspect [ ] `TODO` in Milestone 2.5)
+
 Reports T88/CMT structure: block breakdown, tick timing, detected baud, and any recognized program files on the tape.
 
 ```text
@@ -319,6 +352,8 @@ Total Programs / Streams Detected: 1
 
 #### `dwimsy split`
 
+> **Status:** [x] `COMPLETE` (PC-88 T88 & CMT program splitting in Milestone 1.5; state-machine hardening [ ] `TODO` in Milestone 1.7)
+
 Splits a multi-file tape image into one output file per detected program.
 
 ```text
@@ -344,6 +379,8 @@ dwimsy split multi_game.t88 -o ./extracted/ --format t88
 ```
 
 #### `dwimsy join`
+
+> **Status:** [x] `COMPLETE` (PC-88 T88 & CMT concatenation in Milestone 1.5; state-machine hardening [ ] `TODO` in Milestone 1.7)
 
 Merges multiple `.cmt`/`.t88` files into one combined tape image, supporting per-input baud overrides.
 
@@ -375,11 +412,174 @@ options:
 dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
 ```
 
+
+#### `dwimsy test`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Runs the built-in unit and integration test suite, supporting custom fixture paths, verbosity levels, and subsystem filters:
+
+```text
+$ dwimsy test --help
+usage: dwimsy test [-h] [-v] [-q] [-f FIXTURES_DIR] [--failfast] [pattern]
+
+Run built-in test suite to verify DSP engines, codecs, and container parsers.
+
+positional arguments:
+  pattern               Optional test name, module, or subsystem filter (e.g.
+                        'pulse', 'fsk', 'audio', 'pc88', 't88')
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Verbose test output (lists every test case)
+  -q, --quiet           Minimal output (summary only)
+  -f FIXTURES_DIR, --fixtures FIXTURES_DIR, --fixture-dir FIXTURES_DIR
+                        Path to local/private test fixture directory
+  --failfast            Stop test execution on first failure
+```
+
+```bash
+# Run synthetic unit tests (runs in ~0.5s with zero external files required)
+dwimsy test
+
+# Run against private test fixtures
+dwimsy test -v --fixtures /path/to/fixtures/
+
+# Scoped testing for a single subsystem
+dwimsy test fsk -v
+```
+
+#### `dwimsy bundle`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Generates a standalone, self-extracting single-file Python unpacker script of `dwimsy`, enabling offline propagation to other systems or LLM sessions:
+
+```text
+$ dwimsy bundle --help
+usage: dwimsy bundle [-h] [-o OUTPUT] [-t TAG] [--with-deps] [--status] [--diff]
+
+Generate a self-extracting single-file Python unpacker bundle of dwimsy.
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        Output script path or '-' for stdout (default: auto-derived)
+  -t TAG, --tag TAG     Optional short descriptive tag/label (e.g. 'parser-fix')
+  --with-deps           Include legacy submodule scaffolding from deps/
+  --status              List uncommitted/modified and untracked files before bundling
+  --diff                Display working tree git diff on stderr before bundling
+```
+
+```bash
+# Bundle clean working tree -> generates dwimsy_0.1.6.0.py (defaults to ./dwimsy_0.1.6.0/)
+dwimsy bundle
+
+# Bundle with custom tag and dependencies -> generates dwimsy_0.1.6.0_mod_wav_fix_deps.py
+dwimsy bundle --tag "wav-fix" --with-deps
+```
+
+#### `dwimsy bundle-fixtures`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Packages locally present private test fixtures into a self-extracting unpacker script:
+
+```text
+$ dwimsy bundle-fixtures --help
+usage: dwimsy bundle-fixtures [-h] [-o OUTPUT] [-p PLATFORM] [-t TAG]
+                              [--fixtures-dir FIXTURES_DIR] [--list]
+
+Package locally available private test fixtures into a self-extracting unpacker.
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        Output script path (default: auto-derived from contents)
+  -p PLATFORM, --platform PLATFORM
+                        Filter by platform / subsystem (e.g. 'pc88', 'msx', 'disk', 'all')
+  -t TAG, --tag TAG     Optional descriptive label (e.g. 'loaned-tapes')
+  --fixtures-dir FIXTURES_DIR
+                        Source fixture directory (default: in-tree tests/fixtures/)
+  --list                List detected fixture files without creating a bundle
+```
+
+#### `dwimsy version-bump` & `dwimsy changelog`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Atomically advances the package revision, recalculates the canonical code hash, updates `CHANGELOG`, and inspects revision history:
+
+```bash
+# Advance revision and record changelog entry in dwimsy/_version.py
+dwimsy version-bump -m "Harden PC-88 MON protocol state machine" -d "Validate all record checksums"
+
+# View recent revision history in terminal
+dwimsy changelog -n 5 -v
+```
+
+#### `dwimsy cache`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Synchronizes on-disk project assets (`.gitignore`, `.gitmodules`, `LICENSE`) into Python-cached strings in `dwimsy.docs.assets` to prevent documentation and bundle drift:
+
+```bash
+# Cache updated .gitignore and .gitmodules
+dwimsy cache .gitignore .gitmodules
+
+# Cache all project root asset files
+dwimsy cache --all
+```
+
+#### `dwimsy readme` & `dwimsy license`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Generates and outputs the canonical `README.md` and `LICENSE` files. When run on an interactive terminal, outputs via an interactive pager (`pydoc.pager`); when redirected to a pipe or file, streams plain Markdown text:
+
+```bash
+# Interactive terminal viewer (scroll with arrows, q to exit)
+dwimsy readme
+dwimsy license
+
+# Regenerate canonical on-disk files in repository root
+dwimsy readme > README.md
+dwimsy license > LICENSE
+```
+
+#### `dwimsy help`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Displays the interactive technical reference manual for any CLI verb or core subsystem:
+
+```bash
+# View deep technical manual for FSK pulse classification
+dwimsy help fsk
+
+# View manual for T88 container models
+dwimsy help t88
+```
+
+#### `dwimsy fetch-deps`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Clones all required legacy submodules in non-Git checkouts by parsing `.gitmodules`:
+
+```bash
+# Clone all submodules directly into deps/
+dwimsy fetch-deps
+```
+
 ### Standalone Filter Applets
 
 The `convert` verb's PC-88 logic is also directly reachable as two independent, Netpbm-style single-purpose filters — matching the architecture's `cli.filters.*` design goal, and useful for shell pipelines that don't need the unified verb's format auto-detection. These predate `dwimsy convert` and haven't yet been reconciled with it option-for-option (see the note on `--mode`/`--flavor` divergence below) — that reconciliation is Milestone 1.5 work, not done yet.
 
 #### `dwimsy-wav2t88` (`dwimsy/cli/filters/wav2t88.py`)
+
+> **Status:** [x] `COMPLETE` (Milestone 1; option harmonization [ ] `IN PROGRESS` in Milestone 1.6)
 
 ```text
 $ python3 dwimsy/cli/filters/wav2t88.py --help
@@ -412,6 +612,8 @@ python3 dwimsy/cli/filters/wav2t88.py capture.wav game.t88 --baud 600
 ```
 
 #### `dwimsy-t882wav` (`dwimsy/cli/filters/t882wav.py`)
+
+> **Status:** [x] `COMPLETE` (Milestone 1; option harmonization [ ] `IN PROGRESS` in Milestone 1.6)
 
 ```text
 $ python3 dwimsy/cli/filters/t882wav.py --help
@@ -475,16 +677,29 @@ python3 dwimsy/cli/filters/t882wav.py game.t88 - --mode tape | play -t wav -
 | Subsystem / Module | Description | Status | Target Milestone |
 | :--- | :--- | :---: | :---: |
 | **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), dynamic glitch rejection, AGC — tuned first against PC-88/PC-8801's 2400/1200 Hz FSK | `[x] DONE` | Milestone 1 |
-| **`core.audio`** | Streaming WAV reader/writer with strict `data` chunk boundary clamping (no FLAC yet — ships in Milestone 2.1) | `[x] DONE` | Milestone 1.6 |
-| **`core.fsk`** | FSK pulse classifier & UART framing with unified drift tracking | `[x] DONE` | Milestone 1.6 |
+| **`core.audio`** | Streaming WAV reader/writer (strict `data` chunk boundary clamping ships in M1.7; FLAC in M2.1) | `[x] DONE` | Milestone 1 |
+| **`core.fsk`** | FSK pulse classifier & UART framing with unified drift tracking | `[x] DONE` | Milestone 1 |
 | **`cli.filters.*`** | `t882wav` and `wav2t88` streaming filters, backed by `dwimsy.core.*` | `[x] DONE` | Milestone 1 |
-| **`cli.dwimsy`** | Unified CLI exposing `convert`, `inspect`, `split`, `join`, `test` | `[x] DONE` | Milestone 1.6 |
-| **`tape.t88`** | T88 container reader/writer with strict block length verification and signature validation | `[x] DONE` | Milestone 1.6 |
-| **`protocols.pc88`** | PC-88 ROM protocol state machine: BASIC (0xD3), MON (0x24/0x3A), ASCII (0x9C), NONTAMA (0xFF), MON O/I with full checksums and `[truncated]` emission | `[x] DONE` | Milestone 1.6 |
-| **`cli.split_join`** | PC-88 tape splitting (`dwimsy split`) and concatenation (`dwimsy join`) with typed error handling | `[x] DONE` | Milestone 1.6 |
-| **`cli.test`** | Integrated test runner (`dwimsy test`, `dwimsy-test`, `--test`, `--fixtures`) | `[x] DONE` | Milestone 1.6 |
-| **`packaging`** | Standard `pyproject.toml` with console script entry points | `[x] DONE` | Milestone 1.6 |
-| **`deps.pc88_tape_tools`**| Permanent ejection of `deps/pc88_tape_tools` submodule scaffolding | `[x] DONE` | Milestone 1.6 |
+| **`tape.t88`** | T88 container reader/writer (`T88File`, `T88Block`, `DataSubHeader`, lead-in/gap synthesis, split/join) | `[x] DONE` | Milestone 1.5 |
+| **`protocols.pc88`** | PC-88 ROM protocol state machine: BASIC (0xD3), MON (0x24/0x3A), ASCII (0x9C), NONTAMA (0xFF), MON O/I | `[x] DONE` | Milestone 1.5 |
+| **`cli.split_join`** | PC-88 tape splitting (`dwimsy split`) and concatenation (`dwimsy join`) | `[x] DONE` | Milestone 1.5 |
+| **`cli.inspect` (deep)** | Full acoustic audio inspection (energy, cycles, speed drift) & deep structural ROM/T88 report | `[x] DONE` | Milestone 1.5 |
+| **`core.integrity`** | Pure Python canonical code-hashing (`__code_hash__` sentinel) & runtime mod-detection | `[ ] TODO` | Milestone 1.6 |
+| **`cli.version_bump`**| `dwimsy version-bump` (advances revision, seals code-hash, records structured `CHANGELOG`) | `[ ] TODO` | Milestone 1.6 |
+| **`cli.changelog`** | `dwimsy changelog` (interactive revision history & changelog viewer) | `[ ] TODO` | Milestone 1.6 |
+| **`cli.bundle`** | `dwimsy bundle` (self-packaging, auto-tagging, shebang sniffing, `chmod +x` assignment) | `[ ] TODO` | Milestone 1.6 |
+| **`cli.bundle_fixtures`**| `dwimsy bundle-fixtures` (content-addressed private test fixture packager) | `[ ] TODO` | Milestone 1.6 |
+| **`cli.cache`** | `dwimsy cache` (synchronizes `.gitignore`, `.gitmodules`, `LICENSE` into Python cache) | `[ ] TODO` | Milestone 1.6 |
+| **`docs.generator`** | Modular `dwimsy.docs` package & `dwimsy readme` / `dwimsy license` CLI verbs | `[ ] TODO` | Milestone 1.6 |
+| **`cli.help`** | `dwimsy help [verb\|topic]` (interactive pydoc technical manual viewer) | `[ ] TODO` | Milestone 1.6 |
+| **`cli.fetch_deps`** | `dwimsy fetch-deps` (clones `.gitmodules` dependencies in non-git checkouts) | `[ ] TODO` | Milestone 1.6 |
+| **`tests.subpackage`**| Package test suite as `dwimsy.tests` subpackage with `dwimsy test` CLI runner | `[ ] TODO` | Milestone 1.6 |
+| **`tests.fixtures`** | Content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) | `[ ] TODO` | Milestone 1.6 |
+| **`packaging`** | Standard `pyproject.toml` with console script entry points | `[ ] TODO` | Milestone 1.6 |
+| **`protocols.pc88` (hardened)**| Strict grammar state machine, full MON address/payload checksums, and `[truncated]` emission | `[ ] TODO` | Milestone 1.7 |
+| **`tape.t88` (hardened)**| Strict T88 block length verification and canonical 24-byte signature checking | `[ ] TODO` | Milestone 1.7 |
+| **`core.audio` (hardened)**| Strict WAV `data` chunk boundary clamping (ignoring trailing RIFF metadata chunks) | `[ ] TODO` | Milestone 1.7 |
+| **`deps.pc88_tape_tools`**| Permanent ejection of `deps/pc88_tape_tools` submodule scaffolding | `[ ] TODO` | Milestone 1.7 |
 | **`dsp.filter`** | Analog filter/wave-shaper & differentiator (`cmt_filter`, ported with MSX support) | `[ ] TODO` | Milestone 2.1 |
 | **`dsp.modeler`** | Magnetic tape channel simulator (`cassette_modeler`, ported with MSX support) | `[ ] TODO` | Milestone 2.1 |
 | **`tape.cas`** | MSX `.cas` reader/writer (8-byte padded & compact unpadded flavors) | `[ ] TODO` | Milestone 2.1 |
@@ -511,34 +726,6 @@ python3 dwimsy/cli/filters/t882wav.py game.t88 - --mode tape | play -t wav -
 | **`metadata.archive`** | Archival bundle exporter & `README.md` generator | `[ ] TODO` | Milestone 2.5 |
 | **`tape.variants`** | Multi-flavor generator (Trimmed/Untrimmed, CAS unpadded, P6/P6T pairs) | `[ ] TODO` | Milestone 2.5 |
 | **`tape.geometry`** | Physical cassette shell profiling (C-10..C-90, custom lengths, hub math) | `[ ] TODO` | Milestone 2.5 |
-| **`tape.tzx_family`** | Unified TZX/CDT/TSX container (Spectrum, CPC, MSX FSK/Turbo) | `[ ] TODO` | Milestone 3 |
-| **`tape.sharp_mz`** | Sharp MZ-80K / MZ-700 / MZ-800 PWM & 128-byte MZF/MZT | `[ ] TODO` | Milestone 3 |
-| **`tape.sharp_x1`** | Sharp X1 2700-baud PWM, `.tap` container, 80C49 deck logic | `[ ] TODO` | Milestone 3 |
-| **`tape.fujitsu`** | Fujitsu FM-7 / FM-8 / FM-77 `.t77` pulse container & FSK | `[ ] TODO` | Milestone 3 |
-| **`tape.sega`** | Sega SC-3000 / SG-1000 `.cas` adapter | `[ ] TODO` | Milestone 3 |
-| **`tape.sord`** | Sord M5 `.cas` adapter (`0x55` sync bursts) | `[ ] TODO` | Milestone 3 |
-| **`tape.casio`** | Casio PV-2000 & Casio FP-1100 FSK/PWM tape codec | `[ ] TODO` | Milestone 3 |
-| **`tape.p6t`** | PC-6001 `.p6t` container (footer sync, autoboot, `mk2mon`) | `[ ] TODO` | Milestone 3 |
-| **`tape.bbc`** | BBC Micro Model B `.uef` reader/writer (`cas2uef`) | `[ ] TODO` | Milestone 3 |
-| **`tape.multiplex`** | Multi-platform compilation splitter (*Tape Login*, *Tank Battle*) | `[ ] TODO` | Milestone 3 |
-| **`platforms.family_basic`**| Famicom Family BASIC V2/V3 detokenizer & HVC-008 level maps | `[ ] TODO` | Milestone 3 |
-| **`cue.engine`** | Companion `<basename>.cue` generator & reader | `[ ] TODO` | Milestone 3 |
-| **`dsp.classifier`** | FSK carrier vs. broadband speech/music classifier & leader detector | `[ ] TODO` | Milestone 4 |
-| **`platforms.sega_ai`** | Sega AI Computer concurrent stereo engine | `[ ] TODO` | Milestone 4 |
-| **`platforms.atari8`** | Atari 8-bit POKEY/Audio concurrent stereo engine | `[ ] TODO` | Milestone 4 |
-| **`media.audio_disc`** | Audio-carrier formats (Flexidiscs, CD-DA modulated tracks, GCX CD) | `[ ] TODO` | Milestone 4 |
-| **`dsp.harmonize`** | Non-linear time harmonization & reverse print-through recovery | `[ ] TODO` | Milestone 4 |
-| **`core.pulse_slicer`**| PWM / Turbo pulse slicer (MSX Turbo, Amstrad Speedlock) | `[ ] TODO` | Milestone 5 |
-| **`platforms.studybox`**| Famicom StudyBox dual-track voice + MFM stream decoder & solenoid transport | `[ ] TODO` | Milestone 5 |
-| **`platforms.adam_ddp`**| Coleco Adam DDP (80 ips high-speed tape) decoder & servo transport | `[ ] TODO` | Milestone 5 |
-| **`platforms.gakken_gcx`**| Gakken Manabu-kun (GCX) MSX-like tape & CD-DA audio disc engine | `[ ] TODO` | Milestone 5 |
-| **`platforms.ibm5150`** | IBM PC 5150 cassette demodulator | `[ ] TODO` | Milestone 5 |
-| **`platforms.bk0010`** | Soviet Elektronika BK-0010 PDP-11 demodulator | `[ ] TODO` | Milestone 5 |
-| **`bus.controller`** | Floppy/Serial/Parallel/IEC bus hardware interfaces (Shugart, Apple, Commodore IEC, SIO) | `[ ] TODO` | Milestone 5 |
-| **`disk.flux`** | Floppy disk raw flux decoders (Applesauce .a2r/.woz, Greaseweazle .scp/.raw)| `[ ] TODO` | Milestone 5 |
-| **`packaging`** | `pyproject.toml`, pip packaging, API docs | `[ ] TODO` | Milestone 5 |
-
----
 
 ## 6. Representation Layers, Real-Time Planes & Hardware Gateway
 
@@ -979,44 +1166,116 @@ To provide clean, immediate usability in emulators while maintaining complete ar
 
 ## 9. CLI & Interface Conventions
 
-### Main CLI Verbs `[ ] TODO`
+`dwimsy` provides explicit, typed semantic verbs alongside direct streaming filter shortcuts. Each command declares its implementation status below:
 
-Rather than forcing all workflows through a generic `convert` command, `dwimsy` provides explicit, typed semantic verbs:
+### Implementation Status Overview of Primary Verbs & Filters
+
+```text
+┌───────────────────────────┬───────────────────────────────────┬───────────────────────────────┐
+│ Command / Subcommand      │ Capability Description            │ Implementation Status         │
+├───────────────────────────┼───────────────────────────────────┼───────────────────────────────┤
+│ dwimsy convert            │ Bidirectional format converter    │ [x] COMPLETE (PC-88)          │
+│ dwimsy inspect            │ Media container inspection        │ [x] COMPLETE (PC-88 T88/CMT)  │
+│ dwimsy split              │ Multi-file tape splitting         │ [x] COMPLETE (PC-88 T88/CMT)  │
+│ dwimsy join               │ Multi-file tape concatenation     │ [x] COMPLETE (PC-88 T88/CMT)  │
+│ dwimsy t882wav / wav2t88  │ Direct PC-88 streaming filters    │ [x] COMPLETE (Milestone 1)    │
+│ dwimsy test               │ Test suite runner (--fixtures)    │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy bundle             │ Self-packaging portable unpacker  │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy bundle-fixtures    │ Test fixture archive packager     │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy version-bump       │ Version advance & code-hash seal  │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy changelog          │ Revision history viewer           │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy cache              │ Asset synchronization (.gitignore)│ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy readme / license   │ Interactive Paged Doc Viewers     │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy help               │ Pydoc technical manual viewer     │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy fetch-deps         │ Non-git submodule cloner          │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy wav2cas / cas2wav  │ MSX FSK streaming filters         │ [ ] TODO (Milestone 2.1)      │
+│ dwimsy flac2wav           │ Pure-Python streaming FLAC decode │ [ ] TODO (Milestone 2.1)      │
+│ dwimsy cmt-filter         │ Analog circuit simulation filter  │ [ ] TODO (Milestone 2.1)      │
+│ dwimsy d882fat8 / bin2fds │ Disk converters & charsets        │ [ ] TODO (Milestone 2.3)      │
+│ dwimsy charset            │ Streaming character set converter │ [ ] TODO (Milestone 2.3)      │
+│ dwimsy extract            │ Payload & filesystem extractor    │ [ ] TODO (Milestone 2.3/2.4)  │
+│ dwimsy package            │ ROM cartridge compiler (cas2rom)  │ [ ] TODO (Milestone 2.4)      │
+│ dwimsy bridge             │ Real-time hardware gateway/deck   │ [ ] TODO (Milestone 2.5)      │
+│ dwimsy archive            │ Archival bundle generator         │ [ ] TODO (Milestone 2.5)      │
+│ dwimsy recover            │ Forensic bit/pulse recovery       │ [ ] TODO (Phase 4 / 5)        │
+│ dwimsy-ctl                │ Real-time transport control daemon│ [ ] TODO (Milestone 2.5)      │
+└───────────────────────────┴───────────────────────────────────┴───────────────────────────────┘
+```
+
+### CLI Command Reference & Examples
+
+#### 1. Implemented PC-88 Media Commands `[x] COMPLETE`
 
 ```bash
-# Inspect intermediate containers, headers, track tables, and baud rates
-dwimsy inspect disk.d88
+# Convert between PC-88 WAV audio, T88 container, and CMT logical byte streams
+dwimsy convert capture.wav game.t88 --baud 600
+dwimsy convert game.t88 game.cmt
+dwimsy convert game.t88 game.wav --mode tape
 
-# Demodulate and recover data with confidence metrics and epistemic metadata
-dwimsy recover capture.flac --profile=pc88-cmt
+# Inspect PC-88 T88 and CMT structure and program listings
+dwimsy inspect game.t88 -v
 
-# Extract filesystem contents preserving epistemic tags and raw dumps
+# Split multi-file PC-88 tape into individual programs
+dwimsy split multi_game.t88 -o ./extracted/ --format t88
+
+# Join multiple PC-88 files with sequential baud overrides
+dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
+```
+
+#### 2. Tooling, Packaging & Test Commands `[ ] IN PROGRESS (Milestone 1.6)`
+
+```bash
+# Run unit and integration tests (synthetic tests run out-of-the-box in ~0.5s)
+dwimsy test
+dwimsy test -v --fixtures /path/to/fixtures/
+dwimsy test fsk -v
+
+# Package dwimsy into a standalone self-extracting script with custom tag
+dwimsy bundle --tag "wav-clamping" --with-deps
+
+# Package local private test fixtures for a specific platform
+dwimsy bundle-fixtures --platform pc88 -o pc88_fixtures.py
+
+# Advance revision, lock code-hash, and record changelog message in _version.py
+dwimsy version-bump -m "Fix WAV data chunk boundary clamping" -d "Ignore trailing metadata chunks"
+
+# Display recent changelog in terminal
+dwimsy changelog -n 5 -v
+
+# Synchronize on-disk asset modifications into Python cache
+dwimsy cache .gitignore .gitmodules LICENSE
+dwimsy cache --all
+
+# View canonical documentation with interactive terminal pager (pydoc.pager)
+dwimsy readme
+dwimsy license
+dwimsy readme > README.md      # streams plain Markdown when redirected
+
+# Display technical reference manual for any verb or core subsystem
+dwimsy help fsk
+dwimsy help t88
+
+# Clone dependencies in non-git checkouts
+dwimsy fetch-deps
+```
+
+#### 3. Planned Disk, Cartridge, Extraction & Bridge Commands `[ ] TODO (Phase 2 & Beyond)`
+
+```bash
+# Extract filesystem contents from D88 floppy disk images
 dwimsy extract disk.d88 -o ./payloads/
 
-# Extract encapsulated tape logical stream (.cas) from a Sakhr/Al-Alamiah cas2rom cartridge
+# Extract encapsulated tape logical stream (.cas) from a Sakhr cas2rom cartridge
 dwimsy extract game_sakhr.rom --target-stream-type cas -o game.cas
 
-# Convert between format representations (inferred from extensions or explicit profiles)
-dwimsy convert input.flac output.t88
-dwimsy convert game.d88 game.wav --target-tape-type t88
+# Compile a tape game into a bootable MSX or PC-6001mkII ROM cartridge (cas2rom / mkrom)
+dwimsy package game.cas --target-cart-type msx-sakhr -o game.rom
+dwimsy package game.p6 --target-cart-type p6001mk2 -o game_cart.rom
 
-# Disambiguate generic .cmt, .cas, and .wav files across platforms
-dwimsy convert capture.wav output.cas --profile=msx
-dwimsy convert capture.wav output.cas --profile=sega-sc3000
-dwimsy convert game.cmt game.wav --profile=pc88
-dwimsy convert game.cmt game.t77 --profile=fm7
-dwimsy convert game.cmt game.tap --profile=x1
-
-# Extract Family BASIC tokenized code, BG graphic tables & level maps
-dwimsy extract game.mzt --profile=famicom-basic -o ./famicom_src/
-
-# Launch live bridge in empty tape deck mode (zero initial inputs, ready for development)
-dwimsy bridge --deck /dev/ttyUSB0
-
-# Launch live bridge with image root directory for 2-line LCD browser
+# Launch real-time hardware bridge with 2-line LCD file browser
 dwimsy bridge --image-root ./games/ --deck /dev/ttyUSB0
 
-# Launch live bridge in ephemeral mode (overlays and created tapes kept only in RAM/temp)
+# Launch real-time hardware bridge in ephemeral mode (all overlays and saves kept in RAM)
 dwimsy bridge --ephemeral --image-root ./games/
 
 # Split continuous multi-side tape rip automatically on clear leader / hiss dropouts
@@ -1032,71 +1291,21 @@ dwimsy archive "Tank_Battle.flac" \
     --provisional \
     -o ./Tank_Battle_Archive/
 
-# Archive with full user-supplied No-Intro metadata, P6T autoboot footer & provisional tag
-dwimsy archive capture.flac \
-    --title "Crazy Newton" \
-    --publisher "Computer Land Hokkaido" \
-    --region "Japan" \
-    --system "PC-6001" \
-    --ram 32K \
-    --basic-mode 2 \
-    --pages 2 \
-    --load-cmd "CLOAD-RUN" \
-    --provisional \
-    -o ./Crazy_Newton_Archive/
+# Perform forensic recovery on degraded captures
+dwimsy recover capture.flac --profile=pc88-cmt
 
-# Archive a PC-88 tape with full No-Intro long name, catalog ID, and loading command
-dwimsy archive input01.t88 \
-    --name "Door Door (Side A) (1983-02) (Enix) (Japan) (PC-8801 N88-BASIC V1 Mode) [E-G002 102-13-10] [_] [MON-R-GE000]" \
-    -o ./Door_Door_Archive/
+# Stream character set conversion (JIS X 0201 / NEC / MSX -> UTF-8 / ASCII)
+dwimsy charset --from=pc98 --to=utf8 < input.txt > output.txt
 
-# Archive multi-tape MSX sets with BLOAD syntax and composite side tagging (Tomato Hime model)
-dwimsy archive salad_tape1_a.flac \
-    --name "Salad no Kuni no Tomato Hime 1 (Side 1A) (Hudson Soft) [_] [BLOAD'CAS-',R]" \
-    -o ./Tomato_Hime_Archive/
-
-# Compile a tape game into a bootable MSX or PC-6001mkII ROM cartridge (cas2rom / mkrom)
-dwimsy package game.cas --target-cart-type msx-sakhr -o game.rom
-dwimsy package game.p6 --target-cart-type p6001mk2 -o game_cart.rom
-
-# Synthesize audio with nominal publisher tape geometry (e.g., C-15 shell with blank Side B)
-dwimsy convert game.t88 game_c15.wav --tape-length C-15 --generate-side-b --lead-in 8s
-
-# Restore audio or clean up container timing (w2w / t2t)
-dwimsy restore degraded.flac clean.wav --canonical
-
-# Slice into tracks (lossless PCM audio or container splits)
-dwimsy split tape.flac -o ./extracted_tracks/
-
-# Join tracks or folders into a single image (reads cue if present)
-dwimsy join ./extracted_tracks/ -o master.wav
-
-# Content-aware smart seek to specific file, block, or calibrated tape counter
+# Remote transport control and smart-seek daemon commands
 dwimsy-ctl seek --file "STAGE2.BAS"
 dwimsy-ctl seek --counter "0350"
-dwimsy-ctl seek --next-group
-dwimsy-ctl seek --next-block
-
-# Media changing, blank save creation & carousel policy configuration
 dwimsy-ctl media new-tape --preset C-30 --auto-name
-dwimsy-ctl media new-disk --format fat8-2d --auto-name
 dwimsy-ctl media swap-disk "Game_Disk2.d88"
-dwimsy-ctl media flip-side
-dwimsy-ctl media policy set auto-advance-loop
-
-# Transport arming & record interlock control
 dwimsy-ctl transport arm-record
-dwimsy-ctl transport set-record-policy auto-arm
-
-# Runtime conversion mode & profile switching
-dwimsy-ctl profile set canonical-ideal
-dwimsy-ctl profile set hardware-model --deck "Sanyo-PHC-DRIII"
-
-# Stream character set conversion (JIS X 0201 / NEC / PC-6001 / MSX -> UTF-8 / ASCII)
-dwimsy charset --from=pc98 --to=utf8 < input.txt > output.txt
 ```
 
-### Streaming Pipes & Filters `[ ] TODO`
+### Streaming Pipes & Filters `[ ] TODO (Milestone 2.1 - 2.3)`
 All single-purpose conversion filters support continuous stdin/stdout streaming using `-`:
 ```bash
 # Stream tape audio through bandpass/CMT filter, demodulate to MSX CAS, and extract payload
@@ -1117,7 +1326,7 @@ dwimsy-fat8-extract game.d88 README.TXT - \
     | dwimsy-conv --pc98-8bit-to-utf8 - -
 ```
 
-### Side-Channel UI, Telemetry Layout & Animated Marquee Display `[ ] TODO`
+### Side-Channel UI, Telemetry Layout & Animated Marquee Display `[ ] TODO (Milestone 2.5)`
 
 To prevent UI telemetry from polluting piped data streams:
 * **`stdout`**: Dedicated strictly to raw binary data streams (audio PCM, container bytes, payload).
@@ -1158,7 +1367,7 @@ To prevent UI telemetry from polluting piped data streams:
   * `SIGHUP`: Reload geometry / re-sync.
   * `SIGINT` (`Ctrl-C`): Graceful shutdown and provenance flush.
 
-### Positional Per-Input Options (SoX / FFmpeg Model) `[ ] TODO`
+### Positional Per-Input Options (SoX / FFmpeg Model) `[ ] TODO (Milestone 2.5)`
 
 Options placed immediately before an input file act as scoped overrides:
 ```bash
@@ -1168,13 +1377,11 @@ dwimsy join \
     -o master.wav --wave tape --volume 0.85
 ```
 
-### File Linking & Paired Naming `[ ] TODO`
+### File Linking & Paired Naming `[ ] TODO (Milestone 2.5)`
 
 * When metadata is supplied, `dwimsy` emits both a compact CLI name (`crazy_a.p6`) and an extended No-Intro long name (`Crazy Newton (Computer Land Hokkaido) (Japan) (PC-6001 32K Mode 2 Pages 2) [_] [CLOAD-RUN] 32k.p6`) in a flat directory.
 * Links are created with `os.link`, falling back automatically to `shutil.copy2` on FAT32/exFAT, cross-device mounts, or unsupported environments.
 * Input capture files are linked/copied directly inside output bundles under standard names.
-
----
 
 ## 10. Metadata, Checksums & Archival Packaging
 
@@ -1322,9 +1529,27 @@ Tasks:
 5. `[x] DONE` Port `pc88_tape_tools.py analyze`, `t882wav.py --inspect`, and `wav2t88.py --inspect` into unified native `dwimsy inspect` (reporting stereo channel energy balance/recommendations, Mark/Space cycle counts, carrier drift speed offset, memory load ranges, BASIC line numbers, record counts, and baud rates).
 6. `[x] DONE` Port all CLI flags and aliases (`--flavor`, `--bauds`, `--invert`, `-a`/`-v`/`--volume`, `--channel`, `-v`/`--verbose`, `--help-all`) and standalone executable filter applet support.
 
-### Phase 1.6: Parser Correctness, Container Hardening & Submodule Clean-Up `[ ] IN PROGRESS`
+### Phase 1.6: Infrastructure, Self-Packaging & CLI Symmetries `[ ] IN PROGRESS`
 
-The goal of Milestone 1.6 is to eliminate structural vulnerabilities in the reference PC-88 parser, enforce strict container/audio boundaries, integrate test execution into the CLI, and permanently eject the `pc88_tape_tools` submodule scaffolding before starting Phase 2.
+The goal of Milestone 1.6 is to establish the complete developer tooling, self-packaging, test execution, and documentation pipeline, providing a clean safety harness before parser hardening and Phase 2.
+
+Tasks:
+1. `[ ] TODO` **`dwimsy.core.integrity`**: Implement pure Python canonical code-hashing over `dwimsy/**/*.py` using alphabetically sorted relative paths, normalized `\r\n` → `\n` line endings, and sentinel substitution `__code_hash__ = ""` in `_version.py`. Automatic runtime mod detection appends `+mod.<short_hash>` when working tree is modified.
+2. `[ ] TODO` **`dwimsy.cli.version_bump` & `_version.py`**: Build the atomic `dwimsy version-bump` command to increment the last revision integer, generate the new code-hash, update build dates, and append structured entries to `CHANGELOG` in `_version.py`.
+3. `[ ] TODO` **`dwimsy.cli.changelog`**: Implement `dwimsy changelog` to parse and display the structured revision history from `_version.py`.
+4. `[ ] TODO` **`dwimsy.cli.bundle`**: Implement `dwimsy bundle` to package the codebase into a standalone self-extracting script with automatic `_mod` naming, custom `--tag` slug sanitization, and embedded provenance headers. Enforce pre-flight zero-drift check against `README.md` and `LICENSE`.
+5. `[ ] TODO` **`dwimsy.cli.bundle_fixtures`**: Implement `dwimsy bundle-fixtures` to package local private fixture subsets into self-extracting unpackers that automatically unpack into `tests/fixtures/`.
+6. `[ ] TODO` **`dwimsy.cli.cache`**: Implement `dwimsy cache [files...]` to update Python-cached asset strings (`.gitignore`, `.gitmodules`, `LICENSE`) from on-disk source files.
+7. `[ ] TODO` **`dwimsy.docs` & Documentation Verbs**: Modularize `README.md` and `LICENSE` into `dwimsy/docs/`, implementing `dwimsy readme` and `dwimsy license` CLI verbs with `pydoc.pager` interactive TTY viewing and plain streaming for pipes/files.
+8. `[ ] TODO` **`dwimsy.cli.help`**: Implement `dwimsy help [verb|topic]` to display interactive pydoc technical manuals for CLI verbs and core subsystems.
+9. `[ ] TODO` **`dwimsy.cli.fetch_deps`**: Implement `dwimsy fetch-deps` to parse `.gitmodules` and clone submodules in non-git checkouts.
+10. `[ ] TODO` **`dwimsy.tests` & `dwimsy test`**: Move `tests/` into the `dwimsy.tests` subpackage. Implement `dwimsy test` (and `dwimsy-test`) supporting `--fixtures <DIR>`, target filtering, and scoped `dwimsy <verb> --test` execution.
+11. `[ ] TODO` **`dwimsy.tests.fixtures`**: Implement content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) indexing by SHA-1 hash rather than opaque filenames.
+12. `[ ] TODO` **Packaging & Shebangs**: Add `pyproject.toml` with console script entry points, and ensure all CLI-executable scripts start with `#!/usr/bin/env python3`.
+
+### Phase 1.7: PC-88 State-Machine Parser, Checksums & Submodule Ejection `[ ] TODO`
+
+The goal of Milestone 1.7 is to eliminate structural vulnerabilities in the reference PC-88 parser, enforce strict container/audio boundaries, and permanently eject the `pc88_tape_tools` submodule scaffolding.
 
 Tasks:
 1. `[ ] TODO` **Deterministic State-Machine Parser**: Refactor `CMTFile.split()` from forward byte-scanning into a formal grammar-based state machine (`SYNC` → `HEADER` → `PAYLOAD` → `CHECKSUM` → `TERMINATOR`), eliminating false-split vulnerabilities when binary payloads contain `0xD3`/`0x24`/`0x9C` bytes.
@@ -1333,8 +1558,7 @@ Tasks:
 4. `[ ] TODO` **WAV `data` Chunk Clamping**: Enforce strict chunk boundary clamping in `StreamingWavReader` (`core.audio`), ensuring reads stop at `data_size` and ignore trailing metadata chunks (`LIST`, `INFO`, `cue `).
 5. `[ ] TODO` **T88 Truncation & Magic Hardening**: Enforce declared block length verification in `T88Block.unpack()` and `StreamingT88Reader`, and separate canonical 24-byte signature verification from permissive legacy sniffing.
 6. `[ ] TODO` **Eliminate Exception Swallowing**: Remove bare `except Exception: pass` blocks in `split_t88_file()` and `join_t88_files()`, logging typed diagnostics.
-7. `[ ] TODO` **CLI Integration & Symmetrical Invocation**: Harmonize `--mode`/`--wave` and `--flavor` across `convert` and filter applets, register direct format shortcuts (`dwimsy t882wav`, `dwimsy wav2t88`), and implement `dwimsy test` / `dwimsy-test` with `--fixtures <DIR>` support.
-8. `[ ] TODO` **Packaging & Submodule Ejection**: Add `pyproject.toml` packaging metadata, verify test suite passes, and permanently eject `deps/pc88_tape_tools`.
+7. `[ ] TODO` **Adversarial Test Suite & Submodule Ejection**: Add adversarial regression tests covering fake headers in payloads, embedded `0x3A` colons, bad checksums, verify 100% test pass rate, and permanently eject `deps/pc88_tape_tools`.
 
 ### Phase 2: MSX Generalization, Disk Subsystems, Unpackers & Core Realtime `[ ] TODO`
 
@@ -1370,22 +1594,6 @@ Phase 2 is structured into fine-grained milestones to allow accelerated submodul
 4. `[ ] TODO` Implement `dwimsy.core.transport`, `transport.changer`, `transport.browser`, `transport.seeker`, and `dsp.router`.
 5. `[ ] TODO` Implement `tape.variants`, `tape.geometry`, and `metadata.archive` bundle generation.
 
-Phase 2 opens by testing whether Phase 1's abstractions actually generalize — porting a second platform (MSX) before building out anything platform-specific-heavy like disk formats.
-
-Tasks:
-1. `[ ] TODO` Port `wav2cas`, `cas2wav`, and `flac2wav` (MSX FSK codec + streaming FLAC I/O), validating that `core.audio`/`core.fsk`/`core.pulse` generalize to a second platform without a rewrite.
-2. `[ ] TODO` Implement `dwimsy.dsp` (`cmt_filter` wave shaper and `cassette_modeler`), ported with MSX support.
-3. `[ ] TODO` Implement `dwimsy.core.realtime` (live-stage contracts, bounded buffering/latency, resynchronization latency, backpressure), first exercised via live-capture support for PC-88 and MSX.
-4. `[ ] TODO` Expand the `dwimsy` CLI verb set: `restore`, `split`, `join`, and full multi-layer/archive `inspect`.
-5. `[ ] TODO` Implement `dwimsy.cli.sidechannel`'s rendering surfaces (`stderr` ANSI virtual LCD, marquee ticker, TTY keystrokes, POSIX/Win32 signal dispatcher), replacing Phase 0's plain pass-through with structured, formatted status.
-6. `[ ] TODO` Integrate `dwimsy.core.charsets` (JIS X 0201, NEC semigraphics, MSX Katakana, ASCII, streaming CLI filter applet).
-7. `[ ] TODO` Integrate `dwimsy.disk.d88` and `dwimsy.disk.fat8` (`d882fat8`, `fat82d88`, `d882t88`, `d88_explode`).
-8. `[ ] TODO` Port `bin2fds.py` to Python 3 in `dwimsy.disk.fds` (`bin2fds` filter).
-9. `[ ] TODO` Implement NONTAMA and MSX M-loader unpackers to standard BLOAD binaries (`mkrom`).
-10. `[ ] TODO` Implement `platforms.cart_hooks`: MSX Sakhr `cas2rom` extractor/packer and PC-6001mkII `mkrom` generator.
-11. `[ ] TODO` Implement `dwimsy.tape.variants`: Side-by-side flavor generator (Trimmed/Untrimmed, MSX unpadded, `.p6`/`.p6t` aligned pairs) with complete hash/size registry.
-12. `[ ] TODO` Implement `dwimsy` archive bundle generator with `manifest.yaml` and `README.md`.
-
 ### Phase 3: Extended Tape Containers (TSX, P6T, UEF, Sord, Sega, Sharp, Fujitsu) `[ ] TODO`
 
 Tasks:
@@ -1416,8 +1624,6 @@ Tasks:
 5. `[ ] TODO` Implement vintage 16-bit demodulators: IBM PC 5150 cassette (`.cas`/`.bin`) and Elektronika BK-0010 PDP-11 demodulator with KOI-7 Cyrillic decoding.
 6. `[ ] TODO` Implement raw floppy flux decoders and multi-revolution consensus (Applesauce .a2r/.woz, Greaseweazle .scp/.raw).
 7. `[ ] TODO` Finalize `pyproject.toml`, docstrings, and test suite for pip packaging.
-
----
 
 ## 13. Format & Protocol Technical Reference Guide
 
@@ -1505,7 +1711,23 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
 
 ---
 
-## 14. Note on the code and the tools used to write it
+## 14. Revision History
+
+### [0.1.6.0-dev] — 2026-08-23 (Milestone 1.6) `[ ] IN PROGRESS` (Hash: unsealed / pending `version-bump`)
+* **Summary**: Milestone 1.6: Developer infrastructure, self-packaging, testing & documentation architecture
+  * `[ ] PLANNED`: Add `dwimsy bundle` and `dwimsy bundle-fixtures` portable unpacker generators
+  * `[ ] PLANNED`: Add `dwimsy version-bump`, `dwimsy changelog`, `dwimsy cache`, `dwimsy help`, `dwimsy fetch-deps`
+  * `[ ] PLANNED`: Decompose monolithic documentation into modular `dwimsy.docs` with `dwimsy readme` and `dwimsy license`
+  * `[ ] PLANNED`: Package test suite as `dwimsy.tests` with `dwimsy test` CLI runner and content-addressed `FixturePool`
+
+### [0.1.5.0] — 2026-08-23 (Milestone 1.5 Baseline) `[x] COMPLETE`
+* **Summary**: Milestone 1 & 1.5: Native PC-88 DSP vertical slice and container/protocol parity
+  * Native core DSP libraries: `core.pulse`, `core.fsk`, and `core.audio` (Streaming WAV reader/writer)
+  * Native PC-88 container and protocol models: `tape.t88` and `protocols.pc88`
+  * Streaming CLI filters (`cli.filters.t882wav`, `cli.filters.wav2t88`) and initial verbs (`convert`, `inspect`, `split`, `join`)
+
+## 15. Note on the code and the tools used to write it
+
 
 Parts of this code were written (including some initial ones that began in other, separate projects) with assistance from LLM-integrated coding tools. If you don't like it, feel free to use other software or rewrite parts you dislike. PRs are welcome!
 
