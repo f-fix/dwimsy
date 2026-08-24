@@ -208,7 +208,7 @@ python3 dwimsy convert game.wav game.t88 --baud 600              # from the repo
 
 ```text
 $ python3 -m dwimsy --help
-usage: dwimsy [-h] [-V] [--help-all] <command> ...
+usage: dwimsy [-h] [-V] [-T] [--help-all] <command> ...
 
 dwimsy — retrocomputing media preservation, demodulation, and conversion.
 
@@ -218,10 +218,24 @@ positional arguments:
     inspect      Inspect media container headers and structural contents.
     split        Split multi-file tape images into individual program files.
     join         Join multiple files into a single .cmt or .t88 tape image.
+    meta         Maintainer tools and repository lifecycle management.
+    help         [TODO / Milestone 1.6] Interactive technical manual viewer.
+    readme       [TODO / Milestone 1.6] Output project README documentation.
+    license      [TODO / Milestone 1.6] Output project LICENSE terms.
+    changelog    [TODO / Milestone 1.6] Interactive revision history viewer.
+    charset      [TODO / Milestone 2.3] Streaming character set converter.
+    extract      [TODO / Milestone 2.3] Payload and filesystem extractor.
+    package      [TODO / Milestone 2.4] ROM cartridge compiler (cas2rom /
+                 mkrom).
+    bridge       [TODO / Milestone 2.5] Real-time hardware transport gateway.
+    archive      [TODO / Milestone 2.5] Archival preservation bundle
+                 generator.
+    recover      [TODO / Milestone 4.0] Forensic bit/pulse recovery engine.
 
 options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
+  -T, --test     Run unit tests and self-test assertions in-process
   --help-all     Show full detailed help for all subcommands at once and exit
 
 Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.
@@ -417,40 +431,37 @@ dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
 
 #### `dwimsy --test` (and `python3 -m dwimsy.tests`)
 
-> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
->
-> **Current reality:** There is no `dwimsy test` subcommand yet. The repository does contain a pytest/unittest-style test suite under `tests/`, but it is not currently exposed through the `dwimsy` CLI.
+> **Status:** [x] `COMPLETE` (Milestone 1.6).
 
-Runs the built-in unit and integration test suite, supporting custom fixture paths, verbosity levels, and subsystem filters:
+Runs the built-in unit and integration test suite in-process (directly from the on-disk `tests/` directory or automatically extracting from the embedded `blztar` payload when running from a standalone bundle):
 
 ```text
-$ dwimsy test --help
-usage: dwimsy test [-h] [-v] [-q] [-f FIXTURES_DIR] [--failfast] [pattern]
+$ python -m dwimsy.tests --help
+usage: python -m dwimsy.tests [-h] [-v] [patterns ...]
 
-Run built-in test suite to verify DSP engines, codecs, and container parsers.
+Discover and run dwimsy unit tests in-process (from disk or in-memory bundle
+payload).
 
 positional arguments:
-  pattern               Optional test name, module, or subsystem filter (e.g.
-                        'pulse', 'fsk', 'audio', 'pc88', 't88')
+  patterns       Optional test file patterns or subsystem keywords (e.g.
+                 'core', 'tape', 'convert')
 
 options:
-  -h, --help            show this help message and exit
-  -v, --verbose         Verbose test output (lists every test case)
-  -q, --quiet           Minimal output (summary only)
-  -f FIXTURES_DIR, --fixtures FIXTURES_DIR, --fixture-dir FIXTURES_DIR
-                        Path to local/private test fixture directory
-  --failfast            Stop test execution on first failure
+  -h, --help     show this help message and exit
+  -v, --verbose  Increase test runner verbosity
 ```
 
 ```bash
-# Run synthetic unit tests (runs in ~0.5s with zero external files required)
-dwimsy test
+# Unified in-process test execution:
+dwimsy --test
+python3 -m dwimsy.tests
 
-# Run against private test fixtures
-dwimsy test -v --fixtures /path/to/fixtures/
-
-# Scoped testing for a single subsystem
-dwimsy test fsk -v
+# Scoped subsystem testing:
+dwimsy convert --test
+dwimsy inspect --test
+dwimsy meta --test
+dwimsy-t882wav --test
+dwimsy-wav2t88 --test
 ```
 
 #### `dwimsy help` *(planned; not currently implemented)*
@@ -506,46 +517,67 @@ dwimsy changelog -n 5 -v
 
 #### `dwimsy meta` (Maintainer & Repository Lifecycle)
 
-> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
->
-> **Current reality:** The `dwimsy.meta` package and `dwimsy meta` command do not exist yet. The subsections below describe the planned maintainer interface; none of these commands are currently runnable.
+> **Status:** [x] `COMPLETE` (Milestone 1.6).
 
-Maintainer and packaging tooling is consolidated under `dwimsy meta <command>` to keep the top-level user CLI clean:
+Maintainer sub-commands for repository maintenance, self-packaging, offline dependency materialization, and version tracking:
+
+```text
+$ dwimsy meta --help
+usage: dwimsy meta [-h] <meta-command> ...
+
+positional arguments:
+  <meta-command>
+    bundle         Generate a self-extracting single-file Python unpacker
+                   bundle of dwimsy.
+    fetch-deps     Fetch or materialize legacy reference submodules into
+                   deps/.
+    bundle-fixtures
+                   [TODO / Milestone 1.6] Package private test fixtures.
+    version-bump   [TODO / Milestone 1.6] Advance revision and update
+                   changelog.
+    integrity      [TODO / Milestone 1.6] Verify source code integrity hash.
+
+options:
+  -h, --help       show this help message and exit
+```
 
 ##### `dwimsy meta bundle`
 Generates a standalone, self-extracting single-file Python unpacker script of `dwimsy`, enabling offline propagation to other systems or LLM sessions.
 
 ```text
 $ dwimsy meta bundle --help
-usage: dwimsy meta bundle [-h] [-o OUTPUT] [-t TAG] [--baseline] [--with-deps] [--status] [--diff]
-
-Generate a self-extracting single-file Python unpacker bundle of dwimsy.
+usage: dwimsy meta bundle [-h] [-o OUTPUT] [-t TAG] [--baseline] [--with-deps]
+                          [--status] [--diff]
 
 options:
   -h, --help            show this help message and exit
   -o OUTPUT, --output OUTPUT
-                        Output script path or '-' for stdout (default: auto-derived)
-  -t TAG, --tag TAG     Optional short descriptive tag/label (e.g. 'parser-fix')
-  --baseline            Directly emit the installed canonical baseline bundle module
-                        (dwimsy/meta/bundle.py) as output without bundling working tree
+                        Output script path or '-' for stdout (default: auto-
+                        derived)
+  -t TAG, --tag TAG     Optional short descriptive tag/label (e.g. 'parser-
+                        fix')
+  --baseline            Directly emit the installed canonical baseline bundle
+                        module (dwimsy/meta/unbundle.py) as output without
+                        bundling working tree
   --with-deps           Include legacy submodule scaffolding from deps/
-  --status              List uncommitted/modified and untracked files before bundling
-  --diff                Display working tree git diff on stderr before bundling
+  --status              List uncommitted/modified and untracked files before
+                        bundling
+  --diff                Display working tree git diff on stderr before
+                        bundling
 ```
 
-* **Modes of Operation**:
-  * `dwimsy meta bundle` (default): Packages the *live* working tree into a self-extracting `.py` script (appending `_mod` if modified).
-  * `dwimsy meta bundle --baseline`: Bypasses bundling the live working tree and directly outputs the sealed baseline module (`dwimsy/meta/bundle.py`) as-is, providing the clean reference unpacker even from a modified checkout.
+##### `dwimsy meta fetch-deps`
+Materializes frozen reference submodules into `deps/` directly from the embedded baseline bundle payload without network/git access, or updates submodules if git is available:
 
-```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.0.py (or dwimsy_0.1.6.0_mod.py)
-dwimsy meta bundle
+```text
+$ dwimsy meta fetch-deps --help
+usage: dwimsy meta fetch-deps [-h] [--baseline] [-f]
 
-# Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.0_clean.py
-
-# Bundle with custom tag and dependencies -> generates dwimsy_0.1.6.0_mod_wav_fix_deps.py
-dwimsy meta bundle --tag "wav-fix" --with-deps
+options:
+  -h, --help   show this help message and exit
+  --baseline   Extract frozen reference submodules directly from the bundled
+               baseline payload without network access
+  -f, --force  Overwrite existing deps/ directory if present
 ```
 
 ##### `dwimsy meta bundle-fixtures`
@@ -571,23 +603,15 @@ options:
 ```
 
 ##### `dwimsy meta version-bump`
-Atomically advances the package revision, recalculates the canonical code hash, updates `CHANGELOG.md`, and updates the sealed `dwimsy/meta/bundle.py` baseline:
+Atomically advances the package revision, recalculates the canonical code hash, updates `CHANGELOG.md`, and updates the sealed `dwimsy/meta/unbundle.py` baseline:
 
 ```bash
 # Advance revision and record changelog entry
 dwimsy meta version-bump -m "Harden PC-88 MON protocol state machine" -d "Validate all record checksums"
 ```
 
-##### `dwimsy meta fetch-deps`
-Clones all required legacy submodules in non-Git or bundled checkouts by parsing `.gitmodules` (from disk or `blztar`):
-
-```bash
-# Clone all submodules directly into deps/
-dwimsy meta fetch-deps
-```
-
 ##### `dwimsy meta integrity`
-Verifies working tree SHA-256 code hash against `_version.py` / `dwimsy.meta.bundle`, reporting clean status or PEP 440 local version identifier (`+mod.<short_hash>`):
+Verifies working tree SHA-256 code hash against `_version.py` / `dwimsy.meta.integrity`, reporting clean status or PEP 440 local version identifier (`+mod.<short_hash>`):
 
 ```bash
 # Verify integrity
@@ -596,53 +620,15 @@ dwimsy meta integrity
 
 ### Standalone Filter Applets
 
-The `convert` verb's PC-88 logic is also directly reachable as two independent, Netpbm-style single-purpose filters — matching the architecture's `cli.filters.*` design goal, and useful for shell pipelines that don't need the unified verb's format auto-detection. These predate `dwimsy convert` and haven't yet been reconciled with it option-for-option (see the note on `--mode`/`--flavor` divergence below) — that reconciliation is Milestone 1.5 work, not done yet.
-
-#### `dwimsy-wav2t88` (`dwimsy/cli/filters/wav2t88.py`)
-
-> **Status:** [x] `COMPLETE` (Milestone 1; option harmonization [ ] `IN PROGRESS` in Milestone 1.6)
-
-```text
-$ python3 dwimsy/cli/filters/wav2t88.py --help
-usage: dwimsy-wav2t88 [-h] [--baud {600,1200}]
-                      [--channel {auto,left,right,mix,diff}] [--bauds BAUDS]
-                      [--flavor FLAVOR] [--confidence CONFIDENCE] [-q]
-                      [input] [output]
-
-Stream PC-8001 / PC-8801 WAV audio to standard .t88 tape image.
-
-positional arguments:
-  input                 Input WAV file or '-' for stdin
-  output                Output .t88 file or '-' for stdout
-
-options:
-  -h, --help            show this help message and exit
-  --baud {600,1200}, -b {600,1200}
-                        Forced baud rate
-  --channel {auto,left,right,mix,diff}, -c {auto,left,right,mix,diff}
-                        Input channel
-  --bauds BAUDS         Candidate baud rates
-  --flavor FLAVOR       Timing flavor
-  --confidence CONFIDENCE, -C CONFIDENCE, --min-confidence CONFIDENCE
-                        Minimum confidence threshold
-  -q, --quiet           Suppress logging
-```
-
-```bash
-python3 dwimsy/cli/filters/wav2t88.py capture.wav game.t88 --baud 600
-```
-
 #### `dwimsy-t882wav` (`dwimsy/cli/filters/t882wav.py`)
 
-> **Status:** [x] `COMPLETE` (Milestone 1; option harmonization [ ] `IN PROGRESS` in Milestone 1.6)
-
 ```text
-$ python3 dwimsy/cli/filters/t882wav.py --help
+$ dwimsy-t882wav --help
 usage: dwimsy-t882wav [-h] [--mode {tape,acoustic,shaped,ideal}]
                       [--sample-rate SAMPLE_RATE] [--channels {1,2}]
                       [--stereo-mode {dual,left,right,diff}]
                       [--amplitude AMPLITUDE] [--baud {600,1200}]
-                      [--speed SPEED] [--invert] [-q]
+                      [--speed SPEED] [--invert] [-q] [-T]
                       [input] [output]
 
 Stream PC-8001 / PC-8801 .t88 tape container image to standard WAV audio.
@@ -669,16 +655,37 @@ options:
                         Speed multiplier
   --invert              Invert polarity
   -q, --quiet           Suppress progress
+  -T, --test            Run filter self-tests in-process and exit
 ```
 
-```bash
-# Pipe directly into another process rather than writing an intermediate file
-python3 dwimsy/cli/filters/t882wav.py game.t88 - --mode tape | play -t wav -
+#### `dwimsy-wav2t88` (`dwimsy/cli/filters/wav2t88.py`)
+
+```text
+$ dwimsy-wav2t88 --help
+usage: dwimsy-wav2t88 [-h] [--baud {600,1200}]
+                      [--channel {auto,left,right,mix,diff}] [--bauds BAUDS]
+                      [--flavor FLAVOR] [--confidence CONFIDENCE] [-q] [-T]
+                      [input] [output]
+
+Stream PC-8001 / PC-8801 WAV audio to standard .t88 tape image.
+
+positional arguments:
+  input                 Input WAV file or '-' for stdin
+  output                Output .t88 file or '-' for stdout
+
+options:
+  -h, --help            show this help message and exit
+  --baud {600,1200}, -b {600,1200}
+                        Forced baud rate
+  --channel {auto,left,right,mix,diff}, -c {auto,left,right,mix,diff}
+                        Input channel
+  --bauds BAUDS         Candidate baud rates
+  --flavor FLAVOR       Timing flavor
+  --confidence CONFIDENCE, -C CONFIDENCE, --min-confidence CONFIDENCE
+                        Minimum confidence threshold
+  -q, --quiet           Suppress logging
+  -T, --test            Run filter self-tests in-process and exit
 ```
-
-**Known divergence from `dwimsy convert`, not yet reconciled:** `dwimsy-t882wav --mode` currently only accepts `{tape,acoustic,shaped,ideal}`, versus `dwimsy convert --mode`'s full `{tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}`; and `dwimsy-wav2t88 --flavor` takes any free-form string rather than being constrained to the five named choices `dwimsy convert --flavor` validates against. Both filters and `dwimsy convert` currently call into the same underlying `core.pulse`/`core.fsk`/`core.audio` logic, so this is purely a CLI-surface inconsistency between two front ends, not a difference in what actually gets decoded/synthesized — but it means these two entry points aren't fully interchangeable yet for every option.
-
----
 
 ## 4. Existing Project Lineage & Asset Repositories
 
@@ -1199,14 +1206,14 @@ To provide clean, immediate usability in emulators while maintaining complete ar
 │ dwimsy split              │ Multi-file tape splitting         │ [x] COMPLETE (PC-88 T88/CMT)  │
 │ dwimsy join               │ Multi-file tape concatenation     │ [x] COMPLETE (PC-88 T88/CMT)  │
 │ dwimsy t882wav / wav2t88  │ Direct PC-88 streaming filters    │ [x] COMPLETE (Milestone 1)    │
-│ dwimsy test               │ Test suite runner (--fixtures)    │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy --test             │ In-process test suite runner      │ [x] COMPLETE (Milestone 1.6)  │
 │ dwimsy help               │ Pydoc technical manual viewer     │ [ ] IN PROGRESS (M1.6)        │
 │ dwimsy readme / license   │ Documentation / License viewers   │ [ ] IN PROGRESS (M1.6)        │
 │ dwimsy changelog          │ Revision history viewer           │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy meta bundle        │ Self-packaging portable unpacker  │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy meta bundle        │ Self-packaging portable unpacker  │ [x] COMPLETE (Milestone 1.6)  │
 │ dwimsy meta bundle-fixtures│ Test fixture archive packager    │ [ ] IN PROGRESS (M1.6)        │
 │ dwimsy meta version-bump  │ Version advance & code-hash seal  │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy meta fetch-deps    │ Non-git submodule cloner          │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy meta fetch-deps    │ Baseline submodule extractor      │ [x] COMPLETE (Milestone 1.6)  │
 │ dwimsy meta integrity     │ Tree code-hash integrity checker  │ [ ] IN PROGRESS (M1.6)        │
 │ dwimsy wav2cas / cas2wav  │ MSX FSK streaming filters         │ [ ] TODO (Milestone 2.1)      │
 │ dwimsy flac2wav           │ Pure-Python streaming FLAC decode │ [ ] TODO (Milestone 2.1)      │
