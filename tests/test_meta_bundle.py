@@ -23,6 +23,7 @@ class TestMetaBundle(unittest.TestCase):
         assets = unbundle.list_assets()
         self.assertIn("README.md", assets)
         self.assertIn("LICENSE", assets)
+        self.assertIn("deps/bin2fds/bin2fds.py", assets)
 
         readme_text = unbundle.get_asset_text("README.md")
         self.assertTrue(readme_text.startswith("# dwimsy"))
@@ -30,24 +31,79 @@ class TestMetaBundle(unittest.TestCase):
         license_bytes = unbundle.get_asset("LICENSE")
         self.assertTrue(len(license_bytes) > 0)
 
+        dep_code = unbundle.get_asset_text("deps/bin2fds/bin2fds.py")
+        self.assertIn("def bin2fds", dep_code)
+
         with self.assertRaises(FileNotFoundError):
             unbundle.get_asset("non_existent_file_xyz.txt")
 
-    def test_unbundle_extract_all_and_self_reconstitution(self):
+    def test_unbundle_extract_default_excludes_deps(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            unbundle.extract_b64_lzma_tar(unbundle.blztar, tmp_path)
+            unbundle.extract_b64_lzma_tar(unbundle.blztar, tmp_path, with_deps=False)
 
             self.assertTrue((tmp_path / "README.md").is_file())
             self.assertTrue((tmp_path / "dwimsy" / "__init__.py").is_file())
             self.assertTrue((tmp_path / "dwimsy" / "meta" / "unbundle.py").is_file())
+            self.assertFalse((tmp_path / "deps").exists())
 
-    def test_bundle_build_script(self):
-        root = bundle.find_repo_root()
-        script = bundle.build_bundle_script(root, with_deps=False, preset=1)
-        self.assertTrue(script.startswith("#!/usr/bin/env python3"))
-        self.assertIn('blztar = """', script)
-        self.assertIn("def extract_b64_lzma_tar", script)
+    def test_unbundle_extract_with_deps_flag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            unbundle.extract_b64_lzma_tar(unbundle.blztar, tmp_path, with_deps=True)
+
+            self.assertTrue((tmp_path / "README.md").is_file())
+            self.assertTrue((tmp_path / "dwimsy" / "__init__.py").is_file())
+            self.assertTrue((tmp_path / "deps" / "bin2fds" / "bin2fds.py").is_file())
+
+    def test_unbundle_extract_deps_helper(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            unbundle.extract_b64_lzma_tar(unbundle.blztar, tmp_path, with_deps=False)
+            self.assertFalse((tmp_path / "deps").exists())
+
+            extracted = unbundle.extract_deps(tmp_path)
+            self.assertTrue(len(extracted) > 0)
+            self.assertTrue((tmp_path / "deps" / "bin2fds" / "bin2fds.py").is_file())
+
+    def test_bundle_build_script_fallback_without_deps_on_disk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            unbundle.extract_b64_lzma_tar(unbundle.blztar, tmp_path, with_deps=False)
+            self.assertFalse((tmp_path / "deps").exists())
+
+            # Building bundle from clean tree without deps/ on disk must still embed deps/
+            script = bundle.build_bundle_script(tmp_path, with_deps=True, preset=1)
+            self.assertTrue(script.startswith("#!/usr/bin/env python3"))
+            self.assertIn('blztar = """', script)
+            self.assertIn("def extract_b64_lzma_tar", script)
+
+            # Unpack the generated bundle with deps and verify deps exist
+            dest_unpack = tmp_path / "unpacked_from_clean"
+            out_bundle = tmp_path / "clean_bundle.py"
+            out_bundle.write_text(script, encoding="utf-8")
+            res = subprocess.run([sys.executable, str(out_bundle), str(dest_unpack), "--deps"], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0)
+            self.assertTrue((dest_unpack / "deps" / "bin2fds" / "bin2fds.py").is_file())
+
+    def test_cli_meta_fetch_deps_baseline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            unbundle.extract_b64_lzma_tar(unbundle.blztar, tmp_path, with_deps=False)
+            self.assertFalse((tmp_path / "deps").exists())
+
+            buf = io.StringIO()
+            err = io.StringIO()
+            with redirect_stdout(buf), redirect_stderr(err):
+                cur = os.getcwd()
+                try:
+                    os.chdir(tmp_path)
+                    main(["meta", "fetch-deps", "--baseline"])
+                finally:
+                    os.chdir(cur)
+
+            self.assertTrue((tmp_path / "deps").is_dir())
+            self.assertTrue((tmp_path / "deps" / "bin2fds" / "bin2fds.py").is_file())
 
     def test_cli_meta_bundle_to_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -62,12 +118,19 @@ class TestMetaBundle(unittest.TestCase):
             self.assertTrue(out_bundle.is_file())
             self.assertTrue(os.access(str(out_bundle), os.X_OK))
 
-            # Test unpacking the generated bundle in another directory
+            # Test default unpacking (no deps)
             dest_unpack = tmp_path / "unpacked_dest"
             res = subprocess.run([sys.executable, str(out_bundle), str(dest_unpack)], capture_output=True, text=True)
             self.assertEqual(res.returncode, 0)
             self.assertTrue((dest_unpack / "README.md").is_file())
             self.assertTrue((dest_unpack / "dwimsy" / "meta" / "unbundle.py").is_file())
+            self.assertFalse((dest_unpack / "deps").exists())
+
+            # Test unpacking with --deps
+            dest_unpack_deps = tmp_path / "unpacked_dest_deps"
+            res_d = subprocess.run([sys.executable, str(out_bundle), str(dest_unpack_deps), "--deps"], capture_output=True, text=True)
+            self.assertEqual(res_d.returncode, 0)
+            self.assertTrue((dest_unpack_deps / "deps" / "bin2fds" / "bin2fds.py").is_file())
 
             # Test CLI version in unpacked destination
             res_v = subprocess.run([sys.executable, "-m", "dwimsy", "--version"], cwd=str(dest_unpack), capture_output=True, text=True)
