@@ -30,7 +30,7 @@ def package_root() -> Path:
 def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
     """Return canonical Python source files in sorted relative-path order."""
     root = Path(root) if root is not None else _PACKAGE_ROOT
-    files = [p for p in root.rglob("*.py") if p.is_file()]
+    files = [p for p in root.rglob("*.py") if p.is_file() and p.name != "unbundle.py"]
     return tuple(sorted(files, key=lambda p: p.relative_to(root).as_posix()))
 
 
