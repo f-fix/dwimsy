@@ -49,6 +49,16 @@ class IntegrityTests(unittest.TestCase):
                 ("_version.py", "a.py", "z.py"),
             )
 
+    def test_unbundle_module_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "_version.py").write_text('__version__ = "x"\n__code_hash__ = ""\n', encoding="utf-8")
+            (root / "a.py").write_text("a = 1\n", encoding="utf-8")
+            h1 = integrity.canonical_code_hash(root)
+            (root / "unbundle.py").write_text('blztar = "xyz"\n', encoding="utf-8")
+            h2 = integrity.canonical_code_hash(root)
+            self.assertEqual(h1, h2)
+
     def test_unsealed_tree_is_modified(self):
         self.assertEqual(integrity.sealed_code_hash(), "")
         self.assertTrue(integrity.is_modified())
