@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_test_runner - verify dwimsy in-process test discovery and execution CLI & engine."""
+"""tests.test_test_runner - Verify in-process test discovery and execution CLI flags."""
 
 import io
 import os
@@ -14,7 +14,7 @@ if str(pkg_root) not in sys.path:
     sys.path.insert(0, str(pkg_root))
 
 from dwimsy import tests as dw_tests
-from dwimsy.cli.main import main
+from dwimsy.cli.__main__ import main
 from dwimsy.cli.filters.t882wav import main as t882wav_main
 from dwimsy.cli.filters.wav2t88 import main as wav2t88_main
 
