@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 """dwimsy.cli.main — central CLI entrypoint for dwimsy.
 
 Exposes 'convert', 'inspect', 'split', and 'join' verbs.
