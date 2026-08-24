@@ -205,20 +205,21 @@ python3 dwimsy convert game.wav game.t88 --baud 600              # from the repo
 
 ```text
 $ python3 -m dwimsy --help
-usage: dwimsy [-h] [--help-all] <command> ...
+usage: dwimsy [-h] [-V] [--help-all] <command> ...
 
 dwimsy — retrocomputing media preservation, demodulation, and conversion.
 
 positional arguments:
   <command>
-    convert   Convert between media representations (WAV, T88, CMT).
-    inspect   Inspect media container headers and structural contents.
-    split     Split multi-file tape images into individual program files.
-    join      Join multiple files into a single .cmt or .t88 tape image.
+    convert      Convert between media representations (WAV, T88, CMT).
+    inspect      Inspect media container headers and structural contents.
+    split        Split multi-file tape images into individual program files.
+    join         Join multiple files into a single .cmt or .t88 tape image.
 
 options:
-  -h, --help  show this help message and exit
-  --help-all  Show full detailed help for all subcommands at once and exit
+  -h, --help     show this help message and exit
+  -V, --version  show program's version number and exit
+  --help-all     Show full detailed help for all subcommands at once and exit
 
 Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.
 ```
