@@ -10,7 +10,7 @@ grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 
 > [!IMPORTANT]
 > **DEVELOPMENT STATUS: PHASE 1 & MILESTONE 1.5 COMPLETE; MILESTONE 1.6 IN PROGRESS.**
-> Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`), streaming filters (`cli.filters.t882wav` and `cli.filters.wav2t88`), the unified CLI (`dwimsy convert`, `inspect`, `split`, `join`), and native PC-88 container/protocol modules (`tape.t88`, `protocols.pc88`) are implemented in pure Python standard library. **Milestone 1.6** is establishing the complete self-packaging, tooling, testing, and documentation infrastructure (`dwimsy bundle`, `dwimsy bundle-fixtures`, `dwimsy version-bump`, `dwimsy changelog`, `dwimsy cache`, `dwimsy help`, `dwimsy readme`, `dwimsy license`, `dwimsy test`, and `dwimsy.core.integrity`), modularizing the documentation into `dwimsy.docs`, and preparing the test harness before Milestone 1.7 state-machine parser hardening and final submodule ejection.
+> Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`), streaming filters (`cli.filters.t882wav` and `cli.filters.wav2t88`), the unified CLI (`dwimsy convert`, `inspect`, `split`, `join`), and native PC-88 container/protocol modules (`tape.t88`, `protocols.pc88`) are implemented in pure Python standard library. **Milestone 1.6** is establishing the developer infrastructure, packaging, testing, and integrity architecture (`dwimsy test`, `dwimsy help`, `dwimsy readme`, `dwimsy changelog`, `dwimsy license`, `dwimsy meta` maintainer tools including `bundle`, `bundle-fixtures`, `version-bump`, `fetch-deps`, and `integrity`, backed by `dwimsy.meta.integrity` and self-contained `dwimsy.meta.bundle`), while maintaining `README.md` and `CHANGELOG.md` as canonical markdown sources of truth before Milestone 1.7 state-machine parser hardening and final submodule ejection.
 
 ### For now, see:
 
@@ -37,13 +37,15 @@ grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
      - [`dwimsy split`](#dwimsy-split)
      - [`dwimsy join`](#dwimsy-join)
      - [`dwimsy test`](#dwimsy-test)
-     - [`dwimsy bundle`](#dwimsy-bundle)
-     - [`dwimsy bundle-fixtures`](#dwimsy-bundle-fixtures)
-     - [`dwimsy version-bump` & `dwimsy changelog`](#dwimsy-version-bump--dwimsy-changelog)
-     - [`dwimsy cache`](#dwimsy-cache)
-     - [`dwimsy readme` & `dwimsy license`](#dwimsy-readme--dwimsy-license)
      - [`dwimsy help`](#dwimsy-help)
-     - [`dwimsy fetch-deps`](#dwimsy-fetch-deps)
+     - [`dwimsy readme` & `dwimsy license`](#dwimsy-readme--dwimsy-license)
+     - [`dwimsy changelog`](#dwimsy-changelog)
+     - [`dwimsy meta` (Maintainer & Repository Lifecycle)](#dwimsy-meta-maintainer--repository-lifecycle)
+       - [`dwimsy meta bundle`](#dwimsy-meta-bundle)
+       - [`dwimsy meta bundle-fixtures`](#dwimsy-meta-bundle-fixtures)
+       - [`dwimsy meta version-bump`](#dwimsy-meta-version-bump)
+       - [`dwimsy meta fetch-deps`](#dwimsy-meta-fetch-deps)
+       - [`dwimsy meta integrity`](#dwimsy-meta-integrity)
    - [Standalone Filter Applets](#standalone-filter-applets)
 4. [Existing Project Lineage & Asset Repositories](#4-existing-project-lineage--asset-repositories)
 5. [Component Implementation Status Matrix](#5-component-implementation-status-matrix)
@@ -207,12 +209,21 @@ usage: dwimsy [-h] [--help-all] <command> ...
 
 dwimsy — retrocomputing media preservation, demodulation, and conversion.
 
-primary commands:
-  convert     Convert between media representations (WAV, T88, CMT).
-  inspect     Inspect media container headers and structural contents.
-  split       Split multi-file tape images into individual program files.
-  join        Join multiple files into a single .cmt or .t88 tape image.
-  test        Run built-in unit/integration test suite.
+primary media commands:
+  convert     Convert between media representations (WAV, T88, CMT, CAS).
+  inspect     Inspect media container headers, track tables, and audio.
+  split       Split multi-file tape/disk images into individual program files.
+  join        Join multiple files into a combined container image.
+
+general utilities:
+  test        Run built-in unit and integration test suite.
+  help        Display interactive technical reference manual.
+  readme      Display canonical README documentation.
+  changelog   Display revision history from CHANGELOG.md.
+  license     Display project license.
+
+maintainer / repository lifecycle:
+  meta        Maintainer tools (bundle, bundle-fixtures, version-bump, fetch-deps, integrity).
 
 streaming filter shortcuts:
   t882wav     Stream PC-88 .t88 container to audio WAV.
@@ -449,15 +460,63 @@ dwimsy test -v --fixtures /path/to/fixtures/
 dwimsy test fsk -v
 ```
 
-#### `dwimsy bundle`
+#### `dwimsy help`
 
 > **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
 
-Generates a standalone, self-extracting single-file Python unpacker script of `dwimsy`, enabling offline propagation to other systems or LLM sessions:
+Displays the interactive technical reference manual for any CLI verb or core subsystem:
+
+```bash
+# View deep technical manual for FSK pulse classification
+dwimsy help fsk
+
+# View manual for T88 container models
+dwimsy help t88
+```
+
+#### `dwimsy readme` & `dwimsy license`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Outputs the project `README.md` and `LICENSE` files. When run on an interactive terminal, outputs via a terminal pager (`pydoc.pager`); when redirected to a pipe or file, streams plain Markdown text.
+
+* **Resolution Precedence**:
+  1. *Local Source Checkout*: If running from a source working tree, reads the live on-disk `README.md` / `LICENSE` alongside `dwimsy/`, reflecting local edits immediately without rebuilding.
+  2. *Installed System Package*: When installed in `site-packages`/`dist-packages`, reads the canonical text directly from `dwimsy.meta.bundle.blztar` in memory with zero external file dependencies.
+
+```bash
+# Interactive terminal viewer (scroll with arrows, q to exit)
+dwimsy readme
+dwimsy license
+
+# Stream canonical documentation to stdout or file
+dwimsy readme > README.md
+dwimsy license > LICENSE
+```
+
+#### `dwimsy changelog`
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Inspects recent project revision history from the canonical `CHANGELOG.md` file (or `blztar` fallback when installed):
+
+```bash
+# View recent revision history in terminal
+dwimsy changelog -n 5 -v
+```
+
+#### `dwimsy meta` (Maintainer & Repository Lifecycle)
+
+> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
+
+Maintainer and packaging tooling is consolidated under `dwimsy meta <command>` to keep the top-level user CLI clean:
+
+##### `dwimsy meta bundle`
+Generates a standalone, self-extracting single-file Python unpacker script of `dwimsy`, enabling offline propagation to other systems or LLM sessions.
 
 ```text
-$ dwimsy bundle --help
-usage: dwimsy bundle [-h] [-o OUTPUT] [-t TAG] [--with-deps] [--status] [--diff]
+$ dwimsy meta bundle --help
+usage: dwimsy meta bundle [-h] [-o OUTPUT] [-t TAG] [--baseline] [--with-deps] [--status] [--diff]
 
 Generate a self-extracting single-file Python unpacker bundle of dwimsy.
 
@@ -466,29 +525,35 @@ options:
   -o OUTPUT, --output OUTPUT
                         Output script path or '-' for stdout (default: auto-derived)
   -t TAG, --tag TAG     Optional short descriptive tag/label (e.g. 'parser-fix')
+  --baseline            Directly emit the installed canonical baseline bundle module
+                        (dwimsy/meta/bundle.py) as output without bundling working tree
   --with-deps           Include legacy submodule scaffolding from deps/
   --status              List uncommitted/modified and untracked files before bundling
   --diff                Display working tree git diff on stderr before bundling
 ```
 
+* **Modes of Operation**:
+  * `dwimsy meta bundle` (default): Packages the *live* working tree into a self-extracting `.py` script (appending `_mod` if modified).
+  * `dwimsy meta bundle --baseline`: Bypasses bundling the live working tree and directly outputs the sealed baseline module (`dwimsy/meta/bundle.py`) as-is, providing the clean reference unpacker even from a modified checkout.
+
 ```bash
-# Bundle clean working tree -> generates dwimsy_0.1.6.0.py (defaults to ./dwimsy_0.1.6.0/)
-dwimsy bundle
+# Bundle live working tree -> generates dwimsy_0.1.6.0.py (or dwimsy_0.1.6.0_mod.py)
+dwimsy meta bundle
+
+# Emit sealed baseline bundle directly
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.0_clean.py
 
 # Bundle with custom tag and dependencies -> generates dwimsy_0.1.6.0_mod_wav_fix_deps.py
-dwimsy bundle --tag "wav-fix" --with-deps
+dwimsy meta bundle --tag "wav-fix" --with-deps
 ```
 
-#### `dwimsy bundle-fixtures`
-
-> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
-
+##### `dwimsy meta bundle-fixtures`
 Packages locally present private test fixtures into a self-extracting unpacker script:
 
 ```text
-$ dwimsy bundle-fixtures --help
-usage: dwimsy bundle-fixtures [-h] [-o OUTPUT] [-p PLATFORM] [-t TAG]
-                              [--fixtures-dir FIXTURES_DIR] [--list]
+$ dwimsy meta bundle-fixtures --help
+usage: dwimsy meta bundle-fixtures [-h] [-o OUTPUT] [-p PLATFORM] [-t TAG]
+                                   [--fixtures-dir FIXTURES_DIR] [--list]
 
 Package locally available private test fixtures into a self-extracting unpacker.
 
@@ -504,73 +569,28 @@ options:
   --list                List detected fixture files without creating a bundle
 ```
 
-#### `dwimsy version-bump` & `dwimsy changelog`
-
-> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
-
-Atomically advances the package revision, recalculates the canonical code hash, updates `CHANGELOG`, and inspects revision history:
+##### `dwimsy meta version-bump`
+Atomically advances the package revision, recalculates the canonical code hash, updates `CHANGELOG.md`, and updates the sealed `dwimsy/meta/bundle.py` baseline:
 
 ```bash
-# Advance revision and record changelog entry in dwimsy/_version.py
-dwimsy version-bump -m "Harden PC-88 MON protocol state machine" -d "Validate all record checksums"
-
-# View recent revision history in terminal
-dwimsy changelog -n 5 -v
+# Advance revision and record changelog entry
+dwimsy meta version-bump -m "Harden PC-88 MON protocol state machine" -d "Validate all record checksums"
 ```
 
-#### `dwimsy cache`
-
-> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
-
-Synchronizes on-disk project assets (`.gitignore`, `.gitmodules`, `LICENSE`) into Python-cached strings in `dwimsy.docs.assets` to prevent documentation and bundle drift:
-
-```bash
-# Cache updated .gitignore and .gitmodules
-dwimsy cache .gitignore .gitmodules
-
-# Cache all project root asset files
-dwimsy cache --all
-```
-
-#### `dwimsy readme` & `dwimsy license`
-
-> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
-
-Generates and outputs the canonical `README.md` and `LICENSE` files. When run on an interactive terminal, outputs via an interactive pager (`pydoc.pager`); when redirected to a pipe or file, streams plain Markdown text:
-
-```bash
-# Interactive terminal viewer (scroll with arrows, q to exit)
-dwimsy readme
-dwimsy license
-
-# Regenerate canonical on-disk files in repository root
-dwimsy readme > README.md
-dwimsy license > LICENSE
-```
-
-#### `dwimsy help`
-
-> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
-
-Displays the interactive technical reference manual for any CLI verb or core subsystem:
-
-```bash
-# View deep technical manual for FSK pulse classification
-dwimsy help fsk
-
-# View manual for T88 container models
-dwimsy help t88
-```
-
-#### `dwimsy fetch-deps`
-
-> **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
-
-Clones all required legacy submodules in non-Git checkouts by parsing `.gitmodules`:
+##### `dwimsy meta fetch-deps`
+Clones all required legacy submodules in non-Git or bundled checkouts by parsing `.gitmodules` (from disk or `blztar`):
 
 ```bash
 # Clone all submodules directly into deps/
-dwimsy fetch-deps
+dwimsy meta fetch-deps
+```
+
+##### `dwimsy meta integrity`
+Verifies working tree SHA-256 code hash against `_version.py` / `dwimsy.meta.bundle`, reporting clean status or PEP 440 local version identifier (`+mod.<short_hash>`):
+
+```bash
+# Verify integrity
+dwimsy meta integrity
 ```
 
 ### Standalone Filter Applets
@@ -684,18 +704,17 @@ python3 dwimsy/cli/filters/t882wav.py game.t88 - --mode tape | play -t wav -
 | **`protocols.pc88`** | PC-88 ROM protocol state machine: BASIC (0xD3), MON (0x24/0x3A), ASCII (0x9C), NONTAMA (0xFF), MON O/I | `[x] DONE` | Milestone 1.5 |
 | **`cli.split_join`** | PC-88 tape splitting (`dwimsy split`) and concatenation (`dwimsy join`) | `[x] DONE` | Milestone 1.5 |
 | **`cli.inspect` (deep)** | Full acoustic audio inspection (energy, cycles, speed drift) & deep structural ROM/T88 report | `[x] DONE` | Milestone 1.5 |
-| **`core.integrity`** | Pure Python canonical code-hashing (`__code_hash__` sentinel) & runtime mod-detection | `[ ] TODO` | Milestone 1.6 |
-| **`cli.version_bump`**| `dwimsy version-bump` (advances revision, seals code-hash, records structured `CHANGELOG`) | `[ ] TODO` | Milestone 1.6 |
-| **`cli.changelog`** | `dwimsy changelog` (interactive revision history & changelog viewer) | `[ ] TODO` | Milestone 1.6 |
-| **`cli.bundle`** | `dwimsy bundle` (self-packaging, auto-tagging, shebang sniffing, `chmod +x` assignment) | `[ ] TODO` | Milestone 1.6 |
-| **`cli.bundle_fixtures`**| `dwimsy bundle-fixtures` (content-addressed private test fixture packager) | `[ ] TODO` | Milestone 1.6 |
-| **`cli.cache`** | `dwimsy cache` (synchronizes `.gitignore`, `.gitmodules`, `LICENSE` into Python cache) | `[ ] TODO` | Milestone 1.6 |
-| **`docs.generator`** | Modular `dwimsy.docs` package & `dwimsy readme` / `dwimsy license` CLI verbs | `[ ] TODO` | Milestone 1.6 |
-| **`cli.help`** | `dwimsy help [verb\|topic]` (interactive pydoc technical manual viewer) | `[ ] TODO` | Milestone 1.6 |
-| **`cli.fetch_deps`** | `dwimsy fetch-deps` (clones `.gitmodules` dependencies in non-git checkouts) | `[ ] TODO` | Milestone 1.6 |
-| **`tests.subpackage`**| Package test suite as `dwimsy.tests` subpackage with `dwimsy test` CLI runner | `[ ] TODO` | Milestone 1.6 |
-| **`tests.fixtures`** | Content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) | `[ ] TODO` | Milestone 1.6 |
-| **`packaging`** | Standard `pyproject.toml` with console script entry points | `[ ] TODO` | Milestone 1.6 |
+| **`meta.integrity`** | Pure Python canonical code-hashing (`__code_hash__` sentinel) & runtime mod-detection | `[ ] TODO` | Milestone 1.6 |
+| **`meta.bundle`**    | Single-file unpacker generator (`dwimsy meta bundle`), `--baseline` export & `blztar` storage | `[ ] TODO` | Milestone 1.6 |
+| **`meta.bundle_fixtures`**| Content-addressed test fixture packager (`dwimsy meta bundle-fixtures`) | `[ ] TODO` | Milestone 1.6 |
+| **`meta.version_bump`**| `dwimsy meta version-bump` (advances revision, seals code-hash, updates `CHANGELOG.md`) | `[ ] TODO` | Milestone 1.6 |
+| **`meta.fetch_deps`**| `dwimsy meta fetch-deps` (clones `.gitmodules` dependencies in non-git checkouts) | `[ ] TODO` | Milestone 1.6 |
+| **`cli.changelog`**  | `dwimsy changelog` (interactive revision history viewer reading `CHANGELOG.md`) | `[ ] TODO` | Milestone 1.6 |
+| **`cli.doc_viewers`**| `dwimsy readme` & `dwimsy license` (on-disk precedence with `blztar` fallback) | `[ ] TODO` | Milestone 1.6 |
+| **`cli.help`**       | `dwimsy help [verb\|topic]` (interactive pydoc technical manual viewer) | `[ ] TODO` | Milestone 1.6 |
+| **`tests.fixtures`** | Content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) | `[x] DONE` | Milestone 1.6 |
+| **`tests.runner`**   | `dwimsy test` CLI test suite runner with `--fixtures` and subsystem filtering | `[ ] TODO` | Milestone 1.6 |
+| **`packaging`**      | Standard `pyproject.toml` with clean console script entry points | `[ ] TODO` | Milestone 1.6 |
 | **`protocols.pc88` (hardened)**| Strict grammar state machine, full MON address/payload checksums, and `[truncated]` emission | `[ ] TODO` | Milestone 1.7 |
 | **`tape.t88` (hardened)**| Strict T88 block length verification and canonical 24-byte signature checking | `[ ] TODO` | Milestone 1.7 |
 | **`core.audio` (hardened)**| Strict WAV `data` chunk boundary clamping (ignoring trailing RIFF metadata chunks) | `[ ] TODO` | Milestone 1.7 |
@@ -1180,14 +1199,14 @@ To provide clean, immediate usability in emulators while maintaining complete ar
 │ dwimsy join               │ Multi-file tape concatenation     │ [x] COMPLETE (PC-88 T88/CMT)  │
 │ dwimsy t882wav / wav2t88  │ Direct PC-88 streaming filters    │ [x] COMPLETE (Milestone 1)    │
 │ dwimsy test               │ Test suite runner (--fixtures)    │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy bundle             │ Self-packaging portable unpacker  │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy bundle-fixtures    │ Test fixture archive packager     │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy version-bump       │ Version advance & code-hash seal  │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy changelog          │ Revision history viewer           │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy cache              │ Asset synchronization (.gitignore)│ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy readme / license   │ Interactive Paged Doc Viewers     │ [ ] IN PROGRESS (M1.6)        │
 │ dwimsy help               │ Pydoc technical manual viewer     │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy fetch-deps         │ Non-git submodule cloner          │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy readme / license   │ Documentation / License viewers   │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy changelog          │ Revision history viewer           │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy meta bundle        │ Self-packaging portable unpacker  │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy meta bundle-fixtures│ Test fixture archive packager    │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy meta version-bump  │ Version advance & code-hash seal  │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy meta fetch-deps    │ Non-git submodule cloner          │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy meta integrity     │ Tree code-hash integrity checker  │ [ ] IN PROGRESS (M1.6)        │
 │ dwimsy wav2cas / cas2wav  │ MSX FSK streaming filters         │ [ ] TODO (Milestone 2.1)      │
 │ dwimsy flac2wav           │ Pure-Python streaming FLAC decode │ [ ] TODO (Milestone 2.1)      │
 │ dwimsy cmt-filter         │ Analog circuit simulation filter  │ [ ] TODO (Milestone 2.1)      │
@@ -1229,33 +1248,36 @@ dwimsy test
 dwimsy test -v --fixtures /path/to/fixtures/
 dwimsy test fsk -v
 
-# Package dwimsy into a standalone self-extracting script with custom tag
-dwimsy bundle --tag "wav-clamping" --with-deps
-
-# Package local private test fixtures for a specific platform
-dwimsy bundle-fixtures --platform pc88 -o pc88_fixtures.py
-
-# Advance revision, lock code-hash, and record changelog message in _version.py
-dwimsy version-bump -m "Fix WAV data chunk boundary clamping" -d "Ignore trailing metadata chunks"
-
-# Display recent changelog in terminal
-dwimsy changelog -n 5 -v
-
-# Synchronize on-disk asset modifications into Python cache
-dwimsy cache .gitignore .gitmodules LICENSE
-dwimsy cache --all
-
-# View canonical documentation with interactive terminal pager (pydoc.pager)
-dwimsy readme
-dwimsy license
-dwimsy readme > README.md      # streams plain Markdown when redirected
-
 # Display technical reference manual for any verb or core subsystem
 dwimsy help fsk
 dwimsy help t88
 
+# View canonical documentation and license (streams plain Markdown when redirected)
+dwimsy readme
+dwimsy license
+dwimsy readme > README.md
+dwimsy license > LICENSE
+
+# Display recent changelog from CHANGELOG.md in terminal
+dwimsy changelog -n 5 -v
+
+# Package dwimsy into a standalone self-extracting script with custom tag
+dwimsy meta bundle --tag "wav-clamping" --with-deps
+
+# Output the canonical baseline unpacker script directly without bundling working tree
+dwimsy meta bundle --baseline -o dwimsy_0.1.6.0_clean.py
+
+# Package local private test fixtures for a specific platform
+dwimsy meta bundle-fixtures --platform pc88 -o pc88_fixtures.py
+
+# Advance revision, lock code-hash, and record changelog message in CHANGELOG.md
+dwimsy meta version-bump -m "Fix WAV data chunk boundary clamping" -d "Ignore trailing metadata chunks"
+
 # Clone dependencies in non-git checkouts
-dwimsy fetch-deps
+dwimsy meta fetch-deps
+
+# Verify working tree code integrity against canonical hash
+dwimsy meta integrity
 
 
 # === 3. PLANNED COMMANDS & RECOVERY WORKFLOWS [ ] TODO (Phase 2 & Beyond) ===
@@ -1434,6 +1456,11 @@ To prevent UI telemetry from polluting piped data streams:
   * `SIGHUP`: Reload geometry / re-sync.
   * `SIGINT` (`Ctrl-C`): Graceful shutdown and provenance flush.
 
+### Forward Architecture & CLI Design Notes
+
+* **`dwimsy bridge` Appliance Mode (Milestone 2.5)**: Unlike streamable Unix filters (e.g. `dwimsy-t882wav`) which require shell arguments and standard I/O pipes, `dwimsy bridge` is designed as a **zero-argument, double-click launchable appliance**. On systems configured for OS `.py` launching, double-clicking `dwimsy-bridge` or launching without arguments starts with graceful interactive first-run configuration (serial port selection, default cassette/disk geometry) rather than exiting with an argument error.
+* **`dwimsy shell` Programmatic Dispatch (Future Milestone)**: To support an eventual interactive REPL shell (`dwimsy shell`), all CLI subcommand handlers in `dwimsy.cli` are structured as callable functions taking parsed arguments rather than assuming process termination (`sys.exit()`). An in-process REPL loop can thus dispatch commands directly without spawning fresh child processes.
+
 ### Positional Per-Input Options (SoX / FFmpeg Model) `[ ] TODO (Milestone 2.5)`
 
 Options placed immediately before an input file act as scoped overrides:
@@ -1601,18 +1628,18 @@ Tasks:
 The goal of Milestone 1.6 is to establish the complete developer tooling, self-packaging, test execution, and documentation pipeline, providing a clean safety harness before parser hardening and Phase 2.
 
 Tasks:
-1. `[ ] TODO` **`dwimsy.core.integrity`**: Implement pure Python canonical code-hashing over `dwimsy/**/*.py` using alphabetically sorted relative paths, normalized `\r\n` → `\n` line endings, and sentinel substitution `__code_hash__ = ""` in `_version.py`. Automatic runtime mod detection appends `+mod.<short_hash>` when working tree is modified.
-2. `[ ] TODO` **`dwimsy.cli.version_bump` & `_version.py`**: Build the atomic `dwimsy version-bump` command to increment the last revision integer, generate the new code-hash, update build dates, and append structured entries to `CHANGELOG` in `_version.py`.
-3. `[ ] TODO` **`dwimsy.cli.changelog`**: Implement `dwimsy changelog` to parse and display the structured revision history from `_version.py`.
-4. `[ ] TODO` **`dwimsy.cli.bundle`**: Implement `dwimsy bundle` to package the codebase into a standalone self-extracting script with automatic `_mod` naming, custom `--tag` slug sanitization, and embedded provenance headers. Enforce pre-flight zero-drift check against `README.md` and `LICENSE`.
-5. `[ ] TODO` **`dwimsy.cli.bundle_fixtures`**: Implement `dwimsy bundle-fixtures` to package local private fixture subsets into self-extracting unpackers that automatically unpack into `tests/fixtures/`.
-6. `[ ] TODO` **`dwimsy.cli.cache`**: Implement `dwimsy cache [files...]` to update Python-cached asset strings (`.gitignore`, `.gitmodules`, `LICENSE`) from on-disk source files.
-7. `[ ] TODO` **`dwimsy.docs` & Documentation Verbs**: Modularize `README.md` and `LICENSE` into `dwimsy/docs/`, implementing `dwimsy readme` and `dwimsy license` CLI verbs with `pydoc.pager` interactive TTY viewing and plain streaming for pipes/files.
-8. `[ ] TODO` **`dwimsy.cli.help`**: Implement `dwimsy help [verb|topic]` to display interactive pydoc technical manuals for CLI verbs and core subsystems.
-9. `[ ] TODO` **`dwimsy.cli.fetch_deps`**: Implement `dwimsy fetch-deps` to parse `.gitmodules` and clone submodules in non-git checkouts.
-10. `[ ] TODO` **`dwimsy.tests` & `dwimsy test`**: Move `tests/` into the `dwimsy.tests` subpackage. Implement `dwimsy test` (and `dwimsy-test`) supporting `--fixtures <DIR>`, target filtering, and scoped `dwimsy <verb> --test` execution.
-11. `[ ] TODO` **`dwimsy.tests.fixtures`**: Implement content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) indexing by SHA-1 hash rather than opaque filenames.
-12. `[ ] TODO` **Packaging & Shebangs**: Add `pyproject.toml` with console script entry points, and ensure all CLI-executable scripts start with `#!/usr/bin/env python3`.
+1. `[ ] TODO` **`dwimsy.meta.integrity`**: Implement pure Python canonical code-hashing over `dwimsy/**/*.py` using alphabetically sorted relative paths, normalized `\r\n` → `\n` line endings, and sentinel substitution `__code_hash__ = ""` in `_version.py`. Automatic runtime mod detection appends `+mod.<short_hash>` when working tree is modified.
+2. `[ ] TODO` **`dwimsy.meta.bundle` (`dwimsy meta bundle`)**: Implement the self-packaging unpacker generator and embedded `dwimsy/meta/bundle.py` module storing canonical `blztar`. Support `dwimsy meta bundle --baseline` to directly output the installed canonical baseline unpacker without bundling uncommitted working tree changes.
+3. `[ ] TODO` **Single-Source Asset Resolution Hierarchy**: Maintain `README.md`, `LICENSE`, `CHANGELOG.md`, and `.gitmodules` as canonical on-disk files. Resolve text with local working tree precedence (when not a system package), falling back to in-memory `blztar` decompression when running as an installed system package.
+4. `[ ] TODO` **`dwimsy meta version-bump` & `CHANGELOG.md`**: Build the atomic `dwimsy meta version-bump` command to increment revision, generate new code-hash, update build dates, prepend entries to `CHANGELOG.md`, and seal `dwimsy/meta/bundle.py`.
+5. `[ ] TODO` **`dwimsy changelog`**: Implement `dwimsy changelog` to parse and display revision history from `CHANGELOG.md` (or `blztar` fallback).
+6. `[ ] TODO` **`dwimsy readme` & `dwimsy license`**: Implement CLI documentation viewers with `pydoc.pager` interactive TTY viewing and plain streaming for pipes/files.
+7. `[ ] TODO` **`dwimsy help`**: Implement `dwimsy help [verb|topic]` to display interactive pydoc technical manuals for CLI verbs and core subsystems.
+8. `[ ] TODO` **`dwimsy meta fetch-deps`**: Implement `dwimsy meta fetch-deps` to parse `.gitmodules` (from disk or `blztar`) and clone submodules in non-git checkouts.
+9. `[ ] TODO` **`dwimsy meta bundle-fixtures`**: Implement `dwimsy meta bundle-fixtures` to package local private fixture subsets into self-extracting unpackers targeting `tests/fixtures/`.
+10. `[x] DONE` **`dwimsy.tests.fixtures`**: Implement content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) indexing by SHA-1 hash rather than opaque filenames.
+11. `[ ] TODO` **`dwimsy test` Runner**: Central test runner supporting `--fixtures <DIR>`, target filtering, and scoped `dwimsy <verb> --test` execution.
+12. `[ ] TODO` **Packaging & Shebangs**: Add `pyproject.toml` with console script entry points (`dwimsy`, `dwimsy-t882wav`, `dwimsy-wav2t88`, `dwimsy-test`), and ensure all CLI-executable scripts start with `#!/usr/bin/env python3`.
 
 ### Phase 1.7: PC-88 State-Machine Parser, Checksums & Submodule Ejection `[ ] TODO`
 
@@ -1782,10 +1809,11 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
 
 ### [0.1.6.0-dev] — 2026-08-23 (Milestone 1.6) `[ ] IN PROGRESS` (Hash: unsealed / pending `version-bump`)
 * **Summary**: Milestone 1.6: Developer infrastructure, self-packaging, testing & documentation architecture
-  * `[ ] PLANNED`: Add `dwimsy bundle` and `dwimsy bundle-fixtures` portable unpacker generators
-  * `[ ] PLANNED`: Add `dwimsy version-bump`, `dwimsy changelog`, `dwimsy cache`, `dwimsy help`, `dwimsy fetch-deps`
-  * `[ ] PLANNED`: Decompose monolithic documentation into modular `dwimsy.docs` with `dwimsy readme` and `dwimsy license`
-  * `[ ] PLANNED`: Package test suite as `dwimsy.tests` with `dwimsy test` CLI runner and content-addressed `FixturePool`
+  * `[x] COMPLETE`: Content-addressed test fixture registry (`dwimsy.tests.fixtures`) and discovery pool (`FixturePool`)
+  * `[ ] PLANNED`: Add `dwimsy meta bundle` (with `--baseline` export) and `dwimsy meta bundle-fixtures` portable unpacker generators
+  * `[ ] PLANNED`: Add `dwimsy meta version-bump`, `dwimsy changelog`, `dwimsy help`, `dwimsy meta fetch-deps`, and `dwimsy meta integrity`
+  * `[ ] PLANNED`: Maintain `README.md` and `CHANGELOG.md` as canonical markdown sources of truth with in-memory `blztar` fallback
+  * `[ ] PLANNED`: Unified `dwimsy test` CLI runner with scoped subsystem filtering
 
 ### [0.1.5.0] — 2026-08-23 (Milestone 1.5 Baseline) `[x] COMPLETE`
 * **Summary**: Milestone 1 & 1.5: Native PC-88 DSP vertical slice and container/protocol parity
