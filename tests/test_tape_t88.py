@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""tests.test_tape_t88 - Verify T88 tape container serialization and block structures."""
 
 import io
 import os
