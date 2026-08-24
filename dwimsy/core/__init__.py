@@ -1,1 +1,3 @@
-"""dwimsy.core - core libraries for retrocomputing media preservation, demodulation, restoration, and mastering"""
+"""dwimsy.core - Core audio, pulse timing, and FSK demodulation engines."""
+
+from __future__ import annotations
