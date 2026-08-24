@@ -1,4 +1,4 @@
-"""dwimsy.tests.fixtures — central test fixture data registry and discovery pool."""
+"""dwimsy.tests.fixtures - Central test fixture data registry and discovery pool."""
 
 from __future__ import annotations
 
