@@ -150,8 +150,11 @@ To ensure long-term reproducibility and eliminate fragile filename assumptions (
 The test suite can be run directly via the unified CLI, standard Python runners, or standalone aliases:
 
 ```bash
-# Unified CLI runner (runs synthetic tests out-of-the-box, zero files needed):
-dwimsy test
+# Unified CLI test runner (runs in-process from disk or in-memory bundle payload):
+dwimsy --test
+
+# Or via Python module runner:
+python3 -m dwimsy.tests
 python3 -m dwimsy test         # from an uninstalled clone
 
 # Pass custom private fixture path via CLI:
@@ -412,7 +415,7 @@ dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
 ```
 
 
-#### `dwimsy test` *(planned; not currently implemented)*
+#### `dwimsy --test` (and `python3 -m dwimsy.tests`)
 
 > **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
 >
@@ -501,7 +504,7 @@ Inspects recent project revision history from the canonical `CHANGELOG.md` file 
 dwimsy changelog -n 5 -v
 ```
 
-#### `dwimsy meta` (Maintainer & Repository Lifecycle) *(planned; not currently implemented)*
+#### `dwimsy meta` (Maintainer & Repository Lifecycle)
 
 > **Status:** [ ] `IN PROGRESS` (Milestone 1.6)
 >
