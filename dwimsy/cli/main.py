@@ -373,6 +373,9 @@ def main(argv: Optional[List[str]] = None):
         version=f"%(prog)s {get_version()}",
     )
     parser.add_argument(
+        "-T", "--test", action="store_true", help="Run unit tests and self-test assertions in-process"
+    )
+    parser.add_argument(
         "--help-all",
         action="store_true",
         help="Show full detailed help for all subcommands at once and exit",
@@ -602,6 +605,16 @@ def main(argv: Optional[List[str]] = None):
     if not effective_argv:
         parser.print_help(sys.stderr)
         sys.exit(0)
+
+    if "-T" in effective_argv or "--test" in effective_argv:
+        cmd = None
+        for arg in effective_argv:
+            if arg in ("convert", "inspect", "split", "join", "meta", "t882wav", "wav2t88"):
+                cmd = arg
+                break
+        from dwimsy.tests import run_tests
+        rc = run_tests([cmd] if cmd else None)
+        sys.exit(rc)
 
     args = parser.parse_args(argv)
 
