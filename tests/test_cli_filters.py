@@ -7,44 +7,14 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from typing import Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
 
 from dwimsy.tape.t88 import T88File
 from dwimsy.cli.filters import t882wav as native_t882wav
 from dwimsy.cli.filters import wav2t88 as native_wav2t88
 from dwimsy.cli import main as dwimsy_cli
-
-DEFAULT_FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
-
-
-def find_fixture_path(
-    filename: str, subdirs: Tuple[str, ...] = ("set1", "set2", "pc88", "")
-) -> Optional[Path]:
-    search_roots = []
-    env_dir = os.environ.get("DWIMSY_TEST_FIXTURES")
-    if env_dir:
-        search_roots.append(Path(env_dir))
-    search_roots.append(DEFAULT_FIXTURES_DIR)
-    search_roots.append(REPO_ROOT / "fixtures")
-
-    for root in search_roots:
-        if not root.exists():
-            continue
-        direct = root / filename
-        if direct.is_file():
-            return direct
-        for sub in subdirs:
-            p = root / sub / filename
-            if p.is_file():
-                return p
-        for match in root.rglob(filename):
-            if match.is_file():
-                return match
-    return None
+from dwimsy.tests.fixtures import get_fixture_pool
 
 
 class TestPhase1FiltersAndCLI(unittest.TestCase):
@@ -69,10 +39,11 @@ class TestPhase1FiltersAndCLI(unittest.TestCase):
 
     def test_real_sample_input16_roundtrip_verification(self):
         """Milestone 1 Verification: Bit-exact roundtrip on a real PC-88 sample (input16.t88)."""
-        t88_path = find_fixture_path("input16.t88", subdirs=("pc88", ""))
-        cmt_path = find_fixture_path("input16.cmt", subdirs=("pc88", ""))
-        if not (t88_path and t88_path.exists() and cmt_path and cmt_path.exists()):
-            self.skipTest("input16 fixtures not found in tests/fixtures/")
+        pool = get_fixture_pool()
+        t88_path = pool.get("input16.t88")
+        cmt_path = pool.get("input16.cmt")
+        if not (t88_path and cmt_path):
+            self.skipTest(pool.skip_reason("input16.t88") if not t88_path else pool.skip_reason("input16.cmt"))
 
         with open(t88_path, "rb") as f:
             t88_orig_bytes = f.read()
@@ -98,10 +69,11 @@ class TestPhase1FiltersAndCLI(unittest.TestCase):
         )
 
     def test_cli_convert_routing_t88_to_cmt(self):
-        t88_path = find_fixture_path("input16.t88", subdirs=("pc88", ""))
-        cmt_path = find_fixture_path("input16.cmt", subdirs=("pc88", ""))
-        if not (t88_path and t88_path.exists() and cmt_path and cmt_path.exists()):
-            self.skipTest("input16 fixtures not found in tests/fixtures/")
+        pool = get_fixture_pool()
+        t88_path = pool.get("input16.t88")
+        cmt_path = pool.get("input16.cmt")
+        if not (t88_path and cmt_path):
+            self.skipTest(pool.skip_reason("input16.t88") if not t88_path else pool.skip_reason("input16.cmt"))
 
         class ConvertArgs:
             command = "convert"
