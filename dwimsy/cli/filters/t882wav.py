@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+"""dwimsy.cli.filters.t882wav - Streaming T88 cassette image to WAV audio converter."""
+
 from pathlib import Path
 import sys
 
@@ -5,10 +8,6 @@ for p in Path(__file__).resolve().parents:
     if (p / "dwimsy").is_dir() and str(p) not in sys.path:
         sys.path.insert(0, str(p))
         break
-"""dwimsy.cli.filters.t882wav — streaming T88 to WAV audio synthesizer filter.
-
-Backed directly by dwimsy.core.audio (StreamingWavWriter).
-"""
 
 import argparse
 import io
