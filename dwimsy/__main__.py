@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
+"""dwimsy.__main__ - Standalone CLI execution entry point for python3 -m dwimsy."""
+
+from __future__ import annotations
 
 import sys
-from pathlib import Path
-
-# Ensure the package root is on sys.path when invoked via `python3 dwimsy`
-pkg_root = Path(__file__).resolve().parent.parent
-if str(pkg_root) not in sys.path:
-    sys.path.insert(0, str(pkg_root))
-
-from dwimsy.cli.main import main
+from dwimsy.cli.__main__ import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
