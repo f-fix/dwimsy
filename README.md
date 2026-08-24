@@ -702,8 +702,8 @@ python3 dwimsy/cli/filters/t882wav.py game.t88 - --mode tape | play -t wav -
 | **`protocols.pc88`** | PC-88 ROM protocol state machine: BASIC (0xD3), MON (0x24/0x3A), ASCII (0x9C), NONTAMA (0xFF), MON O/I | `[x] DONE` | Milestone 1.5 |
 | **`cli.split_join`** | PC-88 tape splitting (`dwimsy split`) and concatenation (`dwimsy join`) | `[x] DONE` | Milestone 1.5 |
 | **`cli.inspect` (deep)** | Full acoustic audio inspection (energy, cycles, speed drift) & deep structural ROM/T88 report | `[x] DONE` | Milestone 1.5 |
-| **`meta.integrity`** | Pure Python canonical code-hashing (`__code_hash__` sentinel) & runtime mod-detection | `[ ] TODO` | Milestone 1.6 |
-| **`meta.bundle`**    | Single-file unpacker generator (`dwimsy meta bundle`), `--baseline` export & `blztar` storage | `[ ] TODO` | Milestone 1.6 |
+| **`meta.integrity`** | Pure Python canonical code-hashing (`__code_hash__` sentinel) & runtime mod-detection | `[x] DONE` | Milestone 1.6 |
+| **`meta.bundle`**    | Single-file unpacker generator (`dwimsy meta bundle`), `--baseline` export & `blztar` storage | `[x] DONE` | Milestone 1.6 |
 | **`meta.bundle_fixtures`**| Content-addressed test fixture packager (`dwimsy meta bundle-fixtures`) | `[ ] TODO` | Milestone 1.6 |
 | **`meta.version_bump`**| `dwimsy meta version-bump` (advances revision, seals code-hash, updates `CHANGELOG.md`) | `[ ] TODO` | Milestone 1.6 |
 | **`meta.fetch_deps`**| `dwimsy meta fetch-deps` (clones `.gitmodules` dependencies in non-git checkouts) | `[ ] TODO` | Milestone 1.6 |
