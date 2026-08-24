@@ -395,8 +395,13 @@ def main():
     )
     parser.add_argument("--invert", action="store_true", help="Invert polarity")
     parser.add_argument("-q", "--quiet", action="store_true", help="Suppress progress")
+    parser.add_argument("-T", "--test", action="store_true", help="Run filter self-tests in-process and exit")
 
     args = parser.parse_args()
+    if getattr(args, "test", False):
+        from dwimsy.tests import run_tests
+        rc = run_tests(["t882wav"])
+        sys.exit(rc)
     if not args.input or args.input == "-":
         in_s = sys.stdin.buffer
     else:
