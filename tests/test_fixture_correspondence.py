@@ -8,11 +8,8 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from typing import Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
 
 from dwimsy.tape.t88 import T88File, DataSubHeader
 from dwimsy.protocols.pc88 import CMTFile
@@ -20,35 +17,7 @@ from dwimsy.cli.filters import wav2t88 as native_wav2t88
 from dwimsy.core.pulse import PulseTimingRecognizer
 from dwimsy.core.fsk import FSKClassifier, ByteFramer
 from dwimsy.core.audio import StreamingWavReader
-
-DEFAULT_FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
-
-
-def find_fixture_path(
-    filename: str, subdirs: Tuple[str, ...] = ("set1", "set2", "pc88", "")
-) -> Optional[Path]:
-    """Locate a sample fixture file in tests/fixtures or via DWIMSY_TEST_FIXTURES."""
-    search_roots = []
-    env_dir = os.environ.get("DWIMSY_TEST_FIXTURES")
-    if env_dir:
-        search_roots.append(Path(env_dir))
-    search_roots.append(DEFAULT_FIXTURES_DIR)
-    search_roots.append(REPO_ROOT / "fixtures")
-
-    for root in search_roots:
-        if not root.exists():
-            continue
-        direct = root / filename
-        if direct.is_file():
-            return direct
-        for sub in subdirs:
-            p = root / sub / filename
-            if p.is_file():
-                return p
-        for match in root.rglob(filename):
-            if match.is_file():
-                return match
-    return None
+from dwimsy.tests.fixtures import get_fixture_pool
 
 
 class TestSnippetToInputCorrespondence(unittest.TestCase):
@@ -92,9 +61,10 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
 
     def test_snippet1_corresponds_to_input01_door_door_1200_baud(self):
         """snippet.wav is a 1200-baud capture of Door Door (MON ML 0x24), matching input01.t88 / input01.cmt."""
-        wav_path = find_fixture_path("snippet.wav", subdirs=("set1", "pc88", ""))
-        if not wav_path or not wav_path.exists():
-            self.skipTest("snippet.wav not found in tests/fixtures/")
+        pool = get_fixture_pool()
+        wav_path = pool.get("snippet.wav")
+        if not wav_path:
+            self.skipTest(pool.skip_reason("snippet.wav"))
 
         # 1. Demodulate snippet.wav with native filter
         with open(wav_path, "rb") as f:
@@ -122,9 +92,9 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
         )
 
         # 4. Verify match against input01.cmt / input01.t88
-        cmt_path = find_fixture_path("input01.cmt", subdirs=("pc88", ""))
-        t88_path = find_fixture_path("input01.t88", subdirs=("pc88", ""))
-        if cmt_path and cmt_path.exists():
+        cmt_path = pool.get("input01.cmt")
+        t88_path = pool.get("input01.t88")
+        if cmt_path:
             with open(cmt_path, "rb") as f:
                 input01_cmt = f.read()
             self.assertTrue(
@@ -135,7 +105,7 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
             self.assertEqual(fname, "DOOR")
             self.assertEqual(ftype, "MON Machine Language Header (0x24)")
 
-        if t88_path and t88_path.exists():
+        if t88_path:
             with open(t88_path, "rb") as f:
                 t88_file = T88File.unpack(io.BytesIO(f.read()))
             input01_t88_payload = t88_file.extract_cmt_payload()
@@ -148,9 +118,10 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
 
     def test_snippet2_corresponds_to_input05_digdug_600_baud(self):
         """snippet2.wav is a 600-baud capture of Dig Dug (N88-BASIC 0xD3), matching input05.t88 / input05.cmt."""
-        wav_path = find_fixture_path("snippet2.wav", subdirs=("set2", "pc88", ""))
-        if not wav_path or not wav_path.exists():
-            self.skipTest("snippet2.wav not found in tests/fixtures/")
+        pool = get_fixture_pool()
+        wav_path = pool.get("snippet2.wav")
+        if not wav_path:
+            self.skipTest(pool.skip_reason("snippet2.wav"))
 
         # 1. Demodulate snippet2.wav with native filter
         with open(wav_path, "rb") as f:
@@ -178,9 +149,9 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
         )
 
         # 4. Verify match against input05.cmt / input05.t88
-        cmt_path = find_fixture_path("input05.cmt", subdirs=("pc88", ""))
-        t88_path = find_fixture_path("input05.t88", subdirs=("pc88", ""))
-        if cmt_path and cmt_path.exists():
+        cmt_path = pool.get("input05.cmt")
+        t88_path = pool.get("input05.t88")
+        if cmt_path:
             with open(cmt_path, "rb") as f:
                 input05_cmt = f.read()
             self.assertTrue(
@@ -191,7 +162,7 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
             self.assertEqual(fname, "DIGDUG")
             self.assertEqual(ftype, "BASIC Program (0xD3)")
 
-        if t88_path and t88_path.exists():
+        if t88_path:
             with open(t88_path, "rb") as f:
                 t88_file = T88File.unpack(io.BytesIO(f.read()))
             input05_t88_payload = t88_file.extract_cmt_payload()
