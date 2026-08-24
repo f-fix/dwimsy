@@ -1,4 +1,4 @@
-"""dwimsy.tests - test discovery, fixture management, and in-process test execution engine."""
+"""dwimsy.tests - Test discovery, fixture management, and in-process test execution engine."""
 
 from __future__ import annotations
 
@@ -54,6 +54,8 @@ SCOPED_TEST_MAPPINGS = {
     "protocols": ["test_protocols_pc88.py"],
     "integrity": ["test_meta_integrity.py"],
     "bundle": ["test_meta_bundle.py"],
+    "lint": ["test_lint_headers.py", "test_lint_markdown.py"],
+    "readme": ["test_readme_sync.py"],
 }
 
 
