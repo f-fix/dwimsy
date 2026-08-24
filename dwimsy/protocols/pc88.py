@@ -1,4 +1,4 @@
-"""dwimsy.protocols.pc88 — NEC PC-8001/PC-8801 ROM protocols and CMT stream handling."""
+"""dwimsy.protocols.pc88 - NEC PC-8001/PC-8801 CMT tape protocol and binary format tools."""
 
 from __future__ import annotations
 
