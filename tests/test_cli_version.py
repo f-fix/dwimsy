@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_cli_version - verify dwimsy CLI version reporting"""
+"""tests.test_cli_version - Verify CLI version reporting and version strings."""
 
 import io
 import sys
@@ -12,7 +12,7 @@ if str(pkg_root) not in sys.path:
     sys.path.insert(0, str(pkg_root))
 
 import dwimsy
-from dwimsy.cli.main import main
+from dwimsy.cli.__main__ import main
 from dwimsy.meta.integrity import version as get_version
 
 
