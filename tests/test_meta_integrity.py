@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_meta_integrity - verify dwimsy file and package integrity mechanisms"""
+"""tests.test_meta_integrity - Verify source code integrity hashing and change detection."""
 
 import os
 import tempfile
