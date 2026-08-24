@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-
-"""Tests for dwimsy.cli.filters and the dwimsy CLI."""
+"""tests.test_cli_filters - Verify streaming conversion filters and CLI pipelines."""
 
 import io
 import os
