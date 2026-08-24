@@ -1,31 +1,14 @@
-"""
-dwimsy.core.pulse — analog front-end pulse timing extraction.
+"""dwimsy.core.pulse - Analog front-end pulse timing extraction.
 
 This module is the platform-agnostic half of what was previously one
 class (``BaudAgnosticPulseRecognizer`` in ``wav2t88.py``): the DC
-blocker, bandpass filter, AGC/envelope tracking, Schmitt-trigger
-slicer, and sub-sample zero-crossing interpolation that turns a raw
-audio sample stream into precisely-timed cycle-period measurements.
+blocker, peak-envelope tracker (AGC), Schmitt-trigger-with-hysteresis
+zero-crossing timer, sub-sample linear interpolator, and transient
+glitch filter.
 
-Deliberately NOT included here: deciding what a given cycle period
-*means* (Mark? Space? Blank?), and any frequency-drift tracking that
-depends on that decision. Those are FSK-classification concerns —
-inherently platform-tuned (a PC-88 Mark cycle and an MSX-fast-mode Mark
-cycle are different durations) — and belong in ``dwimsy.core.fsk``,
-which consumes this module's output. This module only answers "how
-long was that cycle, precisely, and how strong/clean was the signal
-when it happened" — the same question regardless of what frequencies
-the caller's platform happens to use for Mark and Space.
-
-The original code's bandpass filter (center 1800 Hz, 600-3600 Hz
-bandwidth) and Space-side thresholds were hardcoded around PC-88 and
-MSX's shared 2400/1200 Hz tones. Both are now constructor parameters
-(``center_freq``, ``bandwidth``) rather than literals, since e.g. an
-MSX-fast-mode capture needs the front end retuned an octave up (see
-the project README's discussion of MSX's 2400-baud mode being a
-tape-speed-doubled version of its 1200-baud waveform, not a timing
-change) — that's exactly the kind of per-platform retuning this split
-is meant to make a constructor argument instead of a code change.
+It knows about sample rates and time intervals in seconds, but knows
+nothing about baud rates, Mark/Space tone frequencies, or UART framing
+(those live in ``dwimsy.core.fsk``).
 """
 
 from __future__ import annotations

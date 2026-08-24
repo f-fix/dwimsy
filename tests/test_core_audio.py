@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_core_audio - Verify streaming WAV reader and writer audio codecs."""
+"""tests.test_core_audio - Tests for streaming WAV reader and writer primitives."""
 
 import io
 import struct
@@ -306,5 +306,16 @@ class TestWriterReaderRoundtrip(unittest.TestCase):
             pass  # fds already closed by the `with` blocks above
 
 
+def main(argv=None):
+    import sys
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()

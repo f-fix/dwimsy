@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_core_fsk - Verify FSK tone classification and UART byte framing."""
+"""tests.test_core_fsk - Tests for FSK pulse classification and UART byte framing."""
 
 import importlib.util
 import math
@@ -236,5 +236,16 @@ class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
         self._check_file(wav_path)
 
 
+def main(argv=None):
+    import sys
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()

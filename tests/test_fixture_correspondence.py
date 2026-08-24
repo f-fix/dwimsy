@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_fixture_correspondence - Verify audio captures against reference containers.
-
-Tests verifying correspondence and equivalence between audio snippets (.wav)
-and reference container/stream images (.t88 / .cmt)."""
+"""tests.test_fixture_correspondence - Tests verifying correspondence between audio snippets and container images."""
 
 import io
 import os
@@ -175,5 +172,16 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
             self.assertEqual(in_dsh0.fmt_code, 0x00CC)
 
 
+def main(argv=None):
+    import sys
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()

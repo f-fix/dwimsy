@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_cli_filters - Verify streaming conversion filters and CLI pipelines."""
+"""tests.test_cli_filters - Tests for dwimsy.cli.filters and the dwimsy CLI."""
 
 import io
 import os
@@ -108,5 +108,16 @@ class TestPhase1FiltersAndCLI(unittest.TestCase):
         self.assertEqual(out_s.getvalue(), expected_cmt)
 
 
+def main(argv=None):
+    import sys
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()

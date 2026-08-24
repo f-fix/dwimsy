@@ -1,3 +1,1 @@
-"""dwimsy.meta - Maintainer tools and repository lifecycle management."""
-
-from __future__ import annotations
+"""dwimsy.meta - Meta-tools and maintainer-oriented machinery for the dwimsy project."""

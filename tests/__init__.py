@@ -1,3 +1,1 @@
-"""tests - Test suite for dwimsy."""
-
-from __future__ import annotations
+"""tests - Unit and integration tests for dwimsy."""

@@ -1,21 +1,7 @@
-"""
-dwimsy.core.audio — streaming RIFF/WAVE I/O.
+"""dwimsy.core.audio - Streaming RIFF/WAVE I/O.
 
 Milestone 1 scope: WAV only. FLAC support is deferred to Milestone 2,
 where it ships alongside MSX support (see the project README's roadmap).
-
-This module unifies two previously-separate, independently-written
-implementations from the standalone tools this project is bootstrapping
-from (``pc88_tape_tools/wav2t88.py``'s ``StreamingWavReader`` and
-``pc88_tape_tools/t882wav.py``'s ``StreamingWavWriter``). Behavior is
-preserved exactly; this is a straight consolidation; no format handling
-changed as part of the port.
-
-Both classes operate in bounded memory: the reader pulls fixed-size
-frame chunks on demand rather than loading a whole file, and the writer
-streams samples out immediately, patching the RIFF/data chunk sizes
-after the fact only if the output stream supports seeking (so both
-work equally well against a real file or a pipe/stdout).
 """
 
 from __future__ import annotations

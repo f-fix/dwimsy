@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_meta_bundle - Verify bundling, unbundling, and self-extraction machinery."""
+"""tests.test_meta_bundle - Verify dwimsy meta bundling and unbundling machinery."""
 
 import io
 import os
@@ -14,7 +14,7 @@ pkg_root = Path(__file__).resolve().parent.parent
 if str(pkg_root) not in sys.path:
     sys.path.insert(0, str(pkg_root))
 
-from dwimsy.cli.__main__ import main
+from dwimsy.cli import main as dwimsy_cli_main
 from dwimsy.meta import bundle, integrity, unbundle
 
 
@@ -98,7 +98,7 @@ class TestMetaBundle(unittest.TestCase):
                 cur = os.getcwd()
                 try:
                     os.chdir(tmp_path)
-                    main(["meta", "fetch-deps", "--baseline"])
+                    dwimsy_cli_main(["meta", "fetch-deps", "--baseline"])
                 finally:
                     os.chdir(cur)
 
@@ -113,7 +113,7 @@ class TestMetaBundle(unittest.TestCase):
             err = io.StringIO()
 
             with redirect_stdout(buf), redirect_stderr(err):
-                main(["meta", "bundle", "-o", str(out_bundle)])
+                dwimsy_cli_main(["meta", "bundle", "-o", str(out_bundle)])
 
             self.assertTrue(out_bundle.is_file())
             self.assertTrue(os.access(str(out_bundle), os.X_OK))
@@ -145,7 +145,7 @@ class TestMetaBundle(unittest.TestCase):
             err = io.StringIO()
 
             with redirect_stdout(buf), redirect_stderr(err):
-                main(["meta", "bundle", "--baseline", "-o", str(out_bundle)])
+                dwimsy_cli_main(["meta", "bundle", "--baseline", "-o", str(out_bundle)])
 
             self.assertTrue(out_bundle.is_file())
             self.assertEqual(out_bundle.read_text(encoding="utf-8"), Path(unbundle.__file__).read_text(encoding="utf-8"))
@@ -157,5 +157,16 @@ class TestMetaBundle(unittest.TestCase):
         self.assertEqual(h1, integrity.canonical_code_hash())
 
 
+def main(argv=None):
+    import sys
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()

@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
-"""dwimsy.tests.__main__ - In-process CLI test runner for python3 -m dwimsy.tests."""
+"""dwimsy.tests.__main__ - In-process CLI test runner for dwimsy.tests."""
+
+from __future__ import annotations
 
 import argparse
 import sys
+from typing import List, Optional
+
 from dwimsy.tests import run_tests
+from dwimsy.meta.integrity import version as get_version
 
 
-def main(argv=None) -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m dwimsy.tests",
         description="Discover and run dwimsy unit tests in-process (from disk or in-memory bundle payload).",
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"%(prog)s {get_version()}",
     )
     parser.add_argument(
         "patterns",

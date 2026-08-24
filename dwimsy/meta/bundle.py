@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""dwimsy.meta.bundle - Standalone self-extracting bundle generator and package bundler."""
+"""dwimsy.meta.bundle - Maintainer tool for building self-extracting dwimsy bundles."""
 
 from __future__ import annotations
 
@@ -20,45 +20,24 @@ from dwimsy.meta import integrity, unbundle
 
 def find_repo_root(start: Optional[Path] = None) -> Path:
     """Locate the root directory of the dwimsy repository or extracted tree."""
-    cur = Path(start).resolve() if start is not None else Path.cwd().resolve()
-    while cur != cur.parent:
-        if (cur / "dwimsy").is_dir() and (cur / "dwimsy" / "__init__.py").is_file():
-            return cur
-        cur = cur.parent
-
-    cur = Path(__file__).resolve().parent.parent.parent
-    while cur != cur.parent:
-        if (cur / "dwimsy").is_dir() and (cur / "dwimsy" / "__init__.py").is_file():
-            return cur
-        cur = cur.parent
-    return Path(start).resolve() if start is not None else Path.cwd().resolve()
+    return integrity.find_repo_root(start)
 
 
 def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
     """Create a deterministic in-memory TAR byte stream of the repository tree."""
     buf = io.BytesIO()
-    v_mtime = None
-    v_file = repo_root / "dwimsy" / "_version.py"
-    if v_file.is_file():
-        try:
-            v_mtime = v_file.stat().st_mtime
-        except OSError:
-            pass
-
     with tarfile.open(fileobj=buf, mode="w") as tar:
         disk_entries = {}
         for p in repo_root.rglob("*"):
             rel = p.relative_to(repo_root)
             parts = rel.parts
 
-            # Exclude version control, caches, backup files
             if any(part in (".git", "__pycache__", ".pytest_cache") for part in parts):
                 continue
             if not with_deps and parts and parts[0] == "deps":
                 continue
             if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
                 continue
-            # Exclude unbundle.py and unpacker scripts
             if p.name in ("unbundle.py", "restore_dwimsy.py") or (p.name.startswith("dwimsy_") and p.name.endswith(".py")):
                 continue
 
@@ -102,29 +81,20 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                 tarinfo.gid = 0
                 tarinfo.uname = ""
                 tarinfo.gname = ""
-
                 if full_p.is_file():
-                    if full_p.suffix in (".py", ".md", ".txt") or full_p.name in ("LICENSE", ".gitignore", ".gitmodules"):
-                        raw = full_p.read_bytes()
-                        normalized = raw.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-                        if not normalized.endswith(b"\n"):
-                            normalized += b"\n"
-                        tarinfo.size = len(normalized)
-                        tar.addfile(tarinfo, io.BytesIO(normalized))
-                    else:
-                        with open(full_p, "rb") as f:
-                            tar.addfile(tarinfo, f)
+                    with open(full_p, "rb") as f:
+                        content = f.read()
+                    if arcname.endswith(".py") and content.startswith(b"#!"):
+                        tarinfo.mode = 0o755
+                    tar.addfile(tarinfo, io.BytesIO(content))
                 elif full_p.is_dir():
-                    child_mtimes = [f.stat().st_mtime for f in full_p.rglob("*") if f.is_file()]
-                    if child_mtimes:
-                        tarinfo.mtime = max(child_mtimes)
-                    elif v_mtime is not None:
-                        tarinfo.mtime = v_mtime
                     tar.addfile(tarinfo)
             elif arcname in fallback_entries:
                 tarinfo = fallback_entries[arcname]
                 if tarinfo.isreg():
                     data = fallback_data.get(arcname, b"")
+                    if arcname.endswith(".py") and data.startswith(b"#!"):
+                        tarinfo.mode = 0o755
                     tar.addfile(tarinfo, io.BytesIO(data))
                 elif tarinfo.isdir():
                     tar.addfile(tarinfo)
@@ -237,11 +207,39 @@ def run_meta_fetch_deps(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
     return 0
 
 
+def main(argv: Optional[List[str]] = None) -> int:
+    """CLI entrypoint for running dwimsy.meta.bundle directly."""
+    parser = argparse.ArgumentParser(
+        prog="dwimsy-bundle",
+        description="Generate a self-extracting single-file Python unpacker bundle of dwimsy.",
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"%(prog)s {integrity.version()}",
+    )
+    parser.add_argument(
+        "-o", "--output", default=None, help="Output script path or '-' for stdout (default: auto-derived)"
+    )
+    parser.add_argument(
+        "-t", "--tag", default=None, help="Optional short descriptive tag/label (e.g. 'parser-fix')"
+    )
+    parser.add_argument(
+        "--baseline", action="store_true", help="Directly emit the installed canonical baseline bundle module (dwimsy/meta/unbundle.py) as output without bundling working tree"
+    )
+    parser.add_argument(
+        "--with-deps", action="store_true", help="Include legacy submodule scaffolding from deps/"
+    )
+    parser.add_argument(
+        "--status", action="store_true", help="List uncommitted/modified and untracked files before bundling"
+    )
+    parser.add_argument(
+        "--diff", action="store_true", help="Display working tree git diff on stderr before bundling"
+    )
+    args = parser.parse_args(argv)
+    return run_meta_bundle(args)
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build dwimsy standalone bundle")
-    parser.add_argument("-o", "--output", default=None, help="Output bundle path")
-    parser.add_argument("-t", "--tag", default=None, help="Optional tag")
-    parser.add_argument("--baseline", action="store_true", help="Emit baseline unbundle.py")
-    parser.add_argument("--with-deps", action="store_true", help="Include deps")
-    args = parser.parse_args()
-    sys.exit(run_meta_bundle(args))
+    sys.exit(main())

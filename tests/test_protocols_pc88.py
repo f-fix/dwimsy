@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_protocols_pc88 - Verify PC-88 CMT tape protocols, splitting, and joining."""
+"""tests.test_protocols_pc88 - Tests for NEC PC-8001/PC-8801 ROM protocol state machine."""
 
 import io
 import os
@@ -153,5 +153,16 @@ class TestProtocolsPC88(unittest.TestCase):
             self.assertIn("TEXT01", rep)
 
 
+def main(argv=None):
+    import sys
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()

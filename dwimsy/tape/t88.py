@@ -1,4 +1,4 @@
-"""dwimsy.tape.t88 - NEC PC-88 T88 cassette image container parser and writer."""
+"""dwimsy.tape.t88 - T88 tape image container primitives, reader, writer, and object model."""
 
 from __future__ import annotations
 

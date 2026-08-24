@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""dwimsy.cli.filters.wav2t88 - Streaming WAV audio capture to T88 tape image demodulator."""
+"""dwimsy.cli.filters.wav2t88 - Streaming WAV to T88 demodulator filter.
 
-from pathlib import Path
-import sys
+Backed directly by dwimsy.core.pulse, dwimsy.core.fsk, dwimsy.core.audio,
+and dwimsy.tape.t88.
+"""
 
-for p in Path(__file__).resolve().parents:
-    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
-        sys.path.insert(0, str(p))
-        break
+from __future__ import annotations
 
+from dwimsy.meta.integrity import version as get_version
 
 import argparse
 import io
@@ -305,17 +304,19 @@ def process_stream(
     writer.write_end()
 
 
-def main():
+def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         prog="dwimsy-wav2t88",
         description="Stream PC-8001 / PC-8801 WAV audio to standard .t88 tape image.",
     )
     parser.add_argument(
-        "input", nargs="?", default=None, help="Input WAV file or '-' for stdin"
+        "-V",
+        "--version",
+        action="version",
+        version=f"%(prog)s {get_version()}",
     )
-    parser.add_argument(
-        "output", nargs="?", default=None, help="Output .t88 file or '-' for stdout"
-    )
+    parser.add_argument("input", nargs="?", default="-", help="Input WAV file or '-' for stdin")
+    parser.add_argument("output", nargs="?", default="-", help="Output .t88 file or '-' for stdout")
     parser.add_argument(
         "--baud",
         "-b",
@@ -331,8 +332,23 @@ def main():
         choices=["auto", "left", "right", "mix", "diff"],
         help="Input channel",
     )
-    parser.add_argument("--bauds", default="600,1200", help="Candidate baud rates")
-    parser.add_argument("--flavor", default="reconstructed", help="Timing flavor")
+    parser.add_argument(
+        "--bauds",
+        default="600,1200",
+        help="Candidate baud rates",
+    )
+    parser.add_argument(
+        "--flavor",
+        default="reconstructed",
+        choices=[
+            "verbatim",
+            "reconstructed",
+            "kinematic-infilled",
+            "rom-authentic",
+            "canonical",
+        ],
+        help="Timing flavor",
+    )
     parser.add_argument(
         "--confidence",
         "-C",
@@ -341,10 +357,14 @@ def main():
         default=0.75,
         help="Minimum confidence threshold",
     )
-    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress logging")
-    parser.add_argument("-T", "--test", action="store_true", help="Run filter self-tests in-process and exit")
+    parser.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress logging"
+    )
+    parser.add_argument(
+        "-T", "--test", action="store_true", help="Run filter self-tests in-process and exit"
+    )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if getattr(args, "test", False):
         from dwimsy.tests import run_tests
         rc = run_tests(["wav2t88"])

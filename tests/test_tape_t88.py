@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_tape_t88 - Verify T88 tape container serialization and block structures."""
+"""tests.test_tape_t88 - Tests for T88 container parsing, serialization, split, and join."""
 
 import io
 import os
@@ -121,5 +121,16 @@ class TestTapeT88(unittest.TestCase):
             self.assertEqual(dsh2.fmt_code, 0x01CC)  # 1200 baud
 
 
+def main(argv=None):
+    import sys
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()

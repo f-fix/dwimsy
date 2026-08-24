@@ -1,6 +1,4 @@
-"""dwimsy - Retrocomputing media preservation, demodulation, restoration, and mastering gateway."""
-
-from __future__ import annotations
+"""dwimsy - Retrocomputing media preservation, demodulation, restoration, and mastering."""
 
 from dwimsy._version import __version__
 

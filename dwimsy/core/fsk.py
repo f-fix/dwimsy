@@ -1,38 +1,12 @@
-"""
-dwimsy.core.fsk — FSK pulse classification and UART byte framing.
+"""dwimsy.core.fsk - FSK pulse classification and UART byte framing.
 
 This is the platform-tuned half of what was previously one class
 (``BaudAgnosticPulseRecognizer`` in ``wav2t88.py``, plus the separate
-``PulseToByteAcceptor`` class in the same file): deciding whether a
-given cycle period measured by :mod:`dwimsy.core.pulse` represents a
-Mark tone, a Space tone, or a gap, tracking carrier drift to stay
-locked on as tape speed varies, and assembling the resulting Mark/Space
-stream into UART-framed bytes.
-
-Two classes:
-
-- :class:`FSKClassifier` consumes :class:`~dwimsy.core.pulse.PulseEvent`
-  objects and yields :class:`ClassifiedPulse` objects (Mark/Space/
-  Blank + duration). This is where mark/space frequency live as real
-  parameters rather than literals — the previous hardcoded 2400.0/
-  1200.0 Hz assumptions, and the boundary between "this cycle is a
-  Mark" and "this cycle is a Space", are now derived from
-  ``mark_freq``/``space_freq`` instead.
-- :class:`ByteFramer` consumes :class:`ClassifiedPulse` objects and
-  yields :class:`DecodedByte` objects whenever a full UART frame (1
-  start bit, 8 data bits LSB-first, 2 stop bits — dwimsy's currently
-  supported KCS-derived platforms all share this framing; a future
-  platform needing different framing would need this generalized
-  further, which isn't done here) has been decoded.
-
-The Mark/Space boundary is computed as the geometric mean of the two
-tones' periods (``sqrt(mark_period * space_period)``), which is exactly
-equivalent to the original code's hardcoded ``mark_period * 1.414``
-when mark:space is a 2:1 frequency ratio (as it is for every platform
-dwimsy currently targets) — sqrt(2) is what you get from the geometric
-mean formula at a 2:1 ratio specifically. The general formula is used
-here instead of the ratio-specific constant so it keeps working
-correctly if a future platform doesn't share that exact 2:1 relationship.
+framing and state-machine logic in ``pc88_tape_tools.py`` and
+``t882wav.py``).  The DC-blocking, AGC, and zero-crossing timer live
+in ``dwimsy.core.pulse``; this module takes the resulting half-cycle
+periods, classifies them into Mark/Space symbols (accounting for
+dynamic speed drift), and frames those symbols into UART bytes.
 """
 
 from __future__ import annotations

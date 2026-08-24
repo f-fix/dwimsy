@@ -1,4 +1,4 @@
-"""dwimsy._version - Build/version metadata for dwimsy.
+"""dwimsy._version - Build and version metadata for dwimsy.
 
 The empty ``__code_hash__`` value is the canonical development/unsealed
 sentinel. ``dwimsy.meta.integrity`` replaces it with the empty sentinel while

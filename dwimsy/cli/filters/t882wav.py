@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""dwimsy.cli.filters.t882wav - Streaming T88 cassette image to WAV audio converter."""
+"""dwimsy.cli.filters.t882wav - Streaming T88 to WAV audio synthesizer filter.
 
-from pathlib import Path
-import sys
+Backed directly by dwimsy.core.audio (StreamingWavWriter).
+"""
 
-for p in Path(__file__).resolve().parents:
-    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
-        sys.path.insert(0, str(p))
-        break
+from __future__ import annotations
+
+from dwimsy.meta.integrity import version as get_version
 
 import argparse
 import io
@@ -332,23 +331,36 @@ def log_diag(msg: str):
     sys.stderr.flush()
 
 
-def main():
+def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         prog="dwimsy-t882wav",
         description="Stream PC-8001 / PC-8801 .t88 tape container image to standard WAV audio.",
+        epilog="Note: --mode accepts tape, acoustic, shaped, ideal, cassette, motor, spinup, pc, square.",
     )
     parser.add_argument(
-        "input", nargs="?", default=None, help="Input .t88 file or '-' for stdin"
+        "-V",
+        "--version",
+        action="version",
+        version=f"%(prog)s {get_version()}",
     )
-    parser.add_argument(
-        "output", nargs="?", default=None, help="Output .wav file or '-' for stdout"
-    )
+    parser.add_argument("input", nargs="?", default="-", help="Input .t88 file or '-' for stdin")
+    parser.add_argument("output", nargs="?", default="-", help="Output .wav file or '-' for stdout")
     parser.add_argument(
         "--mode",
         "-m",
         "--wave",
         default="tape",
-        choices=["tape", "acoustic", "shaped", "ideal"],
+        choices=[
+            "tape",
+            "cassette",
+            "acoustic",
+            "motor",
+            "spinup",
+            "shaped",
+            "pc",
+            "ideal",
+            "square",
+        ],
         help="Synthesis mode",
     )
     parser.add_argument(
@@ -362,8 +374,8 @@ def main():
         "--channels",
         "-c",
         type=int,
-        default=1,
         choices=[1, 2],
+        default=1,
         help="Channels: 1 (mono) or 2 (stereo)",
     )
     parser.add_argument(
@@ -383,20 +395,23 @@ def main():
     )
     parser.add_argument(
         "--baud",
-        "-b",
         type=int,
         choices=[600, 1200],
         default=None,
         help="Baud override",
     )
     parser.add_argument(
-        "--speed", "-s", type=float, default=1.0, help="Speed multiplier"
+        "--speed",
+        "-s",
+        type=float,
+        default=1.0,
+        help="Speed multiplier",
     )
     parser.add_argument("--invert", action="store_true", help="Invert polarity")
     parser.add_argument("-q", "--quiet", action="store_true", help="Suppress progress")
     parser.add_argument("-T", "--test", action="store_true", help="Run filter self-tests in-process and exit")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if getattr(args, "test", False):
         from dwimsy.tests import run_tests
         rc = run_tests(["t882wav"])

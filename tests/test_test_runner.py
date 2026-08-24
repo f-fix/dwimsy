@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_test_runner - Verify in-process test discovery and execution CLI flags."""
+"""tests.test_test_runner - Verify dwimsy in-process test discovery and execution CLI & engine."""
 
 import io
 import os
@@ -14,7 +14,7 @@ if str(pkg_root) not in sys.path:
     sys.path.insert(0, str(pkg_root))
 
 from dwimsy import tests as dw_tests
-from dwimsy.cli.__main__ import main
+from dwimsy.cli import main as dwimsy_cli_main
 from dwimsy.cli.filters.t882wav import main as t882wav_main
 from dwimsy.cli.filters.wav2t88 import main as wav2t88_main
 
@@ -36,7 +36,7 @@ class TestTestRunner(unittest.TestCase):
         buf = io.StringIO()
         with redirect_stderr(buf):
             with self.assertRaises(SystemExit) as cm:
-                main(["meta", "--test"])
+                dwimsy_cli_main(["meta", "--test"])
             self.assertEqual(cm.exception.code, 0)
         self.assertIn("OK", buf.getvalue())
 
@@ -75,5 +75,16 @@ class TestTestRunner(unittest.TestCase):
             self.assertIn("OK", buf.getvalue())
 
 
+def main(argv=None):
+    import sys
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()

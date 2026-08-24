@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests.test_core_pulse - Verify pulse timing recognition and zero-crossing detection."""
+"""tests.test_core_pulse - Tests for analog front-end pulse timing extraction."""
 
 import importlib.util
 import io
@@ -261,5 +261,16 @@ class TestPulseEquivalenceAgainstOriginal(unittest.TestCase):
         self._check_file(wav_path)
 
 
+def main(argv=None):
+    import sys
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()
