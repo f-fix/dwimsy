@@ -133,6 +133,7 @@ def _has_submodule(rel_path: str) -> bool:
     if disk_p.is_file():
         return True
     from dwimsy.meta import unbundle
+
     try:
         unbundle.get_asset(rel_path)
         return True
@@ -145,6 +146,7 @@ def _load_submodule(name: str, rel_path: str):
     if disk_p.is_file():
         return _load_module(name, str(disk_p))
     from dwimsy.meta import unbundle
+
     code_text = unbundle.get_asset_text(rel_path)
     spec = importlib.util.spec_from_loader(name, loader=None)
     mod = importlib.util.module_from_spec(spec)
@@ -159,7 +161,9 @@ def _load_submodule(name: str, rel_path: str):
 )
 class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
     def setUp(self):
-        self.orig = _load_submodule("orig_wav2t88_for_fsk_check", "deps/pc88_tape_tools/wav2t88.py")
+        self.orig = _load_submodule(
+            "orig_wav2t88_for_fsk_check", "deps/pc88_tape_tools/wav2t88.py"
+        )
 
     def _run_original(self, wav_path):
         orig = self.orig
@@ -238,9 +242,11 @@ class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
 
 def main(argv=None):
     import sys
+
     effective = sys.argv[1:] if argv is None else list(argv)
     if any(a in ("-V", "--version") for a in effective):
         from dwimsy.meta.integrity import version as get_version
+
         print(f"dwimsy {get_version()}")
         return 0
     unittest.main(argv=[sys.argv[0]] + effective)

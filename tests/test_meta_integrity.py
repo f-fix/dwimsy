@@ -20,7 +20,9 @@ from dwimsy.meta import integrity, unbundle
 
 class IntegrityTests(unittest.TestCase):
     def test_hash_is_stable(self):
-        self.assertEqual(integrity.canonical_code_hash(), integrity.canonical_code_hash())
+        self.assertEqual(
+            integrity.canonical_code_hash(), integrity.canonical_code_hash()
+        )
         self.assertEqual(len(integrity.canonical_code_hash()), 64)
 
     def test_version_hash_sentinel_does_not_self_modify(self):
@@ -40,7 +42,9 @@ class IntegrityTests(unittest.TestCase):
     def test_line_endings_are_normalized(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "_version.py").write_bytes(b'__version__ = "x"\r\n__code_hash__ = "abc"\r\n')
+            (root / "_version.py").write_bytes(
+                b'__version__ = "x"\r\n__code_hash__ = "abc"\r\n'
+            )
             (root / "a.py").write_bytes(b"x = 1\r\ny = 2\r\n")
             h_crlf = integrity.canonical_code_hash(root)
             (root / "a.py").write_bytes(b"x = 1\ny = 2\n")
@@ -50,18 +54,24 @@ class IntegrityTests(unittest.TestCase):
     def test_path_order_is_canonical(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "_version.py").write_text('__version__ = "x"\n__code_hash__ = ""\n', encoding="utf-8")
+            (root / "_version.py").write_text(
+                '__version__ = "x"\n__code_hash__ = ""\n', encoding="utf-8"
+            )
             (root / "z.py").write_text("z = 1\n", encoding="utf-8")
             (root / "a.py").write_text("a = 1\n", encoding="utf-8")
             self.assertEqual(
-                tuple(p.relative_to(root).as_posix() for p in integrity.source_files(root)),
+                tuple(
+                    p.relative_to(root).as_posix() for p in integrity.source_files(root)
+                ),
                 ("_version.py", "a.py", "z.py"),
             )
 
     def test_unbundle_module_ignored(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "_version.py").write_text('__version__ = "x"\n__code_hash__ = ""\n', encoding="utf-8")
+            (root / "_version.py").write_text(
+                '__version__ = "x"\n__code_hash__ = ""\n', encoding="utf-8"
+            )
             (root / "a.py").write_text("a = 1\n", encoding="utf-8")
             h1 = integrity.canonical_code_hash(root)
             (root / "unbundle.py").write_text('blztar = "xyz"\n', encoding="utf-8")
@@ -76,7 +86,8 @@ class IntegrityTests(unittest.TestCase):
     def test_non_deps_python_shebang_and_docstring_conventions(self):
         repo = integrity.find_repo_root()
         py_files = sorted(
-            p for p in repo.rglob("*.py")
+            p
+            for p in repo.rglob("*.py")
             if not p.relative_to(repo).as_posix().startswith("deps/")
         )
         triple_single = 3 * chr(39)
@@ -99,7 +110,9 @@ class IntegrityTests(unittest.TestCase):
             else:
                 expected_mod = ".".join(parts)
 
-            has_main = '__name__ == "__main__"' in text or "__name__ == '__main__'" in text
+            has_main = (
+                '__name__ == "__main__"' in text or "__name__ == '__main__'" in text
+            )
             has_cli_shebang = lines[0].startswith("#!/usr/bin/env python3")
 
             if has_main or p.name in ("bundle.py", "unbundle.py"):
@@ -115,7 +128,9 @@ class IntegrityTests(unittest.TestCase):
 
             tree = ast.parse(text)
             docstring = ast.get_docstring(tree)
-            self.assertIsNotNone(docstring, f"{rel} lacks a module docstring at the top")
+            self.assertIsNotNone(
+                docstring, f"{rel} lacks a module docstring at the top"
+            )
             first_doc_line = docstring.strip().splitlines()[0]
 
             expected_prefix = f"{expected_mod} - "
@@ -125,8 +140,11 @@ class IntegrityTests(unittest.TestCase):
             )
 
             top_str_exprs = [
-                node for node in tree.body
-                if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)
+                node
+                for node in tree.body
+                if isinstance(node, ast.Expr)
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
             ]
             self.assertEqual(
                 len(top_str_exprs),
@@ -137,7 +155,8 @@ class IntegrityTests(unittest.TestCase):
     def test_markdown_formatting_conventions(self):
         repo = integrity.find_repo_root()
         md_files = sorted(
-            p for p in repo.rglob("*.md")
+            p
+            for p in repo.rglob("*.md")
             if not p.relative_to(repo).as_posix().startswith("deps/")
         )
         triple_single = 3 * chr(39)
@@ -173,9 +192,11 @@ class IntegrityTests(unittest.TestCase):
 
 def main(argv=None):
     import sys
+
     effective = sys.argv[1:] if argv is None else list(argv)
     if any(a in ("-V", "--version") for a in effective):
         from dwimsy.meta.integrity import version as get_version
+
         print(f"dwimsy {get_version()}")
         return 0
     unittest.main(argv=[sys.argv[0]] + effective)

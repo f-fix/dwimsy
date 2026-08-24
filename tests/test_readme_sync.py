@@ -22,7 +22,9 @@ class TestReadmeSync(unittest.TestCase):
     def test_readme_contains_cli_help_sections(self):
         readme_text = (pkg_root / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn("usage: dwimsy [-h] [-V] [-T] [--help-all] <command>", readme_text)
+        self.assertIn(
+            "usage: dwimsy [-h] [-V] [-T] [--help-all] <command>", readme_text
+        )
         self.assertIn("usage: dwimsy convert", readme_text)
         self.assertIn("usage: dwimsy inspect", readme_text)
         self.assertIn("usage: dwimsy split", readme_text)

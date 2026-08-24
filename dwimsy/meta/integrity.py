@@ -61,13 +61,20 @@ def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
                     files.append(p)
         return tuple(sorted(files, key=lambda p: p.relative_to(repo).as_posix()))
     elif (repo / "_version.py").is_file() or (repo / "__init__.py").is_file():
-        files = [p for p in repo.rglob("*.py") if p.is_file() and p.name != "unbundle.py"]
+        files = [
+            p for p in repo.rglob("*.py") if p.is_file() and p.name != "unbundle.py"
+        ]
         return tuple(sorted(files, key=lambda p: p.relative_to(repo).as_posix()))
     else:
         files = [
-            p for p in repo.rglob("*")
-            if p.is_file() and p.name != "unbundle.py"
-            and (p.suffix in (".py", ".md") or p.name in (".gitignore", ".gitmodules", "LICENSE", "README.md"))
+            p
+            for p in repo.rglob("*")
+            if p.is_file()
+            and p.name != "unbundle.py"
+            and (
+                p.suffix in (".py", ".md")
+                or p.name in (".gitignore", ".gitmodules", "LICENSE", "README.md")
+            )
         ]
         return tuple(sorted(files, key=lambda p: p.relative_to(repo).as_posix()))
 
@@ -77,14 +84,20 @@ def _canonical_bytes(data: bytes, rel_path: str) -> bytes:
     data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     if data and not data.endswith(b"\n"):
         data = data + b"\n"
-    if rel_path == "dwimsy/_version.py" or rel_path == "_version.py" or rel_path.endswith("/_version.py"):
+    if (
+        rel_path == "dwimsy/_version.py"
+        or rel_path == "_version.py"
+        or rel_path.endswith("/_version.py")
+    ):
         match = _HASH_RE.search(data)
         if match is None:
             raise ValueError(
                 f"{rel_path} does not contain the required __code_hash__ sentinel"
             )
         replacement = (
-            match.group("prefix") + match.group("quote") + match.group("quote")
+            match.group("prefix")
+            + match.group("quote")
+            + match.group("quote")
             + match.group("suffix")
         )
         data = data[: match.start()] + replacement + data[match.end() :]
@@ -117,7 +130,10 @@ def canonical_code_hash(root: Optional[Path] = None) -> str:
         else:
             try:
                 for a in unbundle.list_assets():
-                    if (a.startswith("tests/") and (a.endswith(".py") or a.endswith(".md"))) or a in (".gitignore", ".gitmodules", "LICENSE", "README.md"):
+                    if (
+                        a.startswith("tests/")
+                        and (a.endswith(".py") or a.endswith(".md"))
+                    ) or a in (".gitignore", ".gitmodules", "LICENSE", "README.md"):
                         if a not in canonical_rel_paths:
                             canonical_rel_paths.append(a)
             except Exception:

@@ -11,9 +11,8 @@ import io
 import os
 import sys
 from pathlib import Path
-from typing import BinaryIO, List, Tuple
+from typing import BinaryIO, List, Optional, Tuple
 
-# Bootstrap sys.path if executed directly as a script
 for p in Path(__file__).resolve().parents:
     if (p / "dwimsy").is_dir() and str(p) not in sys.path:
         sys.path.insert(0, str(p))
@@ -337,7 +336,6 @@ def run_join(args, raw_inputs: Optional[List[str]] = None):
         args.format.lower() if args.format else ("t88" if out_ext == ".t88" else "cmt")
     )
 
-    # If raw positional inputs contain scoped -b / --baud arguments, parse them a la SoX
     if raw_inputs:
         scoped_items = _parse_scoped_join_inputs(raw_inputs)
     else:
@@ -373,7 +371,10 @@ def main(argv: Optional[List[str]] = None):
         version=f"%(prog)s {get_version()}",
     )
     parser.add_argument(
-        "-T", "--test", action="store_true", help="Run unit tests and self-test assertions in-process"
+        "-T",
+        "--test",
+        action="store_true",
+        help="Run unit tests and self-test assertions in-process",
     )
     parser.add_argument(
         "--help-all",
@@ -568,37 +569,104 @@ def main(argv: Optional[List[str]] = None):
     p_meta = subparsers.add_parser(
         "meta", help="Maintainer tools and repository lifecycle management."
     )
-    meta_subparsers = p_meta.add_subparsers(dest="meta_command", metavar="<meta-command>")
+    meta_subparsers = p_meta.add_subparsers(
+        dest="meta_command", metavar="<meta-command>"
+    )
 
     p_meta_bundle = meta_subparsers.add_parser(
-        "bundle", help="Generate a self-extracting single-file Python unpacker bundle of dwimsy."
+        "bundle",
+        help="Generate a self-extracting single-file Python unpacker bundle of dwimsy.",
     )
     p_meta_bundle.add_argument(
-        "-o", "--output", default=None, help="Output script path or '-' for stdout (default: auto-derived)"
+        "-o",
+        "--output",
+        default=None,
+        help="Output script path or '-' for stdout (default: auto-derived)",
     )
     p_meta_bundle.add_argument(
-        "-t", "--tag", default=None, help="Optional short descriptive tag/label (e.g. 'parser-fix')"
+        "-t",
+        "--tag",
+        default=None,
+        help="Optional short descriptive tag/label (e.g. 'parser-fix')",
     )
     p_meta_bundle.add_argument(
-        "--baseline", action="store_true", help="Directly emit the installed canonical baseline bundle module (dwimsy/meta/unbundle.py) as output without bundling working tree"
+        "--baseline",
+        action="store_true",
+        help="Directly emit the installed canonical baseline bundle module (dwimsy/meta/unbundle.py) as output without bundling working tree",
     )
     p_meta_bundle.add_argument(
-        "--with-deps", action="store_true", help="Include legacy submodule scaffolding from deps/"
+        "--with-deps",
+        action="store_true",
+        help="Include legacy submodule scaffolding from deps/",
     )
     p_meta_bundle.add_argument(
-        "--status", action="store_true", help="List uncommitted/modified and untracked files before bundling"
+        "--status",
+        action="store_true",
+        help="List uncommitted/modified and untracked files before bundling",
     )
     p_meta_bundle.add_argument(
-        "--diff", action="store_true", help="Display working tree git diff on stderr before bundling"
+        "--diff",
+        action="store_true",
+        help="Display working tree git diff on stderr before bundling",
     )
     p_meta_fetch_deps = meta_subparsers.add_parser(
-        "fetch-deps", help="Fetch or materialize legacy reference submodules into deps/."
+        "fetch-deps",
+        help="Fetch or materialize legacy reference submodules into deps/.",
     )
     p_meta_fetch_deps.add_argument(
-        "--baseline", action="store_true", help="Extract frozen reference submodules directly from the bundled baseline payload without network access"
+        "--baseline",
+        action="store_true",
+        help="Extract frozen reference submodules directly from the bundled baseline payload without network access",
     )
     p_meta_fetch_deps.add_argument(
-        "-f", "--force", action="store_true", help="Overwrite existing deps/ directory if present"
+        "-f",
+        "--force",
+        action="store_true",
+        help="Overwrite existing deps/ directory if present",
+    )
+
+    # Registered roadmap placeholder commands
+    subparsers.add_parser(
+        "help", help="[TODO / Milestone 1.6] Interactive technical manual viewer."
+    )
+    subparsers.add_parser(
+        "readme", help="[TODO / Milestone 1.6] Output project README documentation."
+    )
+    subparsers.add_parser(
+        "license", help="[TODO / Milestone 1.6] Output project LICENSE terms."
+    )
+    subparsers.add_parser(
+        "changelog", help="[TODO / Milestone 1.6] Interactive revision history viewer."
+    )
+    subparsers.add_parser(
+        "charset", help="[TODO / Milestone 2.3] Streaming character set converter."
+    )
+    subparsers.add_parser(
+        "extract", help="[TODO / Milestone 2.3] Payload and filesystem extractor."
+    )
+    subparsers.add_parser(
+        "package",
+        help="[TODO / Milestone 2.4] ROM cartridge compiler (cas2rom / mkrom).",
+    )
+    subparsers.add_parser(
+        "bridge", help="[TODO / Milestone 2.5] Real-time hardware transport gateway."
+    )
+    subparsers.add_parser(
+        "archive", help="[TODO / Milestone 2.5] Archival preservation bundle generator."
+    )
+    subparsers.add_parser(
+        "recover", help="[TODO / Milestone 4.0] Forensic bit/pulse recovery engine."
+    )
+
+    meta_subparsers.add_parser(
+        "bundle-fixtures", help="[TODO / Milestone 1.6] Package private test fixtures."
+    )
+    meta_subparsers.add_parser(
+        "version-bump",
+        help="[TODO / Milestone 1.6] Advance revision and update changelog.",
+    )
+    meta_subparsers.add_parser(
+        "integrity", help="[TODO / Milestone 1.6] Verify source code integrity hash."
     )
 
     effective_argv = sys.argv[1:] if argv is None else list(argv)
@@ -609,10 +677,19 @@ def main(argv: Optional[List[str]] = None):
     if "-T" in effective_argv or "--test" in effective_argv:
         cmd = None
         for arg in effective_argv:
-            if arg in ("convert", "inspect", "split", "join", "meta", "t882wav", "wav2t88"):
+            if arg in (
+                "convert",
+                "inspect",
+                "split",
+                "join",
+                "meta",
+                "t882wav",
+                "wav2t88",
+            ):
                 cmd = arg
                 break
         from dwimsy.tests import run_tests
+
         rc = run_tests([cmd] if cmd else None)
         sys.exit(rc)
 
@@ -632,13 +709,37 @@ def main(argv: Optional[List[str]] = None):
         run_join(args)
     elif args.command == "meta":
         from dwimsy.meta.bundle import run_meta_bundle, run_meta_fetch_deps
+
         if args.meta_command == "bundle":
             run_meta_bundle(args)
         elif args.meta_command == "fetch-deps":
             run_meta_fetch_deps(args)
+        elif args.meta_command in ("bundle-fixtures", "version-bump", "integrity"):
+            print(
+                f"[NOT IMPLEMENTED] 'dwimsy meta {args.meta_command}' is scheduled for Milestone 1.6.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         else:
             p_meta.print_help(sys.stderr)
             sys.exit(1)
+    elif args.command in (
+        "help",
+        "readme",
+        "license",
+        "changelog",
+        "charset",
+        "extract",
+        "package",
+        "bridge",
+        "archive",
+        "recover",
+    ):
+        print(
+            f"[NOT IMPLEMENTED] 'dwimsy {args.command}' is scheduled for a future milestone.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
     else:
         parser.print_help(sys.stderr)
         sys.exit(1)

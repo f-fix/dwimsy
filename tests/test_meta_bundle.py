@@ -82,7 +82,11 @@ class TestMetaBundle(unittest.TestCase):
             dest_unpack = tmp_path / "unpacked_from_clean"
             out_bundle = tmp_path / "clean_bundle.py"
             out_bundle.write_text(script, encoding="utf-8")
-            res = subprocess.run([sys.executable, str(out_bundle), str(dest_unpack), "--deps"], capture_output=True, text=True)
+            res = subprocess.run(
+                [sys.executable, str(out_bundle), str(dest_unpack), "--deps"],
+                capture_output=True,
+                text=True,
+            )
             self.assertEqual(res.returncode, 0)
             self.assertTrue((dest_unpack / "deps" / "bin2fds" / "bin2fds.py").is_file())
 
@@ -120,7 +124,11 @@ class TestMetaBundle(unittest.TestCase):
 
             # Test default unpacking (no deps)
             dest_unpack = tmp_path / "unpacked_dest"
-            res = subprocess.run([sys.executable, str(out_bundle), str(dest_unpack)], capture_output=True, text=True)
+            res = subprocess.run(
+                [sys.executable, str(out_bundle), str(dest_unpack)],
+                capture_output=True,
+                text=True,
+            )
             self.assertEqual(res.returncode, 0)
             self.assertTrue((dest_unpack / "README.md").is_file())
             self.assertTrue((dest_unpack / "dwimsy" / "meta" / "unbundle.py").is_file())
@@ -128,12 +136,23 @@ class TestMetaBundle(unittest.TestCase):
 
             # Test unpacking with --deps
             dest_unpack_deps = tmp_path / "unpacked_dest_deps"
-            res_d = subprocess.run([sys.executable, str(out_bundle), str(dest_unpack_deps), "--deps"], capture_output=True, text=True)
+            res_d = subprocess.run(
+                [sys.executable, str(out_bundle), str(dest_unpack_deps), "--deps"],
+                capture_output=True,
+                text=True,
+            )
             self.assertEqual(res_d.returncode, 0)
-            self.assertTrue((dest_unpack_deps / "deps" / "bin2fds" / "bin2fds.py").is_file())
+            self.assertTrue(
+                (dest_unpack_deps / "deps" / "bin2fds" / "bin2fds.py").is_file()
+            )
 
             # Test CLI version in unpacked destination
-            res_v = subprocess.run([sys.executable, "-m", "dwimsy", "--version"], cwd=str(dest_unpack), capture_output=True, text=True)
+            res_v = subprocess.run(
+                [sys.executable, "-m", "dwimsy", "--version"],
+                cwd=str(dest_unpack),
+                capture_output=True,
+                text=True,
+            )
             self.assertEqual(res_v.returncode, 0)
             self.assertIn("dwimsy ", res_v.stdout)
 
@@ -148,20 +167,27 @@ class TestMetaBundle(unittest.TestCase):
                 dwimsy_cli_main(["meta", "bundle", "--baseline", "-o", str(out_bundle)])
 
             self.assertTrue(out_bundle.is_file())
-            self.assertEqual(out_bundle.read_text(encoding="utf-8"), Path(unbundle.__file__).read_text(encoding="utf-8"))
+            self.assertEqual(
+                out_bundle.read_text(encoding="utf-8"),
+                Path(unbundle.__file__).read_text(encoding="utf-8"),
+            )
 
     def test_integrity_hash_ignores_unbundle(self):
         h1 = integrity.canonical_code_hash()
         source_files = integrity.source_files()
-        self.assertNotIn("dwimsy/meta/unbundle.py", [p.as_posix() for p in source_files])
+        self.assertNotIn(
+            "dwimsy/meta/unbundle.py", [p.as_posix() for p in source_files]
+        )
         self.assertEqual(h1, integrity.canonical_code_hash())
 
 
 def main(argv=None):
     import sys
+
     effective = sys.argv[1:] if argv is None else list(argv)
     if any(a in ("-V", "--version") for a in effective):
         from dwimsy.meta.integrity import version as get_version
+
         print(f"dwimsy {get_version()}")
         return 0
     unittest.main(argv=[sys.argv[0]] + effective)

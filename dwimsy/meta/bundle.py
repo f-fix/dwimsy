@@ -38,7 +38,9 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                 continue
             if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
                 continue
-            if p.name in ("unbundle.py", "restore_dwimsy.py") or (p.name.startswith("dwimsy_") and p.name.endswith(".py")):
+            if p.name in ("unbundle.py", "restore_dwimsy.py") or (
+                p.name.startswith("dwimsy_") and p.name.endswith(".py")
+            ):
                 continue
 
             arcname = "./" + rel.as_posix()
@@ -102,7 +104,9 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
     return buf.getvalue()
 
 
-def build_bundle_script(repo_root: Optional[Path] = None, with_deps: bool = True, preset: int = 9) -> str:
+def build_bundle_script(
+    repo_root: Optional[Path] = None, with_deps: bool = True, preset: int = 9
+) -> str:
     """Pack the repository tree into a standalone self-extracting Python script string."""
     root = find_repo_root(repo_root)
     tar_bytes = create_tar_archive(root, with_deps=with_deps)
@@ -142,13 +146,17 @@ def run_meta_bundle(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
     repo_root = find_repo_root()
 
     if getattr(args, "status", False):
-        res = subprocess.run(["git", "status", "-s"], cwd=repo_root, capture_output=True, text=True)
+        res = subprocess.run(
+            ["git", "status", "-s"], cwd=repo_root, capture_output=True, text=True
+        )
         if res.returncode == 0 and res.stdout.strip():
             print("=== Working Tree Git Status ===", file=stderr)
             print(res.stdout.strip(), file=stderr)
 
     if getattr(args, "diff", False):
-        res = subprocess.run(["git", "diff"], cwd=repo_root, capture_output=True, text=True)
+        res = subprocess.run(
+            ["git", "diff"], cwd=repo_root, capture_output=True, text=True
+        )
         if res.returncode == 0 and res.stdout.strip():
             print("=== Working Tree Git Diff ===", file=stderr)
             print(res.stdout.strip(), file=stderr)
@@ -200,10 +208,16 @@ def run_meta_fetch_deps(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
         if res.returncode == 0:
             print(f"[SUCCESS] Updated git submodules in {deps_dir}", file=stderr)
             return 0
-        print("[NOTICE] Git submodule update failed or unavailable; falling back to bundled baseline.", file=stderr)
+        print(
+            "[NOTICE] Git submodule update failed or unavailable; falling back to bundled baseline.",
+            file=stderr,
+        )
 
     extracted = unbundle.extract_deps(repo_root)
-    print(f"[SUCCESS] Materialized {len(extracted)} bundled reference files into {deps_dir}", file=stderr)
+    print(
+        f"[SUCCESS] Materialized {len(extracted)} bundled reference files into {deps_dir}",
+        file=stderr,
+    )
     return 0
 
 
@@ -220,22 +234,36 @@ def main(argv: Optional[List[str]] = None) -> int:
         version=f"%(prog)s {integrity.version()}",
     )
     parser.add_argument(
-        "-o", "--output", default=None, help="Output script path or '-' for stdout (default: auto-derived)"
+        "-o",
+        "--output",
+        default=None,
+        help="Output script path or '-' for stdout (default: auto-derived)",
     )
     parser.add_argument(
-        "-t", "--tag", default=None, help="Optional short descriptive tag/label (e.g. 'parser-fix')"
+        "-t",
+        "--tag",
+        default=None,
+        help="Optional short descriptive tag/label (e.g. 'parser-fix')",
     )
     parser.add_argument(
-        "--baseline", action="store_true", help="Directly emit the installed canonical baseline bundle module (dwimsy/meta/unbundle.py) as output without bundling working tree"
+        "--baseline",
+        action="store_true",
+        help="Directly emit the installed canonical baseline bundle module (dwimsy/meta/unbundle.py) as output without bundling working tree",
     )
     parser.add_argument(
-        "--with-deps", action="store_true", help="Include legacy submodule scaffolding from deps/"
+        "--with-deps",
+        action="store_true",
+        help="Include legacy submodule scaffolding from deps/",
     )
     parser.add_argument(
-        "--status", action="store_true", help="List uncommitted/modified and untracked files before bundling"
+        "--status",
+        action="store_true",
+        help="List uncommitted/modified and untracked files before bundling",
     )
     parser.add_argument(
-        "--diff", action="store_true", help="Display working tree git diff on stderr before bundling"
+        "--diff",
+        action="store_true",
+        help="Display working tree git diff on stderr before bundling",
     )
     args = parser.parse_args(argv)
     return run_meta_bundle(args)

@@ -68,8 +68,14 @@ class TestCLIVersion(unittest.TestCase):
                 except SystemExit as e:
                     rc = e.code
             out = buf.getvalue().strip()
-            self.assertEqual(rc, 0, f"{mod_name} --version returned non-zero exit code {rc}")
-            self.assertIn(expected_v, out, f"{mod_name} --version output '{out}' missing expected '{expected_v}'")
+            self.assertEqual(
+                rc, 0, f"{mod_name} --version returned non-zero exit code {rc}"
+            )
+            self.assertIn(
+                expected_v,
+                out,
+                f"{mod_name} --version output '{out}' missing expected '{expected_v}'",
+            )
 
     def test_subprocess_cli_module_invocations(self):
         repo_root = Path(pkg_root)
@@ -109,9 +115,11 @@ class TestCLIVersion(unittest.TestCase):
 
 def main(argv=None):
     import sys
+
     effective = sys.argv[1:] if argv is None else list(argv)
     if any(a in ("-V", "--version") for a in effective):
         from dwimsy.meta.integrity import version as get_version
+
         print(f"dwimsy {get_version()}")
         return 0
     unittest.main(argv=[sys.argv[0]] + effective)

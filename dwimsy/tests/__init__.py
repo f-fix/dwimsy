@@ -46,7 +46,12 @@ SCOPED_TEST_MAPPINGS = {
     "join": ["test_tape_t88.py", "test_protocols_pc88.py"],
     "meta": ["test_meta_bundle.py", "test_meta_integrity.py"],
     "t882wav": ["test_core_audio.py", "test_tape_t88.py", "test_cli_filters.py"],
-    "wav2t88": ["test_core_audio.py", "test_core_pulse.py", "test_core_fsk.py", "test_cli_filters.py"],
+    "wav2t88": [
+        "test_core_audio.py",
+        "test_core_pulse.py",
+        "test_core_fsk.py",
+        "test_cli_filters.py",
+    ],
     "audio": ["test_core_audio.py"],
     "pulse": ["test_core_pulse.py"],
     "fsk": ["test_core_fsk.py"],
@@ -54,6 +59,8 @@ SCOPED_TEST_MAPPINGS = {
     "protocols": ["test_protocols_pc88.py"],
     "integrity": ["test_meta_integrity.py"],
     "bundle": ["test_meta_bundle.py"],
+    "lint": ["test_lint_headers.py", "test_lint_markdown.py"],
+    "readme": ["test_readme_sync.py"],
 }
 
 
@@ -132,7 +139,13 @@ def run_tests(
         if str(disk_tests) not in sys.path:
             sys.path.insert(0, str(disk_tests))
         for pat in expanded_patterns:
-            suite.addTests(loader.discover(start_dir=str(disk_tests), pattern=pat, top_level_dir=str(disk_tests)))
+            suite.addTests(
+                loader.discover(
+                    start_dir=str(disk_tests),
+                    pattern=pat,
+                    top_level_dir=str(disk_tests),
+                )
+            )
         runner = unittest.TextTestRunner(verbosity=verbose, stream=stream)
         result = runner.run(suite)
         return 0 if result.wasSuccessful() else 1
@@ -145,7 +158,13 @@ def run_tests(
             if str(tests_dir) not in sys.path:
                 sys.path.insert(0, str(tests_dir))
             for pat in expanded_patterns:
-                suite.addTests(loader.discover(start_dir=str(tests_dir), pattern=pat, top_level_dir=str(tests_dir)))
+                suite.addTests(
+                    loader.discover(
+                        start_dir=str(tests_dir),
+                        pattern=pat,
+                        top_level_dir=str(tests_dir),
+                    )
+                )
             runner = unittest.TextTestRunner(verbosity=verbose, stream=stream)
             result = runner.run(suite)
             return 0 if result.wasSuccessful() else 1

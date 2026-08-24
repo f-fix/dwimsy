@@ -174,9 +174,11 @@ class TestSnippetToInputCorrespondence(unittest.TestCase):
 
 def main(argv=None):
     import sys
+
     effective = sys.argv[1:] if argv is None else list(argv)
     if any(a in ("-V", "--version") for a in effective):
         from dwimsy.meta.integrity import version as get_version
+
         print(f"dwimsy {get_version()}")
         return 0
     unittest.main(argv=[sys.argv[0]] + effective)

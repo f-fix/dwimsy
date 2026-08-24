@@ -315,8 +315,12 @@ def main(argv: Optional[List[str]] = None):
         action="version",
         version=f"%(prog)s {get_version()}",
     )
-    parser.add_argument("input", nargs="?", default="-", help="Input WAV file or '-' for stdin")
-    parser.add_argument("output", nargs="?", default="-", help="Output .t88 file or '-' for stdout")
+    parser.add_argument(
+        "input", nargs="?", default="-", help="Input WAV file or '-' for stdin"
+    )
+    parser.add_argument(
+        "output", nargs="?", default="-", help="Output .t88 file or '-' for stdout"
+    )
     parser.add_argument(
         "--baud",
         "-b",
@@ -357,16 +361,18 @@ def main(argv: Optional[List[str]] = None):
         default=0.75,
         help="Minimum confidence threshold",
     )
+    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress logging")
     parser.add_argument(
-        "-q", "--quiet", action="store_true", help="Suppress logging"
-    )
-    parser.add_argument(
-        "-T", "--test", action="store_true", help="Run filter self-tests in-process and exit"
+        "-T",
+        "--test",
+        action="store_true",
+        help="Run filter self-tests in-process and exit",
     )
 
     args = parser.parse_args(argv)
     if getattr(args, "test", False):
         from dwimsy.tests import run_tests
+
         rc = run_tests(["wav2t88"])
         sys.exit(rc)
     if not args.input or args.input == "-":

@@ -27,11 +27,22 @@ class TestLintMarkdown(unittest.TestCase):
             # Check 2: Check for raw inline LaTeX delimiters ($...$ or $$...$$ embedded in text)
             for i, line in enumerate(text.splitlines(), start=1):
                 stripped = line.strip()
-                if stripped.startswith("$$") and stripped.endswith("$$") and len(stripped) > 2:
+                if (
+                    stripped.startswith("$$")
+                    and stripped.endswith("$$")
+                    and len(stripped) > 2
+                ):
                     continue
-                if re.search(r'(?<!\\)\$[^\$]+\$', line) and not re.search(r'\$[0-9A-Za-z_-]+', line):
-                    if any(cmd in line for cmd in ("\\approx", "\\text", "\\frac", "\\cdot", "\\mu")):
-                        errors.append(f"{rel}:{i}: contains inline LaTeX math delimiters in text: `{line[:60]}`")
+                if re.search(r"(?<!\\)\$[^\$]+\$", line) and not re.search(
+                    r"\$[0-9A-Za-z_-]+", line
+                ):
+                    if any(
+                        cmd in line
+                        for cmd in ("\\approx", "\\text", "\\frac", "\\cdot", "\\mu")
+                    ):
+                        errors.append(
+                            f"{rel}:{i}: contains inline LaTeX math delimiters in text: `{line[:60]}`"
+                        )
 
         self.assertEqual(errors, [], "Markdown lint failures:\n" + "\n".join(errors))
 

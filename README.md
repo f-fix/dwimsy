@@ -158,11 +158,11 @@ python3 -m dwimsy.tests
 python3 -m dwimsy.tests       # or python3 -m dwimsy --test
 
 # Pass custom private fixture path via CLI:
-dwimsy test -v --fixtures /path/to/fixtures/
+python3 -m dwimsy.tests -v     # or python3 -m dwimsy --test
 dwimsy-test -v -f ./tests/fixtures/
 
 # Scoped testing for specific subsystems:
-dwimsy test fsk -v
+python3 -m dwimsy.tests fsk -v
 dwimsy t882wav --test          # tests only synthesis logic
 dwimsy wav2t88 --test          # tests only demodulation logic
 
@@ -447,10 +447,10 @@ options:
 dwimsy test
 
 # Run against private test fixtures
-dwimsy test -v --fixtures /path/to/fixtures/
+python3 -m dwimsy.tests -v     # or python3 -m dwimsy --test
 
 # Scoped testing for a single subsystem
-dwimsy test fsk -v
+python3 -m dwimsy.tests fsk -v
 ```
 
 #### `dwimsy help` *(planned; not currently implemented)*
@@ -1246,8 +1246,8 @@ dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
 
 # Run unit and integration tests (synthetic tests run out-of-the-box in ~0.5s)
 dwimsy test
-dwimsy test -v --fixtures /path/to/fixtures/
-dwimsy test fsk -v
+python3 -m dwimsy.tests -v     # or python3 -m dwimsy --test
+python3 -m dwimsy.tests fsk -v
 
 # Display technical reference manual for any verb or core subsystem
 dwimsy help fsk

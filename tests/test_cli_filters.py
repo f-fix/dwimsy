@@ -42,7 +42,11 @@ class TestPhase1FiltersAndCLI(unittest.TestCase):
         t88_path = pool.get("input16.t88")
         cmt_path = pool.get("input16.cmt")
         if not (t88_path and cmt_path):
-            self.skipTest(pool.skip_reason("input16.t88") if not t88_path else pool.skip_reason("input16.cmt"))
+            self.skipTest(
+                pool.skip_reason("input16.t88")
+                if not t88_path
+                else pool.skip_reason("input16.cmt")
+            )
 
         with open(t88_path, "rb") as f:
             t88_orig_bytes = f.read()
@@ -72,7 +76,11 @@ class TestPhase1FiltersAndCLI(unittest.TestCase):
         t88_path = pool.get("input16.t88")
         cmt_path = pool.get("input16.cmt")
         if not (t88_path and cmt_path):
-            self.skipTest(pool.skip_reason("input16.t88") if not t88_path else pool.skip_reason("input16.cmt"))
+            self.skipTest(
+                pool.skip_reason("input16.t88")
+                if not t88_path
+                else pool.skip_reason("input16.cmt")
+            )
 
         class ConvertArgs:
             command = "convert"
@@ -110,9 +118,11 @@ class TestPhase1FiltersAndCLI(unittest.TestCase):
 
 def main(argv=None):
     import sys
+
     effective = sys.argv[1:] if argv is None else list(argv)
     if any(a in ("-V", "--version") for a in effective):
         from dwimsy.meta.integrity import version as get_version
+
         print(f"dwimsy {get_version()}")
         return 0
     unittest.main(argv=[sys.argv[0]] + effective)

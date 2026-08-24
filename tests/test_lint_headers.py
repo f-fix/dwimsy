@@ -19,10 +19,13 @@ def derive_module_name(rel_path: Path) -> str:
 
 class TestLintHeaders(unittest.TestCase):
     def test_all_non_deps_python_files_conform_to_header_spec(self):
-        py_files = sorted([
-            p for p in pkg_root.rglob("*.py")
-            if not p.relative_to(pkg_root).as_posix().startswith("deps")
-        ])
+        py_files = sorted(
+            [
+                p
+                for p in pkg_root.rglob("*.py")
+                if not p.relative_to(pkg_root).as_posix().startswith("deps")
+            ]
+        )
 
         errors = []
         forbidden_triple = chr(39) * 3
@@ -38,11 +41,20 @@ class TestLintHeaders(unittest.TestCase):
             if forbidden_triple in text:
                 errors.append(f"{rel}: contains forbidden triple single-quotes")
 
-            has_main = '__name__ == "__main__"' in text or "__name__ == '__main__'" in text
+            has_main = (
+                '__name__ == "__main__"' in text or "__name__ == '__main__'" in text
+            )
             is_cli = (
                 has_main
                 or p.name.startswith("test_")
-                or p.name in ("__main__.py", "unbundle.py", "bundle.py", "t882wav.py", "wav2t88.py")
+                or p.name
+                in (
+                    "__main__.py",
+                    "unbundle.py",
+                    "bundle.py",
+                    "t882wav.py",
+                    "wav2t88.py",
+                )
             )
 
             has_shebang = lines[0].startswith("#!")
@@ -57,15 +69,21 @@ class TestLintHeaders(unittest.TestCase):
                 continue
 
             doc_line = lines[doc_idx]
-            if not (doc_line.startswith(chr(34)*3) or doc_line.startswith(chr(39)*3)):
-                errors.append(f"{rel}: line {doc_idx + 1} does not start with docstring quote (got `{doc_line[:30]}`)")
+            if not (
+                doc_line.startswith(chr(34) * 3) or doc_line.startswith(chr(39) * 3)
+            ):
+                errors.append(
+                    f"{rel}: line {doc_idx + 1} does not start with docstring quote (got `{doc_line[:30]}`)"
+                )
                 continue
 
             expected_mod = derive_module_name(rel)
             expected_prefix = f"{expected_mod} - "
             clean_doc = doc_line.lstrip(chr(34) + chr(39))
             if not clean_doc.startswith(expected_prefix):
-                errors.append(f"{rel}: docstring must begin with `{expected_prefix}`, got `{clean_doc[:45]}`")
+                errors.append(
+                    f"{rel}: docstring must begin with `{expected_prefix}`, got `{clean_doc[:45]}`"
+                )
 
         self.assertEqual(errors, [], "Header linting failures:\n" + "\n".join(errors))
 
