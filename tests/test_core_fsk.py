@@ -6,12 +6,12 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from typing import Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dwimsy.core.pulse import PulseTimingRecognizer
 from dwimsy.core.fsk import FSKClassifier, ByteFramer, ClassifiedPulse, DecodedByte
+from dwimsy.tests.fixtures import get_fixture_pool
 
 
 def _load_module(name, path):
@@ -66,13 +66,9 @@ class TestFSKClassifierSynthetic(unittest.TestCase):
     def test_boundary_is_geometric_mean_of_periods(self):
         c = FSKClassifier(mark_freq=2400.0, space_freq=1200.0)
         expected = math.sqrt((1 / 2400.0) * (1 / 1200.0))
-        # At 2:1 ratio this should equal the original hardcoded
-        # constant (mark_period * sqrt(2)) to high precision.
         self.assertAlmostEqual(expected, (1 / 2400.0) * math.sqrt(2), places=12)
 
     def test_octave_shifted_frequencies_classify_correctly(self):
-        # A "fast MSX mode"-like 4800/2400 Hz pair, fed into a
-        # correspondingly-retuned classifier + front end.
         fs = 44100.0
         r = PulseTimingRecognizer(fs, center_freq=3600.0, bandwidth=4800.0)
         c = FSKClassifier(mark_freq=4800.0, space_freq=2400.0)
@@ -85,8 +81,6 @@ class TestFSKClassifierSynthetic(unittest.TestCase):
 class TestByteFramerSynthetic(unittest.TestCase):
 
     def _make_pulses(self, symbol_durs, fs=44100.0):
-        """symbol_durs: list of (symbol, duration_sec) with sample_index
-        tracking elapsed audio samples at fs."""
         pulses = []
         sample_idx = 0
         for sym, dur in symbol_durs:
@@ -95,31 +89,17 @@ class TestByteFramerSynthetic(unittest.TestCase):
         return pulses
 
     def test_decodes_a_simple_byte(self):
-        # 1200 baud: bit_duration = 1/1200 s. Build: long Mark leader,
-        # then a Space start bit, then 8 data bits (LSB-first) encoding
-        # 0x55 = 0b01010101 (bit0=1,bit1=0,...), each bit's dominant
-        # symbol held for one full bit_duration, then 2 "stop" bits'
-        # worth of Mark.
         baud = 1200
         bit_dur = 1.0 / baud
         framer = ByteFramer(baud=baud)
 
         events = []
-        # Leader: long mark (needs >= max(0.040, bit_dur*25) sec while
-        # not in_block/in_session -> use a generous leader).
         events.append(("M", 0.10))
-        # Start bit: Space, long enough to exceed start_space_thresh.
         events.append(("S", bit_dur))
-        # 8 data bits, LSB-first, value 0x55 = 0b01010101
-        # bit0=1(M) bit1=0(S) bit2=1(M) bit3=0(S) bit4=1(M) bit5=0(S) bit6=1(M) bit7=0(S)
         bits = [1, 0, 1, 0, 1, 0, 1, 0]
         for b in bits:
             events.append(("M" if b else "S", bit_dur))
-        # Stop: enough Mark time to close out the frame (>= 1.5 bit durations).
         events.append(("M", bit_dur * 1.6))
-        # A following Blank to flush any pending state (not required to
-        # get a result, since STOP fires as soon as accum_time clears
-        # the threshold, but keeps the test's intent explicit).
         events.append(("B", 0.01))
 
         pulses = self._make_pulses(events)
@@ -145,34 +125,6 @@ class TestByteFramerSynthetic(unittest.TestCase):
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SUBMODULE_TOOL_PATH = REPO_ROOT / "deps" / "pc88_tape_tools" / "wav2t88.py"
-DEFAULT_FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
-
-
-def find_fixture_path(
-    filename: str, subdirs: Tuple[str, ...] = ("set1", "set2", "pc88", "")
-) -> Optional[Path]:
-    """Locate a sample fixture file in tests/fixtures or via DWIMSY_TEST_FIXTURES."""
-    search_roots = []
-    env_dir = os.environ.get("DWIMSY_TEST_FIXTURES")
-    if env_dir:
-        search_roots.append(Path(env_dir))
-    search_roots.append(DEFAULT_FIXTURES_DIR)
-    search_roots.append(REPO_ROOT / "fixtures")
-
-    for root in search_roots:
-        if not root.exists():
-            continue
-        direct = root / filename
-        if direct.is_file():
-            return direct
-        for sub in subdirs:
-            p = root / sub / filename
-            if p.is_file():
-                return p
-        for match in root.rglob(filename):
-            if match.is_file():
-                return match
-    return None
 
 
 @unittest.skipUnless(
@@ -181,17 +133,6 @@ def find_fixture_path(
     "(git submodule update --init --recursive).",
 )
 class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
-    """
-    Swaps BOTH the new PulseTimingRecognizer (core.pulse) and the new
-    FSKClassifier + ByteFramer (core.fsk) into the submodule wav2t88.py
-    pipeline in place of its old inline BaudAgnosticPulseRecognizer +
-    PulseToByteAcceptor, leaving only the T88 container writing stage
-    untouched. If the decoded byte stream is identical to running the
-    fully original code on the same real tape audio, that's strong
-    evidence both new modules together are a faithful, lossless split
-    of the original single class.
-    """
-
     def setUp(self):
         self.orig = _load_module("orig_wav2t88_for_fsk_check", str(SUBMODULE_TOOL_PATH))
 
@@ -219,7 +160,7 @@ class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
             return bytes(out_bytes)
 
     def _run_new(self, wav_path):
-        orig = self.orig  # only for StreamingWavReader, unrelated to what's under test
+        orig = self.orig
         with open(wav_path, "rb") as f:
             reader = orig.StreamingWavReader(f, channel_mode="auto")
             fs = reader.sample_rate
@@ -256,21 +197,17 @@ class TestFSKEquivalenceAgainstOriginal(unittest.TestCase):
         )
 
     def test_equivalence_on_real_tape_snippet_1(self):
-        wav_path = find_fixture_path("snippet.wav", subdirs=("set1", "pc88", ""))
-        if not wav_path or not wav_path.exists():
-            self.skipTest(
-                "snippet.wav not found in tests/fixtures/ (or DWIMSY_TEST_FIXTURES). "
-                "Unpack sample data into tests/fixtures/ to run this test."
-            )
+        pool = get_fixture_pool()
+        wav_path = pool.get("snippet.wav")
+        if not wav_path:
+            self.skipTest(pool.skip_reason("snippet.wav"))
         self._check_file(wav_path)
 
     def test_equivalence_on_real_tape_snippet_2(self):
-        wav_path = find_fixture_path("snippet2.wav", subdirs=("set2", "pc88", ""))
-        if not wav_path or not wav_path.exists():
-            self.skipTest(
-                "snippet2.wav not found in tests/fixtures/ (or DWIMSY_TEST_FIXTURES). "
-                "Unpack sample data into tests/fixtures/ to run this test."
-            )
+        pool = get_fixture_pool()
+        wav_path = pool.get("snippet2.wav")
+        if not wav_path:
+            self.skipTest(pool.skip_reason("snippet2.wav"))
         self._check_file(wav_path)
 
 
