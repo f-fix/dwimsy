@@ -1,4 +1,4 @@
-"""Canonical source-tree hashing and runtime modification detection.
+"""dwimsy.meta.integrity - Canonical source-tree hashing and runtime modification detection.
 
 The integrity hash covers the Python source under ``dwimsy/`` only.  Files are
 ordered by their POSIX relative path, source text is normalized to LF line
