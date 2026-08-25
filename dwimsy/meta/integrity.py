@@ -242,6 +242,7 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
         else:
             try:
                 import dwimsy._version as _v_mod
+
                 base_version = getattr(_v_mod, "__version__", None)
             except Exception:
                 pass

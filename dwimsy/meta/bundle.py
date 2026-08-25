@@ -226,7 +226,9 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     with tempfile.TemporaryDirectory(prefix="dwimsy_bundle_") as tmp:
         tmp_path = Path(tmp)
         # Phase 1: Build stage 1 bundle script in temporary directory
-        stage1_script = build_bundle_script(repo_root=repo_root, with_deps=True, preset=0)
+        stage1_script = build_bundle_script(
+            repo_root=repo_root, with_deps=True, preset=0
+        )
         stage1_bundle_file = tmp_path / "stage1_bundle.py"
         stage1_bundle_file.write_text(stage1_script, encoding="utf-8")
 

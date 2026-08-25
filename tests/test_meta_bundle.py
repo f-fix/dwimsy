@@ -87,7 +87,14 @@ class TestMetaBundle(unittest.TestCase):
             out_bundle = tmp_path / "clean_bundle.py"
             out_bundle.write_text(script, encoding="utf-8")
             res = subprocess.run(
-                [sys.executable, str(out_bundle), "meta", "unbundle", str(dest_unpack), "--deps"],
+                [
+                    sys.executable,
+                    str(out_bundle),
+                    "meta",
+                    "unbundle",
+                    str(dest_unpack),
+                    "--deps",
+                ],
                 capture_output=True,
                 text=True,
             )
@@ -141,7 +148,14 @@ class TestMetaBundle(unittest.TestCase):
             # Test unpacking with --deps
             dest_unpack_deps = tmp_path / "unpacked_dest_deps"
             res_d = subprocess.run(
-                [sys.executable, str(out_bundle), "meta", "unbundle", str(dest_unpack_deps), "--deps"],
+                [
+                    sys.executable,
+                    str(out_bundle),
+                    "meta",
+                    "unbundle",
+                    str(dest_unpack_deps),
+                    "--deps",
+                ],
                 capture_output=True,
                 text=True,
             )
