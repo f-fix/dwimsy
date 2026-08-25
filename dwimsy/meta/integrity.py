@@ -212,6 +212,9 @@ def is_modified(root: Optional[Path] = None) -> bool:
     An empty/unsealed hash is considered modified. That is intentional: an
     unsealed development tree cannot claim to be a canonical baseline.
     """
+    v_file = version_file_path(root)
+    if not v_file.is_file():
+        return False
     current = canonical_code_hash(root)
     sealed = sealed_code_hash(root)
     return not sealed or current != sealed
@@ -231,10 +234,17 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
     """
     if base_version is None:
         v_file = version_file_path(root)
-        namespace: dict[str, object] = {}
-        source = v_file.read_text(encoding="utf-8")
-        exec(compile(source, str(v_file), "exec"), namespace)
-        base_version = namespace.get("__version__")
+        if v_file.is_file():
+            namespace: dict[str, object] = {}
+            source = v_file.read_text(encoding="utf-8")
+            exec(compile(source, str(v_file), "exec"), namespace)
+            base_version = namespace.get("__version__")
+        else:
+            try:
+                import dwimsy._version as _v_mod
+                base_version = getattr(_v_mod, "__version__", None)
+            except Exception:
+                pass
         if not isinstance(base_version, str) or not base_version:
             raise ValueError("__version__ must be a non-empty string")
 
