@@ -648,6 +648,19 @@ def main(argv: Optional[List[str]] = None):
         action="store_true",
         help="Overwrite existing deps/ directory if present",
     )
+    p_meta_unbundle = meta_subparsers.add_parser(
+        "unbundle",
+        help="Extract dwimsy standalone bundle to a target directory.",
+    )
+    p_meta_unbundle.add_argument(
+        "target_directory", help="Target directory for extraction"
+    )
+    p_meta_unbundle.add_argument(
+        "--deps",
+        "-d",
+        action="store_true",
+        help="Also extract frozen third-party reference dependencies into deps/",
+    )
 
     # Registered roadmap placeholder commands
     subparsers.add_parser(
@@ -750,6 +763,16 @@ def main(argv: Optional[List[str]] = None):
             run_meta_bundle(args)
         elif args.meta_command == "fetch-deps":
             run_meta_fetch_deps(args)
+        elif args.meta_command == "unbundle":
+            from dwimsy.meta import unbundle
+
+            unbundle.extract_b64_lzma_tar(
+                unbundle.blztar,
+                args.target_directory,
+                self_path=sys.argv[0],
+                with_deps=args.deps,
+            )
+            print(f"Successfully extracted to {args.target_directory}")
         elif args.meta_command in ("bundle-fixtures", "version-bump", "integrity"):
             print(
                 f"[NOT IMPLEMENTED] 'dwimsy meta {args.meta_command}' is scheduled for Milestone 1.6.",
