@@ -21,7 +21,6 @@ import io
 import math
 import os
 import struct
-import sys
 from typing import BinaryIO, Generator, List, Optional, Tuple
 
 from dwimsy.core.audio import StreamingWavWriter
@@ -340,6 +339,28 @@ def log_diag(msg: str):
 
 
 def main(argv: Optional[List[str]] = None):
+    effective_argv = sys.argv[1:] if argv is None else list(argv)
+    for p in Path(__file__).resolve().parents:
+        if (p / "dwimsy").is_dir():
+            if str(p) in sys.path:
+                sys.path.remove(str(p))
+            sys.path.insert(0, str(p))
+            break
+
+    if "-T" in effective_argv or "--test" in effective_argv:
+        verbosity = 1
+        for arg in effective_argv:
+            if arg in ("-v", "--verbose"):
+                verbosity = max(verbosity + 1, 2)
+            elif (
+                arg.startswith("-") and len(arg) > 1 and all(c == "v" for c in arg[1:])
+            ):
+                verbosity = max(verbosity + len(arg) - 1, 2)
+        from dwimsy.tests import run_tests
+
+        rc = run_tests(["t882wav"], verbose=verbosity)
+        sys.exit(rc)
+
     parser = argparse.ArgumentParser(
         prog="dwimsy-t882wav",
         description="Stream PC-8001 / PC-8801 .t88 tape container image to standard WAV audio.",
@@ -427,13 +448,14 @@ def main(argv: Optional[List[str]] = None):
         action="store_true",
         help="Run filter self-tests in-process and exit",
     )
+    parser.add_argument(
+        "--verbose",
+        action="count",
+        default=1,
+        help="Increase test runner verbosity when running self-tests",
+    )
 
     args = parser.parse_args(argv)
-    if getattr(args, "test", False):
-        from dwimsy.tests import run_tests
-
-        rc = run_tests(["t882wav"])
-        sys.exit(rc)
     if not args.input or args.input == "-":
         in_s = sys.stdin.buffer
     else:

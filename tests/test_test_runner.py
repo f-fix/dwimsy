@@ -17,6 +17,8 @@ from dwimsy import tests as dw_tests
 from dwimsy.cli import main as dwimsy_cli_main
 from dwimsy.cli.filters.t882wav import main as t882wav_main
 from dwimsy.cli.filters.wav2t88 import main as wav2t88_main
+from dwimsy.tests.__main__ import main as dw_tests_main
+from tests.__main__ import main as tests_main
 
 
 class TestTestRunner(unittest.TestCase):
@@ -36,9 +38,19 @@ class TestTestRunner(unittest.TestCase):
         buf = io.StringIO()
         with redirect_stderr(buf):
             with self.assertRaises(SystemExit) as cm:
-                dwimsy_cli_main(["meta", "--test"])
+                dwimsy_cli_main(["convert", "--test"])
             self.assertEqual(cm.exception.code, 0)
         self.assertIn("OK", buf.getvalue())
+
+    def test_main_scoped_verb_test_flag_verbose_in_process(self):
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            with self.assertRaises(SystemExit) as cm:
+                dwimsy_cli_main(["integrity", "--test", "--verbose"])
+            self.assertEqual(cm.exception.code, 0)
+        out = buf.getvalue()
+        self.assertIn("OK", out)
+        self.assertIn("test_hash_is_stable", out)
 
     def test_filter_t882wav_test_flag_in_process(self):
         buf = io.StringIO()
@@ -50,6 +62,21 @@ class TestTestRunner(unittest.TestCase):
                     t882wav_main()
                 self.assertEqual(cm.exception.code, 0)
             self.assertIn("OK", buf.getvalue())
+        finally:
+            sys.argv = orig_argv
+
+    def test_filter_t882wav_test_flag_verbose_in_process(self):
+        buf = io.StringIO()
+        orig_argv = sys.argv
+        try:
+            sys.argv = ["t882wav", "--test", "--verbose"]
+            with redirect_stderr(buf):
+                with self.assertRaises(SystemExit) as cm:
+                    t882wav_main()
+                self.assertEqual(cm.exception.code, 0)
+            out = buf.getvalue()
+            self.assertIn("OK", out)
+            self.assertIn("test_native_t882wav_synthetic_roundtrip", out)
         finally:
             sys.argv = orig_argv
 
@@ -66,6 +93,30 @@ class TestTestRunner(unittest.TestCase):
         finally:
             sys.argv = orig_argv
 
+    def test_filter_wav2t88_test_flag_verbose_in_process(self):
+        buf = io.StringIO()
+        orig_argv = sys.argv
+        try:
+            sys.argv = ["wav2t88", "--test", "-v"]
+            with redirect_stderr(buf):
+                with self.assertRaises(SystemExit) as cm:
+                    wav2t88_main()
+                self.assertEqual(cm.exception.code, 0)
+            out = buf.getvalue()
+            self.assertIn("OK", out)
+            self.assertIn("test_pure_1200hz_tone_measures_correct_period", out)
+        finally:
+            sys.argv = orig_argv
+
+    def test_dwimsy_tests_main_verbose_flag(self):
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            rc = dw_tests_main(["integrity", "--verbose"])
+            self.assertEqual(rc, 0)
+        out = buf.getvalue()
+        self.assertIn("OK", out)
+        self.assertIn("test_hash_is_stable", out)
+
     def test_run_tests_fallback_without_disk_tests(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -78,8 +129,6 @@ class TestTestRunner(unittest.TestCase):
 
 
 def main(argv=None):
-    import sys
-
     effective = sys.argv[1:] if argv is None else list(argv)
     if any(a in ("-V", "--version") for a in effective):
         from dwimsy.meta.integrity import version as get_version

@@ -176,6 +176,21 @@ class TestMetaBundle(unittest.TestCase):
                 Path(unbundle.__file__).read_text(encoding="utf-8"),
             )
 
+    def test_cli_meta_bundle_verbose(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            out_bundle = tmp_path / "test_bundle_verbose.py"
+            buf = io.StringIO()
+            err = io.StringIO()
+
+            with redirect_stdout(buf), redirect_stderr(err):
+                dwimsy_cli_main(["meta", "bundle", "-o", str(out_bundle), "--verbose"])
+
+            self.assertTrue(out_bundle.is_file())
+            err_output = err.getvalue()
+            self.assertIn("[SUCCESS] Generated bundle", err_output)
+            self.assertIn(" ... ok", err_output)
+
     def test_integrity_hash_ignores_unbundle(self):
         h1 = integrity.canonical_code_hash()
         source_files = integrity.source_files()

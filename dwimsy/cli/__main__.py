@@ -30,6 +30,7 @@ from dwimsy.protocols.pc88 import (
     analyze_tape,
 )
 from dwimsy.meta.integrity import version as get_version
+from dwimsy.meta.bundle import run_meta_bundle, run_meta_fetch_deps
 
 
 def inspect_audio(
@@ -358,6 +359,15 @@ def run_join(args, raw_inputs: Optional[List[str]] = None):
 
 
 def main(argv: Optional[List[str]] = None):
+    effective_argv = sys.argv[1:] if argv is None else list(argv)
+
+    for p in Path(__file__).resolve().parents:
+        if (p / "dwimsy").is_dir():
+            if str(p) in sys.path:
+                sys.path.remove(str(p))
+            sys.path.insert(0, str(p))
+            break
+
     parser = argparse.ArgumentParser(
         prog="dwimsy",
         description="dwimsy - retrocomputing media preservation, demodulation, and conversion.",
@@ -375,6 +385,13 @@ def main(argv: Optional[List[str]] = None):
         "--test",
         action="store_true",
         help="Run unit tests and self-test assertions in-process",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=1,
+        help="Increase test or command verbosity",
     )
     parser.add_argument(
         "--help-all",
@@ -609,6 +626,13 @@ def main(argv: Optional[List[str]] = None):
         action="store_true",
         help="Display working tree git diff on stderr before bundling",
     )
+    p_meta_bundle.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity of bundle build and test verification",
+    )
     p_meta_fetch_deps = meta_subparsers.add_parser(
         "fetch-deps",
         help="Fetch or materialize legacy reference submodules into deps/.",
@@ -669,13 +693,13 @@ def main(argv: Optional[List[str]] = None):
         "integrity", help="[TODO / Milestone 1.6] Verify source code integrity hash."
     )
 
-    effective_argv = sys.argv[1:] if argv is None else list(argv)
     if not effective_argv:
         parser.print_help(sys.stderr)
         sys.exit(0)
 
     if "-T" in effective_argv or "--test" in effective_argv:
         cmd = None
+        verbosity = 1
         for arg in effective_argv:
             if arg in (
                 "convert",
@@ -685,12 +709,26 @@ def main(argv: Optional[List[str]] = None):
                 "meta",
                 "t882wav",
                 "wav2t88",
+                "audio",
+                "pulse",
+                "fsk",
+                "tape",
+                "protocols",
+                "integrity",
+                "bundle",
+                "lint",
+                "readme",
             ):
                 cmd = arg
-                break
+            elif arg in ("-v", "--verbose"):
+                verbosity = max(verbosity + 1, 2)
+            elif (
+                arg.startswith("-") and len(arg) > 1 and all(c == "v" for c in arg[1:])
+            ):
+                verbosity = max(verbosity + len(arg) - 1, 2)
         from dwimsy.tests import run_tests
 
-        rc = run_tests([cmd] if cmd else None)
+        rc = run_tests([cmd] if cmd else None, verbose=verbosity)
         sys.exit(rc)
 
     args = parser.parse_args(argv)
@@ -708,8 +746,6 @@ def main(argv: Optional[List[str]] = None):
     elif args.command == "join":
         run_join(args)
     elif args.command == "meta":
-        from dwimsy.meta.bundle import run_meta_bundle, run_meta_fetch_deps
-
         if args.meta_command == "bundle":
             run_meta_bundle(args)
         elif args.meta_command == "fetch-deps":

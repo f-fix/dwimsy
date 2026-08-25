@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import sys
 from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
@@ -22,14 +23,17 @@ _HASH_RE = re.compile(
 )
 
 
-def package_root() -> Path:
-    """Return the on-disk ``dwimsy`` package root."""
-    return _PACKAGE_ROOT
-
-
 def find_repo_root(start: Optional[Path] = None) -> Path:
     """Locate the root directory of the dwimsy repository or extracted tree."""
-    cur = Path(start).resolve() if start is not None else Path.cwd().resolve()
+    if start is not None:
+        cur = Path(start).resolve()
+        while cur != cur.parent:
+            if (cur / "dwimsy").is_dir() and (cur / "dwimsy" / "__init__.py").is_file():
+                return cur
+            cur = cur.parent
+        return Path(start).resolve()
+
+    cur = Path.cwd().resolve()
     while cur != cur.parent:
         if (cur / "dwimsy").is_dir() and (cur / "dwimsy" / "__init__.py").is_file():
             return cur
@@ -41,7 +45,31 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
             return cur
         cur = cur.parent
 
-    return Path(start).resolve() if start is not None else Path.cwd().resolve()
+    for sp in sys.path:
+        if sp:
+            p = Path(sp).resolve()
+            if (p / "dwimsy").is_dir() and (p / "dwimsy" / "__init__.py").is_file():
+                return p
+
+    return Path.cwd().resolve()
+
+
+def package_root() -> Path:
+    """Return the on-disk ``dwimsy`` package root."""
+    repo = find_repo_root()
+    if (repo / "dwimsy").is_dir():
+        return repo / "dwimsy"
+    return _PACKAGE_ROOT
+
+
+def version_file_path(root: Optional[Path] = None) -> Path:
+    """Locate on-disk _version.py path."""
+    repo = find_repo_root(root) if root is not None else find_repo_root()
+    if (repo / "dwimsy" / "_version.py").is_file():
+        return repo / "dwimsy" / "_version.py"
+    if (repo / "_version.py").is_file():
+        return repo / "_version.py"
+    return _VERSION_FILE
 
 
 def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
@@ -166,11 +194,12 @@ def canonical_code_hash(root: Optional[Path] = None) -> str:
     return digest.hexdigest()
 
 
-def sealed_code_hash() -> str:
+def sealed_code_hash(root: Optional[Path] = None) -> str:
     """Return the recorded canonical hash, or ``\"\"`` when unsealed."""
+    v_file = version_file_path(root)
     namespace: dict[str, object] = {}
-    source = _VERSION_FILE.read_text(encoding="utf-8")
-    exec(compile(source, str(_VERSION_FILE), "exec"), namespace)
+    source = v_file.read_text(encoding="utf-8")
+    exec(compile(source, str(v_file), "exec"), namespace)
     value = namespace.get("__code_hash__", "")
     if not isinstance(value, str):
         raise TypeError("__code_hash__ must be a string")
@@ -184,7 +213,7 @@ def is_modified(root: Optional[Path] = None) -> bool:
     unsealed development tree cannot claim to be a canonical baseline.
     """
     current = canonical_code_hash(root)
-    sealed = sealed_code_hash()
+    sealed = sealed_code_hash(root)
     return not sealed or current != sealed
 
 
@@ -201,9 +230,10 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
     If no base version is supplied it is read from ``dwimsy._version``.
     """
     if base_version is None:
+        v_file = version_file_path(root)
         namespace: dict[str, object] = {}
-        source = _VERSION_FILE.read_text(encoding="utf-8")
-        exec(compile(source, str(_VERSION_FILE), "exec"), namespace)
+        source = v_file.read_text(encoding="utf-8")
+        exec(compile(source, str(v_file), "exec"), namespace)
         base_version = namespace.get("__version__")
         if not isinstance(base_version, str) or not base_version:
             raise ValueError("__version__ must be a non-empty string")

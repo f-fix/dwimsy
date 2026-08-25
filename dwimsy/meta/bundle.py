@@ -77,7 +77,9 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                                 if f is not None:
                                     content = f.read()
                                     fallback_data[arcname] = content
-                                    if arcname.endswith(".py") and content.startswith(b"#!"):
+                                    if arcname.endswith(".py") and content.startswith(
+                                        b"#!"
+                                    ):
                                         tarinfo.mode = 0o755
                                     else:
                                         tarinfo.mode = 0o644
@@ -110,7 +112,8 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                     tarinfo.type = tarfile.DIRTYPE
                     tarinfo.mode = 0o755
                     child_files = [
-                        p for arc, p in disk_entries.items()
+                        p
+                        for arc, p in disk_entries.items()
                         if arc.startswith(arcname + "/") and p.is_file()
                     ]
                     if child_files:
@@ -166,7 +169,11 @@ def get_default_bundle_name(
     return f"dwimsy_{pkg_ver}{clean_tag}.py"
 
 
-def run_meta_bundle(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
+def run_meta_bundle(args, stdout=None, stderr=None) -> int:
+    if stdout is None:
+        stdout = sys.stdout
+    if stderr is None:
+        stderr = sys.stderr
     """CLI handler for 'dwimsy meta bundle'."""
     repo_root = find_repo_root()
 
@@ -240,16 +247,39 @@ def run_meta_bundle(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
         # Phase 4: Run tests on unpacked_dir with os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
         from dwimsy.tests import run_tests
 
+        verbosity = getattr(args, "verbose", 0) or 0
+        if isinstance(verbosity, bool):
+            verbosity = 2 if verbosity else 0
+        elif verbosity > 0:
+            verbosity = max(verbosity + 1, 2)
+
         old_env = os.environ.get("DWIMSY_BUNDLE_BUILD")
         os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
         test_stream = io.StringIO()
         try:
-            rc = run_tests(patterns=None, verbose=0, stream=test_stream, repo_root=unpacked_dir)
+            rc = run_tests(
+                patterns=None,
+                verbose=verbosity,
+                stream=test_stream,
+                repo_root=unpacked_dir,
+            )
+            if verbosity > 0:
+                stderr.write(test_stream.getvalue())
+                stderr.flush()
         finally:
             if old_env is None:
                 os.environ.pop("DWIMSY_BUNDLE_BUILD", None)
             else:
                 os.environ["DWIMSY_BUNDLE_BUILD"] = old_env
+            for mod_name in list(sys.modules.keys()):
+                if (
+                    mod_name.startswith("test_")
+                    or mod_name == "tests"
+                    or mod_name.startswith("tests.")
+                    or mod_name == "dwimsy"
+                    or mod_name.startswith("dwimsy.")
+                ):
+                    del sys.modules[mod_name]
 
         # Phase 5 & 6
         if rc == 0:
@@ -287,7 +317,11 @@ def run_meta_bundle(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
             return 1
 
 
-def run_meta_fetch_deps(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
+def run_meta_fetch_deps(args, stdout=None, stderr=None) -> int:
+    if stdout is None:
+        stdout = sys.stdout
+    if stderr is None:
+        stderr = sys.stderr
     """CLI handler for 'dwimsy meta fetch-deps'."""
     repo_root = find_repo_root()
     deps_dir = repo_root / "deps"
@@ -309,7 +343,11 @@ def run_meta_fetch_deps(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
             file=stderr,
         )
 
-    if deps_dir.exists() and any(deps_dir.iterdir()) and not getattr(args, "force", False):
+    if (
+        deps_dir.exists()
+        and any(deps_dir.iterdir())
+        and not getattr(args, "force", False)
+    ):
         print(
             f"[NOTICE] '{deps_dir}' already exists and is not empty. Use --force / -f to overwrite.",
             file=stderr,
@@ -367,6 +405,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--diff",
         action="store_true",
         help="Display working tree git diff on stderr before bundling",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity of bundle build and test verification",
     )
     args = parser.parse_args(argv)
     return run_meta_bundle(args)

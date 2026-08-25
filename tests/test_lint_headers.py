@@ -88,5 +88,16 @@ class TestLintHeaders(unittest.TestCase):
         self.assertEqual(errors, [], "Header linting failures:\n" + "\n".join(errors))
 
 
+def main(argv=None):
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
+
+
 if __name__ == "__main__":
-    unittest.main()
+    main()

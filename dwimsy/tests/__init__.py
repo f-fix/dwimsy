@@ -15,7 +15,15 @@ from dwimsy.meta import unbundle
 
 def find_repo_root(start: Optional[Path] = None) -> Optional[Path]:
     """Locate repo root by searching upward from start, __file__, or current working directory."""
-    cur = Path(start).resolve() if start is not None else Path.cwd().resolve()
+    if start is not None:
+        cur = Path(start).resolve()
+        while cur != cur.parent:
+            if (cur / "dwimsy").is_dir() and (cur / "dwimsy" / "__init__.py").is_file():
+                return cur
+            cur = cur.parent
+        return Path(start).resolve()
+
+    cur = Path.cwd().resolve()
     while cur != cur.parent:
         if (cur / "dwimsy").is_dir() and (cur / "dwimsy" / "__init__.py").is_file():
             return cur
@@ -27,11 +35,23 @@ def find_repo_root(start: Optional[Path] = None) -> Optional[Path]:
             return cur
         cur = cur.parent
 
+    for sp in sys.path:
+        if sp:
+            p = Path(sp).resolve()
+            if (p / "dwimsy").is_dir() and (p / "dwimsy" / "__init__.py").is_file():
+                return p
+
     return None
 
 
 def find_disk_tests_dir(start: Optional[Path] = None) -> Optional[Path]:
     """Locate the tests/ directory on disk if present."""
+    if start is not None:
+        p = Path(start).resolve()
+        if (p / "tests").is_dir():
+            return p / "tests"
+        if p.is_dir() and p.name == "tests":
+            return p
     root = find_repo_root(start)
     if root is not None and (root / "tests").is_dir():
         return root / "tests"
@@ -126,9 +146,15 @@ def run_tests(
     expanded_patterns = expand_test_patterns(patterns)
     disk_tests = find_disk_tests_dir(repo_root)
 
-    # Purge stale test_* and tests modules from sys.modules
+    # Purge stale test_*, tests, and dwimsy modules from sys.modules
     for mod_name in list(sys.modules.keys()):
-        if mod_name.startswith("test_") or mod_name == "tests" or mod_name.startswith("tests."):
+        if (
+            mod_name.startswith("test_")
+            or mod_name == "tests"
+            or mod_name.startswith("tests.")
+            or mod_name == "dwimsy"
+            or mod_name.startswith("dwimsy.")
+        ):
             del sys.modules[mod_name]
 
     loader = unittest.defaultTestLoader
@@ -155,7 +181,9 @@ def run_tests(
             runner = unittest.TextTestRunner(verbosity=verbose, stream=stream)
             result = runner.run(suite)
             num_failed = len(result.failures) + len(result.errors)
-            return 0 if result.wasSuccessful() else (num_failed if num_failed > 0 else 1)
+            return (
+                0 if result.wasSuccessful() else (num_failed if num_failed > 0 else 1)
+            )
         finally:
             sys.path[:] = orig_sys_path
     else:
@@ -181,6 +209,10 @@ def run_tests(
                 runner = unittest.TextTestRunner(verbosity=verbose, stream=stream)
                 result = runner.run(suite)
                 num_failed = len(result.failures) + len(result.errors)
-                return 0 if result.wasSuccessful() else (num_failed if num_failed > 0 else 1)
+                return (
+                    0
+                    if result.wasSuccessful()
+                    else (num_failed if num_failed > 0 else 1)
+                )
             finally:
                 sys.path[:] = orig_sys_path
