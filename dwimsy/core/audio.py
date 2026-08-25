@@ -115,7 +115,7 @@ class StreamingWavReader:
                 # that must also be consumed, or the next chunk header
                 # read would be misaligned by one byte. (The original
                 # standalone tool this was ported from didn't account
-                # for this — harmless in practice since real-world
+                # for this - harmless in practice since real-world
                 # LIST/INFO chunks are almost always already
                 # even-sized, but worth fixing now that it's caught.)
                 if chunk_size > 0 and chunk_size != 0xFFFFFFFF:
@@ -196,7 +196,7 @@ class StreamingWavWriter:
       been written.
     - On :meth:`finalize`, seeks back to write exact chunk sizes if the
       output stream is seekable (a real file), or leaves the streaming
-      placeholder header intact if it isn't (a pipe/stdout) — readers
+      placeholder header intact if it isn't (a pipe/stdout) - readers
       that don't enforce declared chunk sizes (like
       :class:`StreamingWavReader` above) handle either case correctly.
     """

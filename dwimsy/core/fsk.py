@@ -56,7 +56,7 @@ class FSKClassifier:
         Nominal Mark/Space tone frequencies in Hz. Defaults (2400/1200)
         match PC-88 and standard MSX. A platform with different tones
         (e.g. Amstrad's ~667/1333 Hz 2-tone PWM) would pass those
-        instead — the boundary and drift-tracking math below derives
+        instead - the boundary and drift-tracking math below derives
         everything else from these two values.
     envelope_squelch_ratio, noise_floor_squelch_ratio, min_squelch_envelope:
         Amplitude-domain thresholds for deciding a weak/absent signal

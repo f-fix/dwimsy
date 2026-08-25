@@ -7,6 +7,14 @@ and dwimsy.tape.t88.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+for p in Path(__file__).resolve().parents:
+    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+        break
+
 from dwimsy.meta.integrity import version as get_version
 
 import argparse

@@ -14,17 +14,19 @@ from dwimsy.meta import unbundle
 
 
 def find_repo_root(start: Optional[Path] = None) -> Optional[Path]:
-    """Locate repo root by searching upward from start or current working directory."""
+    """Locate repo root by searching upward from start, __file__, or current working directory."""
     cur = Path(start).resolve() if start is not None else Path.cwd().resolve()
     while cur != cur.parent:
         if (cur / "dwimsy").is_dir() and (cur / "dwimsy" / "__init__.py").is_file():
             return cur
         cur = cur.parent
-    cur = Path(__file__).resolve().parent.parent.parent
+
+    cur = Path(__file__).resolve().parent
     while cur != cur.parent:
         if (cur / "dwimsy").is_dir() and (cur / "dwimsy" / "__init__.py").is_file():
             return cur
         cur = cur.parent
+
     return None
 
 
@@ -124,9 +126,9 @@ def run_tests(
     expanded_patterns = expand_test_patterns(patterns)
     disk_tests = find_disk_tests_dir(repo_root)
 
-    # Purge stale test modules from sys.modules
+    # Purge stale test_* and tests modules from sys.modules
     for mod_name in list(sys.modules.keys()):
-        if mod_name.startswith("test_"):
+        if mod_name.startswith("test_") or mod_name == "tests" or mod_name.startswith("tests."):
             del sys.modules[mod_name]
 
     loader = unittest.defaultTestLoader
@@ -134,37 +136,51 @@ def run_tests(
 
     if disk_tests is not None and any(disk_tests.glob("test_*.py")):
         root = disk_tests.parent
-        if str(root) not in sys.path:
-            sys.path.insert(0, str(root))
-        if str(disk_tests) not in sys.path:
-            sys.path.insert(0, str(disk_tests))
-        for pat in expanded_patterns:
-            suite.addTests(
-                loader.discover(
-                    start_dir=str(disk_tests),
-                    pattern=pat,
-                    top_level_dir=str(disk_tests),
-                )
-            )
-        runner = unittest.TextTestRunner(verbosity=verbose, stream=stream)
-        result = runner.run(suite)
-        return 0 if result.wasSuccessful() else 1
-    else:
-        with tempfile.TemporaryDirectory(prefix="dwimsy_test_") as tmp:
-            tmp_path = Path(tmp)
-            tests_dir = _extract_tests_from_bundle(tmp_path)
-            if str(tmp_path) not in sys.path:
-                sys.path.insert(0, str(tmp_path))
-            if str(tests_dir) not in sys.path:
-                sys.path.insert(0, str(tests_dir))
+        orig_sys_path = list(sys.path)
+        if str(disk_tests) in sys.path:
+            sys.path.remove(str(disk_tests))
+        if str(root) in sys.path:
+            sys.path.remove(str(root))
+        sys.path.insert(0, str(disk_tests))
+        sys.path.insert(0, str(root))
+        try:
             for pat in expanded_patterns:
                 suite.addTests(
                     loader.discover(
-                        start_dir=str(tests_dir),
+                        start_dir=str(disk_tests),
                         pattern=pat,
-                        top_level_dir=str(tests_dir),
+                        top_level_dir=str(root),
                     )
                 )
             runner = unittest.TextTestRunner(verbosity=verbose, stream=stream)
             result = runner.run(suite)
-            return 0 if result.wasSuccessful() else 1
+            num_failed = len(result.failures) + len(result.errors)
+            return 0 if result.wasSuccessful() else (num_failed if num_failed > 0 else 1)
+        finally:
+            sys.path[:] = orig_sys_path
+    else:
+        with tempfile.TemporaryDirectory(prefix="dwimsy_test_") as tmp:
+            tmp_path = Path(tmp)
+            tests_dir = _extract_tests_from_bundle(tmp_path)
+            orig_sys_path = list(sys.path)
+            if str(tests_dir) in sys.path:
+                sys.path.remove(str(tests_dir))
+            if str(tmp_path) in sys.path:
+                sys.path.remove(str(tmp_path))
+            sys.path.insert(0, str(tests_dir))
+            sys.path.insert(0, str(tmp_path))
+            try:
+                for pat in expanded_patterns:
+                    suite.addTests(
+                        loader.discover(
+                            start_dir=str(tests_dir),
+                            pattern=pat,
+                            top_level_dir=str(tmp_path),
+                        )
+                    )
+                runner = unittest.TextTestRunner(verbosity=verbose, stream=stream)
+                result = runner.run(suite)
+                num_failed = len(result.failures) + len(result.errors)
+                return 0 if result.wasSuccessful() else (num_failed if num_failed > 0 else 1)
+            finally:
+                sys.path[:] = orig_sys_path

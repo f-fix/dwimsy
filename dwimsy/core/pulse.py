@@ -30,14 +30,14 @@ class PulseEvent:
       sign (+1/-1) of the half-cycle that *ended* the pair (matching
       the original code's convention, where the polarity recorded is
       that of the transition immediately preceding the completed
-      pair) — callers doing FSK classification don't need to care
+      pair) - callers doing FSK classification don't need to care
       about this, since dwimsy's supported platforms are all
       polarity-independent, but it's preserved for anyone who does.
     - ``"silence"``: no zero-crossing has been seen for long enough
       (>1.5 ms) that the signal is presumptively in a gap, *and* the
       envelope has dropped low enough that this isn't just a slow
       cycle. ``period_sec`` is fixed at 0.0015 for this event, purely
-      as a heartbeat tick — real classification of "how long has this
+      as a heartbeat tick - real classification of "how long has this
       gap lasted" belongs to whatever's counting consecutive silence
       events, not to this module.
 

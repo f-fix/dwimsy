@@ -18,6 +18,10 @@ from dwimsy.core.audio import StreamingWavReader
 from dwimsy.tests.fixtures import get_fixture_pool
 
 
+@unittest.skipIf(
+    os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+    "Excluded during bundle build verification",
+)
 class TestSnippetToInputCorrespondence(unittest.TestCase):
     """Verifies that real audio captures (snippet.wav, snippet2.wav) decode to payloads
     and baud rates matching their respective source images (input01 and input05)."""

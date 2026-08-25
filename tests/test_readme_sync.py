@@ -1,41 +1,60 @@
 #!/usr/bin/env python3
 """tests.test_readme_sync - Verify README documentation and CLI help outputs are in sync."""
 
+import difflib
 import io
 import os
 import sys
 import unittest
-from contextlib import redirect_stdout
 from pathlib import Path
 
 pkg_root = Path(__file__).resolve().parent.parent
 if str(pkg_root) not in sys.path:
     sys.path.insert(0, str(pkg_root))
 
-from dwimsy.cli.__main__ import main, format_all_help
-from dwimsy.cli.filters.t882wav import main as t882wav_main
-from dwimsy.cli.filters.wav2t88 import main as wav2t88_main
-from dwimsy.tests.__main__ import main as tests_main
-
 
 class TestReadmeSync(unittest.TestCase):
     def test_readme_contains_cli_help_sections(self):
         readme_text = (pkg_root / "README.md").read_text(encoding="utf-8")
 
-        self.assertIn(
-            "usage: dwimsy [-h] [-V] [-T] [--help-all] <command>", readme_text
-        )
-        self.assertIn("usage: dwimsy convert", readme_text)
-        self.assertIn("usage: dwimsy inspect", readme_text)
-        self.assertIn("usage: dwimsy split", readme_text)
-        self.assertIn("usage: dwimsy join", readme_text)
-        self.assertIn("usage: dwimsy meta", readme_text)
-        self.assertIn("usage: dwimsy meta bundle", readme_text)
-        self.assertIn("usage: dwimsy meta fetch-deps", readme_text)
-        self.assertIn("usage: dwimsy-t882wav", readme_text)
-        self.assertIn("usage: dwimsy-wav2t88", readme_text)
-        self.assertIn("usage: python -m dwimsy.tests", readme_text)
+        required_snippets = [
+            "usage: dwimsy [-h] [-V] [-T] [--help-all] <command>",
+            "usage: dwimsy convert",
+            "usage: dwimsy inspect",
+            "usage: dwimsy split",
+            "usage: dwimsy join",
+            "usage: dwimsy meta",
+            "usage: dwimsy meta bundle",
+            "usage: dwimsy meta fetch-deps",
+            "usage: dwimsy-t882wav",
+            "usage: dwimsy-wav2t88",
+            "usage: python -m dwimsy.tests",
+        ]
+
+        for snippet in required_snippets:
+            if snippet not in readme_text:
+                diff = "\n".join(
+                    difflib.unified_diff(
+                        [snippet],
+                        readme_text.splitlines(),
+                        fromfile="expected_snippet",
+                        tofile="README.md",
+                        lineterm="",
+                    )
+                )
+                self.fail(f"Snippet '{snippet}' not found in README.md:\n{diff}")
+
+
+def main(argv=None):
+    effective = sys.argv[1:] if argv is None else list(argv)
+    if any(a in ("-V", "--version") for a in effective):
+        from dwimsy.meta.integrity import version as get_version
+
+        print(f"dwimsy {get_version()}")
+        return 0
+    unittest.main(argv=[sys.argv[0]] + effective)
+    return 0
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()

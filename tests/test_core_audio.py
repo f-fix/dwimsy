@@ -280,7 +280,7 @@ class TestWriterReaderRoundtrip(unittest.TestCase):
             # (samples are quantized against 32767 but dequantized
             # against 32768, to keep the representable range
             # symmetric around zero without letting +1.0 overflow into
-            # 32768) — a small, expected, intentional asymmetry, not a
+            # 32768) - a small, expected, intentional asymmetry, not a
             # bug.
             self.assertAlmostEqual(expected, got, delta=1e-4)
 

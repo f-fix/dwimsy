@@ -35,11 +35,12 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
             return cur
         cur = cur.parent
 
-    cur = Path(__file__).resolve().parent.parent.parent
+    cur = Path(__file__).resolve().parent
     while cur != cur.parent:
         if (cur / "dwimsy").is_dir() and (cur / "dwimsy" / "__init__.py").is_file():
             return cur
         cur = cur.parent
+
     return Path(start).resolve() if start is not None else Path.cwd().resolve()
 
 

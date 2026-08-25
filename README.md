@@ -4,7 +4,7 @@ dwimsy - retrocomputing media preservation, demodulation, restoration, and maste
 **Version: 0.1.6.0-dev** (Milestone 1.6 [IN PROGRESS], 2026-08-23)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
-> **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear — Format-Aware Media Transducer & Preservation Gateway
+> **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
 > 
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
@@ -14,15 +14,15 @@ grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 
 ### For now, see:
 
-- **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** — working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`acoustic`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three have self-test suites (`--test`) and stdin/stdout piping. Its DSP logic was extracted into `core.pulse`, `core.fsk`, and `core.audio` in Milestone 1, while its container models and protocol state machines are natively implemented in `dwimsy.tape.t88` and `dwimsy.protocols.pc88`. It remains pinned in `deps/` as a dual-run verification baseline during Milestone 1.6 parser and container hardening, and will be permanently ejected upon Milestone 1.6 exit.
+- **[`f-fix/pc88_tape_tools`](https://github.com/f-fix/pc88_tape_tools)** - working NEC PC-8001/PC-8801 tools: `pc88_tape_tools.py` (`.t88`↔`.cmt` conversion, splitting/joining, and structural `analyze`), `t882wav.py` (streaming `.t88`→`.wav` FSK synthesis with `tape`/`acoustic`/`shaped`/`ideal` modes), and `wav2t88.py` (streaming `.wav`→`.t88` demodulation with AGC and baud auto-detection). All three have self-test suites (`--test`) and stdin/stdout piping. Its DSP logic was extracted into `core.pulse`, `core.fsk`, and `core.audio` in Milestone 1, while its container models and protocol state machines are natively implemented in `dwimsy.tape.t88` and `dwimsy.protocols.pc88`. It remains pinned in `deps/` as a dual-run verification baseline during Milestone 1.6 parser and container hardening, and will be permanently ejected upon Milestone 1.6 exit.
   * *Refactoring Status:* Core DSP, container models, and protocol state machines natively implemented in `dwimsy.core.*`, `dwimsy.tape.t88`, and `dwimsy.protocols.pc88`. Submodule retained as verification baseline through Milestone 1.6, then ejected.
-- **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** — working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk` (Milestone 1), `core.audio` (`flac2wav`), `dsp.filter`, and `dsp.modeler` (`cassette_model`) in Milestone 2. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that so all tape tools operate as continuous Unix streaming filters.
+- **[`f-fix/wav2cas`](https://github.com/f-fix/wav2cas)** - working MSX-family tools: `wav2cas.py` (WAV/FLAC→CAS demodulation with AGC, adaptive thresholding, and per-block confidence scoring), `cas2wav.py` (CAS→WAV synthesis), `flac2wav.py` (pure-Python FLAC decode, stdin/stdout capable), `cmt_filter.py` (component-level simulation of the MSX CMT-IN/CMT-OUT analog circuits), and `cassette_model.py` (physical tape-channel modeling: IEC pre-emphasis, magnetic saturation, Wallace gap loss). These map to `core.fsk` (Milestone 1), `core.audio` (`flac2wav`), `dsp.filter`, and `dsp.modeler` (`cassette_model`) in Milestone 2. Note `wav2cas.py`/`cas2wav.py` currently take plain file paths only, not `-` for stdin/stdout, unlike the other three tools here; dwimsy's `cli.filters.*` layer is intended to normalize that so all tape tools operate as continuous Unix streaming filters.
   * *Refactoring Status:* Target for `dwimsy.dsp` and MSX physical layer generalization.
-- **[`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool)** — a working D88/FAT8 extractor, tested against PC-6001/PC-6001mkII/PC-6001mkIISR, PC-8801, PC-98, and even a Pasopia disk image, including PC-88/PC-98 obfuscated-save deobfuscation (N88-BASIC bit rotation and PC-88 143-byte combined XOR key recovery) and JIS-adjacent / PC-6001 semigraphics character mapping. It includes dedicated streaming line-by-line character set conversion modes (`--pc98-8bit-to-utf8`, `--pc6001-8bit-to-utf8`, `--utf8-to-pc98-8bit`, `--utf8-to-pc6001-8bit`) which will form a dedicated `dwimsy charset` verb and filter applet (`dwimsy-conv`). It's the intended source for `disk.d88`, `disk.fat8`, `core.charsets` (Milestone 2), and `core.fs` filename sanitization. The author's own README is candid that the code "started in ChatGPT" and "is uglier than sin" pending cleanup — a good example of a real candidate for dwimsy's promised readable, documented conversion steps. Tokenized-BASIC detokenization and RBYTE encode/decode (`rbyte.py`, `rbyte88.py`, `rbyte_enc.py`, `rbyte88_enc.py`) are still separate, unintegrated pieces.
+- **[`f-fix/fat8_d88_tool`](https://github.com/f-fix/fat8_d88_tool)** - a working D88/FAT8 extractor, tested against PC-6001/PC-6001mkII/PC-6001mkIISR, PC-8801, PC-98, and even a Pasopia disk image, including PC-88/PC-98 obfuscated-save deobfuscation (N88-BASIC bit rotation and PC-88 143-byte combined XOR key recovery) and JIS-adjacent / PC-6001 semigraphics character mapping. It includes dedicated streaming line-by-line character set conversion modes (`--pc98-8bit-to-utf8`, `--pc6001-8bit-to-utf8`, `--utf8-to-pc98-8bit`, `--utf8-to-pc6001-8bit`) which will form a dedicated `dwimsy charset` verb and filter applet (`dwimsy-conv`). It's the intended source for `disk.d88`, `disk.fat8`, `core.charsets` (Milestone 2), and `core.fs` filename sanitization. The author's own README is candid that the code "started in ChatGPT" and "is uglier than sin" pending cleanup - a good example of a real candidate for dwimsy's promised readable, documented conversion steps. Tokenized-BASIC detokenization and RBYTE encode/decode (`rbyte.py`, `rbyte88.py`, `rbyte_enc.py`, `rbyte88_enc.py`) are still separate, unintegrated pieces.
   * *Refactoring Status:* Will be used as a backend for `dwimsy extract` disk workflows.
-- **[`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload)** — two working unpackers, `nontama_to_bload.py` (PC-6001mkII NONTAMA rolling-XOR loader tapes, verified against ~18 released games) and `mload_to_bload.py` (MSX "M"-loader rolling-XOR tapes with bitsum verification), plus `mkrom.py` for building bootable cartridges from the results (handling PC-6001mkII port 0xF0 bank switching and Beluga port 0x7F). Maps to `platforms.unpack` and `platforms.cart_hooks` (Milestone 2). Each unpacker is a standalone script today; dwimsy's plan is to route their output through the shared Layer 3/4 stream and payload handling rather than writing `.bin` directly.
-- **[`f-fix/cas2uef`](https://github.com/f-fix/cas2uef)** — a working, narrowly-scoped `cas2uef.py` that converts "compact" (unpadded, non-8-byte-aligned) MSX CAS from DumpListEditor directly into BBC Micro `.uef`. The author's own README flags that the result isn't archival-quality, since CAS carries no timing data and the tool heuristically inserts pauses at detected file-header boundaries. This is the intended basis for `tape.bbc` (Milestone 3), though in dwimsy it's planned to route through the shared logical-stream layer instead of converting directly, so the heuristic pause-insertion can eventually be replaced with real timing where available.
-- **[`f-fix/bin2fds`](https://github.com/f-fix/bin2fds)** — a working but self-described "super ugly" **Python 2** script that converts raw `.bin` (such as FDSStick dumps) to Famicom Disk System `.fds`, including multi-side images. Slated for a straight Python 3 port as `disk.fds` (Milestone 2); until then it's the odd one out in this list, since it isn't even Python 3 yet.
+- **[`f-fix/nontama_to_bload`](https://github.com/f-fix/nontama_to_bload)** - two working unpackers, `nontama_to_bload.py` (PC-6001mkII NONTAMA rolling-XOR loader tapes, verified against ~18 released games) and `mload_to_bload.py` (MSX "M"-loader rolling-XOR tapes with bitsum verification), plus `mkrom.py` for building bootable cartridges from the results (handling PC-6001mkII port 0xF0 bank switching and Beluga port 0x7F). Maps to `platforms.unpack` and `platforms.cart_hooks` (Milestone 2). Each unpacker is a standalone script today; dwimsy's plan is to route their output through the shared Layer 3/4 stream and payload handling rather than writing `.bin` directly.
+- **[`f-fix/cas2uef`](https://github.com/f-fix/cas2uef)** - a working, narrowly-scoped `cas2uef.py` that converts "compact" (unpadded, non-8-byte-aligned) MSX CAS from DumpListEditor directly into BBC Micro `.uef`. The author's own README flags that the result isn't archival-quality, since CAS carries no timing data and the tool heuristically inserts pauses at detected file-header boundaries. This is the intended basis for `tape.bbc` (Milestone 3), though in dwimsy it's planned to route through the shared logical-stream layer instead of converting directly, so the heuristic pause-insertion can eventually be replaced with real timing where available.
+- **[`f-fix/bin2fds`](https://github.com/f-fix/bin2fds)** - a working but self-described "super ugly" **Python 2** script that converts raw `.bin` (such as FDSStick dumps) to Famicom Disk System `.fds`, including multi-side images. Slated for a straight Python 3 port as `disk.fds` (Milestone 2); until then it's the odd one out in this list, since it isn't even Python 3 yet.
 ## Table of Contents
 1. [Overview & Approach](#1-overview--approach)
 2. [Development Strategy](#2-development-strategy)
@@ -95,7 +95,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Ephemeral In-Memory / Crash-Safe Mode (`--ephemeral`)**: When activated, ensures that no write overlays, generated save tapes, or session modifications are persisted to disk or persistent cache across runs, remaining clean even after sudden termination or power loss. Temporary storage uses auto-cleaned scratch directories or RAM.
 * **Preservation Before Interpretation**: A preservation workflow should capture and retain the highest-fidelity available source signal before conditioning, decoding, timebase correction, canonicalization, or synthesis. Derived artifacts are never substitutes for the source capture.
 * **Evidence and Claims Are Separate**: A decoded file, segmentation boundary, timing model, or semantic interpretation may be useful without being certain. Wherever practical, dwimsy records the evidence, transformation, confidence, and epistemic status that support a derived result. Canonicalization is purpose-specific and lossy by definition; it never replaces the preservation master.
-* **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts (15–25 dB step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
+* **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts (15-25 dB step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
 * **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean naming for all output files. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
 * **Systematic Flavor Taxonomy & No-Intro Naming**: Each layer has an untagged canonical default flavor (e.g. standard 8-byte padded `.cas` for MSX, trimmed `.cmt` for PC-88). Non-default variants (untrimmed raw streams, compact unpadded CAS) receive standard qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
 * **Canonical Default Collapsing**: `dwimsy` automatically emits both explicit long names and collapsed canonical default slugs (e.g., `door_door_a.t88` and `door_door.t88` linked to Side A; `salad1_1a.cas` linked to primary part) via non-destructive hardlinking (`os.link`).
@@ -124,13 +124,13 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 ### Test Fixtures & the Road to Redistributable Coverage
 
-Development and verification currently rely on real cassette captures from the author's personal collection — genuine analog tape audio, plus matching container/logical-stream exports from established tools like DumpListEditor, used to validate that ported logic actually agrees with independent, trusted references. **These are not redistributable and will not be checked into this repository.** They're a private, on-loan working set for active development, not permanent project fixtures — anyone reproducing this project's test results from scratch currently can't, and that's a known, accepted gap for now rather than an oversight.
+Development and verification currently rely on real cassette captures from the author's personal collection - genuine analog tape audio, plus matching container/logical-stream exports from established tools like DumpListEditor, used to validate that ported logic actually agrees with independent, trusted references. **These are not redistributable and will not be checked into this repository.** They're a private, on-loan working set for active development, not permanent project fixtures - anyone reproducing this project's test results from scratch currently can't, and that's a known, accepted gap for now rather than an oversight.
 
-The intended long-term fix isn't "find more tapes to check in" — it's to prove `dwimsy`'s own resynthesis is good enough to make the problem go away. If `t882wav`'s `tape`/`shaped` modes and `dsp.modeler`'s physical cassette-channel simulation can produce audio realistic enough to stand in for a genuine capture during testing, then **synthetic "pseudotapes," built from content that's freely redistributable from the ground up, become the project's permanent, public, CI-friendly regression fixtures** — no loaned material required at all.
+The intended long-term fix isn't "find more tapes to check in" - it's to prove `dwimsy`'s own resynthesis is good enough to make the problem go away. If `t882wav`'s `tape`/`shaped` modes and `dsp.modeler`'s physical cassette-channel simulation can produce audio realistic enough to stand in for a genuine capture during testing, then **synthetic "pseudotapes," built from content that's freely redistributable from the ground up, become the project's permanent, public, CI-friendly regression fixtures** - no loaned material required at all.
 
 Validating that a pseudotape is actually realistic enough for this, though, needs two things this project doesn't currently have:
 - **Redistribution-cleared real tape captures** to compare pseudotapes against, ideally spanning several platforms and tape conditions (fresh, worn, print-through, speed drift).
-- **Real hardware access** across the project's target platforms — including some models outside the author's personal collection — to confirm pseudotapes actually load on physical machines, not just in emulators or `dwimsy`'s own demodulator.
+- **Real hardware access** across the project's target platforms - including some models outside the author's personal collection - to confirm pseudotapes actually load on physical machines, not just in emulators or `dwimsy`'s own demodulator.
 
 `[ ] TODO` **Open call**: solicit redistribution-OK tape captures and, ideally, contributors with real hardware access for platforms not already in the author's collection, to serve as permanent reproducibility fixtures once pseudotape resynthesis is validated against them.
 
@@ -172,7 +172,7 @@ python3 tests -v               # verbose mode
 python3 -m pytest tests/ -v    # optional pytest runner
 ```
 
-**Installing the private test fixtures**, if you have access to them (see above — they aren't in this repository and won't be requested): place them under `tests/fixtures/`, following the layout `tests/fixtures/README.md` documents (`snippet.wav`/`snippet2.wav` under `set1`/`set2`, and real `.t88`/`.cmt` pairs like `input16` directly under `tests/fixtures/`). Fixture-dependent tests skip cleanly rather than failing when their specific input is missing, so the exact skip count in any given run isn't a fixed property of the suite — it depends entirely on which fixtures happen to be installed: with none present, several tests across `core.pulse`/`core.fsk`/`cli.filters` skip; installing just `snippet.wav`/`snippet2.wav` unlocks most of those; adding `input16.t88`/`input16.cmt` on top unlocks the rest, at which point a full run passes with nothing skipped. A custom fixture location can be pointed to instead via the `DWIMSY_TEST_FIXTURES` environment variable, which every fixture-dependent test checks before falling back to `tests/fixtures/`.
+**Installing the private test fixtures**, if you have access to them (see above - they aren't in this repository and won't be requested): place them under `tests/fixtures/`, following the layout `tests/fixtures/README.md` documents (`snippet.wav`/`snippet2.wav` under `set1`/`set2`, and real `.t88`/`.cmt` pairs like `input16` directly under `tests/fixtures/`). Fixture-dependent tests skip cleanly rather than failing when their specific input is missing, so the exact skip count in any given run isn't a fixed property of the suite - it depends entirely on which fixtures happen to be installed: with none present, several tests across `core.pulse`/`core.fsk`/`cli.filters` skip; installing just `snippet.wav`/`snippet2.wav` unlocks most of those; adding `input16.t88`/`input16.cmt` on top unlocks the rest, at which point a full run passes with nothing skipped. A custom fixture location can be pointed to instead via the `DWIMSY_TEST_FIXTURES` environment variable, which every fixture-dependent test checks before falling back to `tests/fixtures/`.
 
 ---
 
@@ -197,20 +197,20 @@ git submodule update --init --recursive
 
 `dwimsy` is currently invoked from a checkout as `python3 -m dwimsy <command> ...`. **The package is not yet packaged for installation**: there is currently no `pyproject.toml`/`setup.py` console-script entry point, so `pip install -e .` and the bare `dwimsy` command are future Milestone 1.6 work. The currently implemented primary commands are exactly four: `convert`, `inspect`, `split`, and `join`. Two standalone filter applets are also implemented: `t882wav` and `wav2t88`. The `test`, `help`, `readme`, `changelog`, `license`, and `meta` commands described later in this section are **planned Milestone 1.6 interfaces and are not currently available**. The current CLI does implement `--help-all`; use `python3 -m dwimsy --help`, `python3 -m dwimsy --help-all`, or `python3 -m dwimsy <command> --help` from the repository environment.
 
-`python3 -m dwimsy` is the recommended form when the repository is the current directory (or the checkout has otherwise been added to `PYTHONPATH`/installed). It does **not** work from an arbitrary directory in the current un-packaged checkout. `dwimsy/__main__.py` also makes the package directory itself directly executable — `python3 path/to/dwimsy <command> ...`, pointing at the `dwimsy/` directory rather than a file — which does work from elsewhere on disk:
+`python3 -m dwimsy` is the recommended form when the repository is the current directory (or the checkout has otherwise been added to `PYTHONPATH`/installed). It does **not** work from an arbitrary directory in the current un-packaged checkout. `dwimsy/__main__.py` also makes the package directory itself directly executable - `python3 path/to/dwimsy <command> ...`, pointing at the `dwimsy/` directory rather than a file - which does work from elsewhere on disk:
 
 ```bash
 # Equivalent invocations, verified to produce byte-identical output:
-python3 -m dwimsy convert game.wav game.t88 --baud 600
-python3 path/to/dwimsy convert game.wav game.t88 --baud 600      # from elsewhere on disk
 python3 -m dwimsy convert game.wav game.t88 --baud 600              # from the repo root
+python3 path/to/dwimsy convert game.wav game.t88 --baud 600      # from elsewhere on disk
+python3 dwimsy convert game.wav game.t88 --baud 600              # bare package directory from repo root
 ```
 
 ```text
 $ python3 -m dwimsy --help
-usage: dwimsy [-h] [-V] [--help-all] <command> ...
+usage: dwimsy [-h] [-V] [-T] [--help-all] <command> ...
 
-dwimsy — retrocomputing media preservation, demodulation, and conversion.
+dwimsy - retrocomputing media preservation, demodulation, and conversion.
 
 positional arguments:
   <command>
@@ -218,10 +218,24 @@ positional arguments:
     inspect      Inspect media container headers and structural contents.
     split        Split multi-file tape images into individual program files.
     join         Join multiple files into a single .cmt or .t88 tape image.
+    meta         Maintainer tools and repository lifecycle management.
+    help         [TODO / Milestone 1.6] Interactive technical manual viewer.
+    readme       [TODO / Milestone 1.6] Output project README documentation.
+    license      [TODO / Milestone 1.6] Output project LICENSE terms.
+    changelog    [TODO / Milestone 1.6] Interactive revision history viewer.
+    charset      [TODO / Milestone 2.3] Streaming character set converter.
+    extract      [TODO / Milestone 2.3] Payload and filesystem extractor.
+    package      [TODO / Milestone 2.4] ROM cartridge compiler (cas2rom /
+                 mkrom).
+    bridge       [TODO / Milestone 2.5] Real-time hardware transport gateway.
+    archive      [TODO / Milestone 2.5] Archival preservation bundle
+                 generator.
+    recover      [TODO / Milestone 4.0] Forensic bit/pulse recovery engine.
 
 options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
+  -T, --test     Run unit tests and self-test assertions in-process
   --help-all     Show full detailed help for all subcommands at once and exit
 
 Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.
@@ -231,7 +245,7 @@ Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed optio
 
 > **Status:** [x] `COMPLETE` for the currently implemented PC-88 WAV ↔ T88 ↔ CMT paths (Milestone 1). MSX, CAS, and disk-format conversion remain [ ] `TODO` in later milestones.
 
-Converts between `.wav` (audio), `.t88` (container), and `.cmt` (logical stream) — in either direction, inferred from file extensions unless `--from-format`/`--to-format` are given explicitly. `-` means stdin/stdout, so all three stages chain through standard pipes.
+Converts between `.wav` (audio), `.t88` (container), and `.cmt` (logical stream) - in either direction, inferred from file extensions unless `--from-format`/`--to-format` are given explicitly. `-` means stdin/stdout, so all three stages chain through standard pipes.
 
 ```text
 $ dwimsy convert --help
@@ -424,22 +438,20 @@ dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
 Runs the built-in unit and integration test suite, supporting custom fixture paths, verbosity levels, and subsystem filters:
 
 ```text
-$ dwimsy test --help
-usage: dwimsy test [-h] [-v] [-q] [-f FIXTURES_DIR] [--failfast] [pattern]
+$ python -m dwimsy.tests --help
+usage: python -m dwimsy.tests [-h] [-V] [-v] [patterns ...]
 
-Run built-in test suite to verify DSP engines, codecs, and container parsers.
+Discover and run dwimsy unit tests in-process (from disk or in-memory bundle
+payload).
 
 positional arguments:
-  pattern               Optional test name, module, or subsystem filter (e.g.
-                        'pulse', 'fsk', 'audio', 'pc88', 't88')
+  patterns       Optional test file patterns or subsystem keywords (e.g.
+                 'core', 'tape', 'convert')
 
 options:
-  -h, --help            show this help message and exit
-  -v, --verbose         Verbose test output (lists every test case)
-  -q, --quiet           Minimal output (summary only)
-  -f FIXTURES_DIR, --fixtures FIXTURES_DIR, --fixture-dir FIXTURES_DIR
-                        Path to local/private test fixture directory
-  --failfast            Stop test execution on first failure
+  -h, --help     show this help message and exit
+  -V, --version  show program's version number and exit
+  -v, --verbose  Increase test runner verbosity
 ```
 
 ```bash
@@ -479,7 +491,7 @@ Outputs the project `README.md` and `LICENSE` files. When run on an interactive 
 
 * **Resolution Precedence**:
   1. *Local Source Checkout*: If running from a source working tree, reads the live on-disk `README.md` / `LICENSE` alongside `dwimsy/`, reflecting local edits immediately without rebuilding.
-  2. *Installed System Package*: When installed in `site-packages`/`dist-packages`, reads the canonical text directly from `dwimsy.meta.bundle.blztar` in memory with zero external file dependencies.
+  2. *Installed System Package*: When installed in `site-packages`/`dist-packages`, reads the canonical text directly from `dwimsy.meta.unbundle.blztar` in memory with zero external file dependencies.
 
 ```bash
 # Interactive terminal viewer (scroll with arrows, q to exit)
@@ -511,6 +523,26 @@ dwimsy changelog -n 5 -v
 > **Current reality:** The `dwimsy.meta` package and `dwimsy meta` command do not exist yet. The subsections below describe the planned maintainer interface; none of these commands are currently runnable.
 
 Maintainer and packaging tooling is consolidated under `dwimsy meta <command>` to keep the top-level user CLI clean:
+
+```text
+$ dwimsy meta --help
+usage: dwimsy meta [-h] <meta-command> ...
+
+positional arguments:
+  <meta-command>
+    bundle         Generate a self-extracting single-file Python unpacker
+                   bundle of dwimsy.
+    fetch-deps     Fetch or materialize legacy reference submodules into
+                   deps/.
+    bundle-fixtures
+                   [TODO / Milestone 1.6] Package private test fixtures.
+    version-bump   [TODO / Milestone 1.6] Advance revision and update
+                   changelog.
+    integrity      [TODO / Milestone 1.6] Verify source code integrity hash.
+
+options:
+  -h, --help       show this help message and exit
+```
 
 ##### `dwimsy meta bundle`
 Generates a standalone, self-extracting single-file Python unpacker script of `dwimsy`, enabling offline propagation to other systems or LLM sessions.
@@ -581,6 +613,17 @@ dwimsy meta version-bump -m "Harden PC-88 MON protocol state machine" -d "Valida
 ##### `dwimsy meta fetch-deps`
 Clones all required legacy submodules in non-Git or bundled checkouts by parsing `.gitmodules` (from disk or `blztar`):
 
+```text
+$ dwimsy meta fetch-deps --help
+usage: dwimsy meta fetch-deps [-h] [--baseline] [-f]
+
+options:
+  -h, --help   show this help message and exit
+  --baseline   Extract frozen reference submodules directly from the bundled
+               baseline payload without network access
+  -f, --force  Overwrite existing deps/ directory if present
+```
+
 ```bash
 # Clone all submodules directly into deps/
 dwimsy meta fetch-deps
@@ -596,7 +639,7 @@ dwimsy meta integrity
 
 ### Standalone Filter Applets
 
-The `convert` verb's PC-88 logic is also directly reachable as two independent, Netpbm-style single-purpose filters — matching the architecture's `cli.filters.*` design goal, and useful for shell pipelines that don't need the unified verb's format auto-detection. These predate `dwimsy convert` and haven't yet been reconciled with it option-for-option (see the note on `--mode`/`--flavor` divergence below) — that reconciliation is Milestone 1.5 work, not done yet.
+The `convert` verb's PC-88 logic is also directly reachable as two independent, Netpbm-style single-purpose filters - matching the architecture's `cli.filters.*` design goal, and useful for shell pipelines that don't need the unified verb's format auto-detection. These predate `dwimsy convert` and haven't yet been reconciled with it option-for-option (see the note on `--mode`/`--flavor` divergence below) - that reconciliation is Milestone 1.5 work, not done yet.
 
 #### `dwimsy-wav2t88` (`dwimsy/cli/filters/wav2t88.py`)
 
@@ -604,9 +647,10 @@ The `convert` verb's PC-88 logic is also directly reachable as two independent, 
 
 ```text
 $ python3 dwimsy/cli/filters/wav2t88.py --help
-usage: dwimsy-wav2t88 [-h] [--baud {600,1200}]
+usage: dwimsy-wav2t88 [-h] [-V] [--baud {600,1200}]
                       [--channel {auto,left,right,mix,diff}] [--bauds BAUDS]
-                      [--flavor FLAVOR] [--confidence CONFIDENCE] [-q]
+                      [--flavor {verbatim,reconstructed,kinematic-infilled,rom-authentic,canonical}]
+                      [--confidence CONFIDENCE] [-q] [-T]
                       [input] [output]
 
 Stream PC-8001 / PC-8801 WAV audio to standard .t88 tape image.
@@ -617,15 +661,18 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
   --baud {600,1200}, -b {600,1200}
                         Forced baud rate
   --channel {auto,left,right,mix,diff}, -c {auto,left,right,mix,diff}
                         Input channel
   --bauds BAUDS         Candidate baud rates
-  --flavor FLAVOR       Timing flavor
+  --flavor {verbatim,reconstructed,kinematic-infilled,rom-authentic,canonical}
+                        Timing flavor
   --confidence CONFIDENCE, -C CONFIDENCE, --min-confidence CONFIDENCE
                         Minimum confidence threshold
   -q, --quiet           Suppress logging
+  -T, --test            Run filter self-tests in-process and exit
 ```
 
 ```bash
@@ -638,11 +685,12 @@ python3 dwimsy/cli/filters/wav2t88.py capture.wav game.t88 --baud 600
 
 ```text
 $ python3 dwimsy/cli/filters/t882wav.py --help
-usage: dwimsy-t882wav [-h] [--mode {tape,acoustic,shaped,ideal}]
+usage: dwimsy-t882wav [-h] [-V]
+                      [--mode {tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}]
                       [--sample-rate SAMPLE_RATE] [--channels {1,2}]
                       [--stereo-mode {dual,left,right,diff}]
                       [--amplitude AMPLITUDE] [--baud {600,1200}]
-                      [--speed SPEED] [--invert] [-q]
+                      [--speed SPEED] [--invert] [-q] [-T]
                       [input] [output]
 
 Stream PC-8001 / PC-8801 .t88 tape container image to standard WAV audio.
@@ -653,7 +701,8 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  --mode {tape,acoustic,shaped,ideal}, -m {tape,acoustic,shaped,ideal}, --wave {tape,acoustic,shaped,ideal}
+  -V, --version         show program's version number and exit
+  --mode {tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}, -m {tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}, --wave {tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}
                         Synthesis mode
   --sample-rate SAMPLE_RATE, -r SAMPLE_RATE
                         Audio sample rate (default: 44100)
@@ -663,12 +712,15 @@ options:
                         Stereo routing
   --amplitude AMPLITUDE, -a AMPLITUDE, --volume AMPLITUDE, -v AMPLITUDE
                         Peak amplitude 0.01..1.0
-  --baud {600,1200}, -b {600,1200}
-                        Baud override
+  --baud {600,1200}     Baud override
   --speed SPEED, -s SPEED
                         Speed multiplier
   --invert              Invert polarity
   -q, --quiet           Suppress progress
+  -T, --test            Run filter self-tests in-process and exit
+
+Note: --mode accepts tape, acoustic, shaped, ideal, cassette, motor, spinup,
+pc, square.
 ```
 
 ```bash
@@ -676,7 +728,7 @@ options:
 python3 dwimsy/cli/filters/t882wav.py game.t88 - --mode tape | play -t wav -
 ```
 
-**Known divergence from `dwimsy convert`, not yet reconciled:** `dwimsy-t882wav --mode` currently only accepts `{tape,acoustic,shaped,ideal}`, versus `dwimsy convert --mode`'s full `{tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}`; and `dwimsy-wav2t88 --flavor` takes any free-form string rather than being constrained to the five named choices `dwimsy convert --flavor` validates against. Both filters and `dwimsy convert` currently call into the same underlying `core.pulse`/`core.fsk`/`core.audio` logic, so this is purely a CLI-surface inconsistency between two front ends, not a difference in what actually gets decoded/synthesized — but it means these two entry points aren't fully interchangeable yet for every option.
+**Known divergence from `dwimsy convert`, not yet reconciled:** `dwimsy-t882wav --mode` currently only accepts `{tape,acoustic,shaped,ideal}`, versus `dwimsy convert --mode`'s full `{tape,cassette,acoustic,motor,spinup,shaped,pc,ideal,square}`; and `dwimsy-wav2t88 --flavor` takes any free-form string rather than being constrained to the five named choices `dwimsy convert --flavor` validates against. Both filters and `dwimsy convert` currently call into the same underlying `core.pulse`/`core.fsk`/`core.audio` logic, so this is purely a CLI-surface inconsistency between two front ends, not a difference in what actually gets decoded/synthesized - but it means these two entry points aren't fully interchangeable yet for every option.
 
 ---
 
@@ -697,7 +749,7 @@ python3 dwimsy/cli/filters/t882wav.py game.t88 - --mode tape | play -t wav -
 
 | Subsystem / Module | Description | Status | Target Milestone |
 | :--- | :--- | :---: | :---: |
-| **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), dynamic glitch rejection, AGC — tuned first against PC-88/PC-8801's 2400/1200 Hz FSK | `[x] DONE` | Milestone 1 |
+| **`core.pulse`** | Edge timing, zero-crossing, time-base correction (TBC), dynamic glitch rejection, AGC - tuned first against PC-88/PC-8801's 2400/1200 Hz FSK | `[x] DONE` | Milestone 1 |
 | **`core.audio`** | Streaming WAV reader/writer (strict `data` chunk boundary clamping ships in M1.7; FLAC in M2.1) | `[x] DONE` | Milestone 1 |
 | **`core.fsk`** | FSK pulse classifier & UART framing with unified drift tracking | `[x] DONE` | Milestone 1 |
 | **`cli.filters.*`** | `t882wav` and `wav2t88` streaming filters, backed by `dwimsy.core.*` | `[x] DONE` | Milestone 1 |
@@ -926,7 +978,7 @@ When browsing media via the `<I>` keystroke in TTY mode:
 
 #### 4. Automated Physical Side/Tape Slicing & Leader Detection (--multi-side)
 When digitizing continuous captures containing multiple cassette sides or tapes:
-* **Spectrographic Leader & Hiss Profiling**: Identifies non-magnetic clear leader tape and transport stops via a 15–25 dB step-change dropping from magnetic bias hiss (E_bias ≈ −50 dBFS) to electronic preamp floor (E_floor ≤ −75 dBFS).
+* **Spectrographic Leader & Hiss Profiling**: Identifies non-magnetic clear leader tape and transport stops via a 15-25 dB step-change dropping from magnetic bias hiss (E_bias ≈ −50 dBFS) to electronic preamp floor (E_floor ≤ −75 dBFS).
 * **Validated Lifecycle Interlock**: Only commits a side split when the audio region satisfies a complete tape lifecycle (Leader In → Valid Program/Audio Payload → Leader Out).
 * **Default Carousel Sequencing**: Automatically assigns sequential layout (`Tape 01 Side A` → `Side B` → `Tape 02 Side A` → `Side B`) unless overridden by user metadata.
 
@@ -938,7 +990,7 @@ To prevent tedious manual keystrokes during multi-block loading on systems witho
   3. *Segment (Timeline / Mixed-Mode)*: Chronological macro-region on a composite mixed-mode tape (e.g. *Gundam 2* `Segment 01` [Data] ↔ `Segment 02` [Audio Drama]).
 * **Automated Group Boundary Detection**:
   - *TZX / TSX / CDT Metadata*: Evaluates block pause values. Non-zero pauses stream automatically; zero-pause blocks (Block `0x20` Stop the Tape / Block `0x2A` Stop in 48K) or TZX Group markers (`0x21`/`0x22`) seal the Loading Group and engage transport auto-pause.
-  - *Audio Cadence*: Inter-block gaps < 2.0s maintain continuous streaming; silence drops ≥ 3.0s–5.0s trigger stage auto-pause.
+  - *Audio Cadence*: Inter-block gaps < 2.0s maintain continuous streaming; silence drops ≥ 3.0s-5.0s trigger stage auto-pause.
   - *Loader Protocol Signatures*: Recognizes linked loader patterns (Speedlock, NONTAMA, PC-88 CSAVE → MON chains) and groups them automatically.
 
 #### 6. Runtime Conversion Mode & Modulation Switching (dsp.router)
@@ -1012,7 +1064,7 @@ In vintage ecosystems, commercial distributors frequently re-released cassette-b
 In vintage software distribution, software was duplicated onto standard or custom physical cassette shells (e.g., a 3-minute program released on a C-10 or C-15 cassette, with the remainder of Side A and the entirety of Side B left unrecorded). When synthesizing audio from logical streams or timing containers (e.g., `.t88`/`.cas`/`.cmt` → `.wav`), `dwimsy` allows declaring **nominal whole-tape geometry**:
 
 * **Standard & Custom Shell Presets**: Supports standard tape lengths (`C-10`, `C-15`, `C-20`, `C-30`, `C-46`, `C-60`, `C-90`, `C-120`) and custom publisher-cut runtimes (e.g., `--tape-length 8.5m` or `--side-duration 4m15s`).
-* **Realistic Lead-in & Trailing Infill**: Positions program data after standard non-magnetic clear leader tape and initial magnetic lead-in silence (e.g. 5–10s), then pads trailing tape with realistic modeled analog tape silence / residual bias noise up to the full nominal side length.
+* **Realistic Lead-in & Trailing Infill**: Positions program data after standard non-magnetic clear leader tape and initial magnetic lead-in silence (e.g. 5-10s), then pads trailing tape with realistic modeled analog tape silence / residual bias noise up to the full nominal side length.
 * **Side B Infill & Unrecorded Replication**: Optionally produces a structurally matched, unrecorded or blank Side B waveform to mirror the complete physical retail artifact.
 * **Reel Hub Physics & Counter Calibration**: Uses tape thickness models (e.g., standard 18 µm for C-60 vs. 12 µm for C-90) and hub diameter (r₀ ≈ 11 mm) to calculate non-linear reel rotational speeds, giving a modeled tape-position estimate (N_counter) across fast-forward and rewind operations; accuracy depends on measured or declared tape/deck parameters and should be treated as an estimate unless independently calibrated.
 
@@ -1044,11 +1096,11 @@ Media is tagged as read-only or writable (tracking physical write-protect notche
 ### Status of Technical Claims
 
 Where practical, documentation and manifests should identify one or more of:
-* **established** — supported by a published format specification, ROM/disassembly evidence, service documentation, or independently verified implementation;
-* **observed** — directly observed in a physical capture, hardware test, or reproducible experiment;
-* **inferred** — a reasoned interpretation supported by available evidence but not yet independently established;
-* **heuristic** — an algorithmic guess or best-fit result whose correctness depends on assumptions;
-* **synthetic** — generated by dwimsy rather than observed on the source media.
+* **established** - supported by a published format specification, ROM/disassembly evidence, service documentation, or independently verified implementation;
+* **observed** - directly observed in a physical capture, hardware test, or reproducible experiment;
+* **inferred** - a reasoned interpretation supported by available evidence but not yet independently established;
+* **heuristic** - an algorithmic guess or best-fit result whose correctness depends on assumptions;
+* **synthetic** - generated by dwimsy rather than observed on the source media.
 
 A model parameter should likewise be distinguishable as measured, documented, estimated, or assumed. For example, a cassette model may use a published head-gap equation while still using an estimated head-gap value for a particular deck. The equation and the parameter therefore have different evidentiary status.
 
@@ -1076,14 +1128,14 @@ A later derivative may be more useful for emulation or regeneration than the sou
 
 ### Deliberate Algorithmic Deviations from the Ported Reference Tools
 
-`core.pulse` and `core.fsk` are ports of `pc88_tape_tools`/`wav2t88`/`t882wav`'s demodulation logic, and are held to a high bar: any behavioral difference from those reference tools needs to be either a bug, or a deliberate, justified, and documented improvement — not an incidental side effect of refactoring. Four differences were evaluated against that bar and kept:
+`core.pulse` and `core.fsk` are ports of `pc88_tape_tools`/`wav2t88`/`t882wav`'s demodulation logic, and are held to a high bar: any behavioral difference from those reference tools needs to be either a bug, or a deliberate, justified, and documented improvement - not an incidental side effect of refactoring. Four differences were evaluated against that bar and kept:
 
 * **Sub-sample interpolation always uses the true previous sample.** The original code skipped updating its zero-crossing reference value on the specific sample where a full cycle completed, meaning the *following* transition's interpolated timing could read a stale value from two samples back rather than one. There's no signal-processing reason to prefer the stale value; this was corrected.
-* **The Space-tone classification ceiling now scales with measured tape speed drift**, the same way the Mark-tone boundary already did. Mark and Space tones share a common tape-transport clock, so real motor speed variation shifts both proportionally — the original only adapted the Mark side, which could misclassify genuine (correspondingly slow) Space cycles as gaps on a sufficiently slow-running deck.
+* **The Space-tone classification ceiling now scales with measured tape speed drift**, the same way the Mark-tone boundary already did. Mark and Space tones share a common tape-transport clock, so real motor speed variation shifts both proportionally - the original only adapted the Mark side, which could misclassify genuine (correspondingly slow) Space cycles as gaps on a sufficiently slow-running deck.
 * **The UART start-bit threshold's `1200.0 Hz` literal is now the configured `space_freq` parameter**, removing a hardcoded assumption in an otherwise-parameterized module.
 * **The glitch-rejection window is derived from the configured `center_freq`/`bandwidth` (`max(20µs, 0.25 / max_f)`)** rather than a fixed 100 microseconds. This is a necessary physical correction for multi-baud systems: in MSX's 2400-baud fast mode (which uses 4800 Hz Mark tones), a valid half-cycle is nominally ~104.17 µs, and drops to ~99.2 µs under legitimate +5% motor speed drift. A rigid 100 µs filter would reject valid fast-mode data cycles as noise glitches. The adaptive formula scales cleanly across tone frequencies while rejecting transient electrical spikes.
 
-All four were verified the same way: running `dwimsy convert` against real, hash-fingerprinted 1980s cassette captures and diffing the resulting `.t88` container **byte-for-byte** against the actual, current, unmodified `wav2t88.py` reference tool on the same input. All four are active simultaneously in that comparison, and the result still matches exactly — meaning none of them changes any classification decision on real, measurably-drifting tape audio, while all four close a real gap for tone frequencies or drift conditions the two available real captures don't happen to exercise.
+All four were verified the same way: running `dwimsy convert` against real, hash-fingerprinted 1980s cassette captures and diffing the resulting `.t88` container **byte-for-byte** against the actual, current, unmodified `wav2t88.py` reference tool on the same input. All four are active simultaneously in that comparison, and the result still matches exactly - meaning none of them changes any classification decision on real, measurably-drifting tape audio, while all four close a real gap for tone frequencies or drift conditions the two available real captures don't happen to exercise.
 
 ### Mixed-Mode Media
 
@@ -1600,9 +1652,9 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
 ### Phase 0: Orchestration & Scaffolding `[x] CONSOLIDATED INTO PHASE 1`
 *   Phase 0's goal of establishing stream contracts (`stdout` binary data vs. `stderr` out-of-band telemetry) and validating data flow was absorbed directly into the native Phase 1 implementation without requiring temporary wrapper classes.
 
-### Phase 1: Minimum Viable Vertical Slice — PC-88 Only `[x] COMPLETE`
+### Phase 1: Minimum Viable Vertical Slice - PC-88 Only `[x] COMPLETE`
 
-The goal of Phase 1 was a single, narrow, end-to-end path through the architecture — not breadth. No MSX, no disks, no full CLI verb set, no hardware side-channel. Just enough to prove the core abstractions hold up against one real platform with clean, composable libraries.
+The goal of Phase 1 was a single, narrow, end-to-end path through the architecture - not breadth. No MSX, no disks, no full CLI verb set, no hardware side-channel. Just enough to prove the core abstractions hold up against one real platform with clean, composable libraries.
 
 Tasks:
 1. `[x] DONE` Implement `dwimsy.core.pulse` (zero-crossing timer, dynamic glitch rejection, AGC, DC-blocker), tuned initially against PC-88/PC-8801's 2400/1200 Hz FSK.
@@ -1733,7 +1785,7 @@ The tables in this section are engineering references, not authority by themselv
 | **Fujitsu FM-7 / FM-8**    | FSK (T77)        | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 / 600 baud                   | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
 | **MSX / MSX2 (Standard)**  | FSK              | 2400 Hz (2 cyc)                              | 1200 Hz (1 cyc)                               | 1200 / 2400 baud                  | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
 | **MSX (Sanyo 2x Fast)**    | Octave FSK       | 4800 Hz (2 cyc)                              | 2400 Hz (1 cyc)                               | 2400 baud                         | 1 Start (0), 8 Data (LSB), 2 Stop (1) |
-| **MSX (European Turbo)**   | PWM / Pulse      | Short edge pair                              | Long edge pair                                | 2000–4000+ baud                   | Raw bitstream, zero stop bits         |
+| **MSX (European Turbo)**   | PWM / Pulse      | Short edge pair                              | Long edge pair                                | 2000-4000+ baud                   | Raw bitstream, zero stop bits         |
 | **Sharp MZ / MZ-700 / MZ-80K** | PWM (MZT)    | Long pulse pair (≈1000 Hz)                   | Short pulse pair (≈2000 Hz)                   | 1200 baud                         | 128-byte MZT header + tape sync blocks|
 | **Sharp X1 (CZ-800 Series)** | Sharp PWM      | Fast pulse interval                          | Slow pulse interval                           | 2700 / 1200 baud                  | 80C49 logic framing & .tap descriptor |
 | **Nintendo Famicom Family BASIC** | PWM (MZT) | Sharp MZ PWM pulse pair                      | Sharp MZ PWM pulse pair                       | 1200 baud                         | Sharp MZ-compatible modulation/framing|
@@ -1780,12 +1832,12 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
 
 ### Consulted Literature & Technical Specifications Reference
 
-1. **IEC Standard 60094-4 & 60094-5**: "Magnetic Tape Sound Recording and Reproducing Systems" — Standard equalization time constants for Type I cassettes (3180 µs, 120 µs, 12 µs).
+1. **IEC Standard 60094-4 & 60094-5**: "Magnetic Tape Sound Recording and Reproducing Systems" - Standard equalization time constants for Type I cassettes (3180 µs, 120 µs, 12 µs).
    * URL: https://webstore.iec.ch/publication/723
    * Wayback Machine: https://web.archive.org/web/20220601/https://webstore.iec.ch/publication/723
-2. **Wallace, R. L. (1951)**: "The Reproduction of Magnetically Recorded Signals", *Bell System Technical Journal*, 30(4), pp. 1145–1173 (Gap and spacing loss equations).
+2. **Wallace, R. L. (1951)**: "The Reproduction of Magnetically Recorded Signals", *Bell System Technical Journal*, 30(4), pp. 1145-1173 (Gap and spacing loss equations).
    * URL: https://doi.org/10.1002/j.1538-7305.1951.tb03700.x
-3. **Jiles, D. C., & Atherton, D. L. (1986)**: "Theory of Ferromagnetic Hysteresis", *Journal of Magnetism and Magnetic Materials*, 61(1-2), pp. 48–60 (Anhysteretic tape magnetization and AC bias linearization models).
+3. **Jiles, D. C., & Atherton, D. L. (1986)**: "Theory of Ferromagnetic Hysteresis", *Journal of Magnetism and Magnetic Materials*, 61(1-2), pp. 48-60 (Anhysteretic tape magnetization and AC bias linearization models).
    * URL: https://doi.org/10.1016/0304-8853(86)90066-1
 4. **Yamaha Corporation (1984)**: "Yamaha CX5M / YIS-503 Music Computer Service Manual",
    * Fig. 5-5-9: CMT-IN Cassette Interface Input Shaping Circuit (C31, R21, R20, C29, D1/D2, R33, JRC-311B comparator → PSG IOA7).
@@ -1799,16 +1851,16 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
    * URL: https://mdfs.net/Docs/Comp/BBC/FileFormat/UEFSpecs.htm
 7. **CAS File Format Definition**:
    * URL: https://www.msx.org/forum/semi-msx-talk/emulation/how-do-exactly-works-cas-format
-8. **Rob Hagemans / PC-BASIC Project**: "Protected File Format" — reverse-engineering of GW-BASIC's protected-save (`,P`) obfuscation scheme (the paired 11-byte/13-byte XOR key structure). Documents the algorithm's internal workings for GW-BASIC, not NEC's dialects.
+8. **Rob Hagemans / PC-BASIC Project**: "Protected File Format" - reverse-engineering of GW-BASIC's protected-save (`,P`) obfuscation scheme (the paired 11-byte/13-byte XOR key structure). Documents the algorithm's internal workings for GW-BASIC, not NEC's dialects.
    * URL: https://robhagemans.github.io/pcbasic/doc/2.0/#protected-file-format
-9. **NEC (1983)**: "PC-8001 mkII SR N80-BASIC / N80SR-BASIC Reference Manual" — documents the `,P` protected-save *access method* (the `SAVE`/`BSAVE` flag itself) but not the obfuscation algorithm's internal workings.
+9. **NEC (1983)**: "PC-8001 mkII SR N80-BASIC / N80SR-BASIC Reference Manual" - documents the `,P` protected-save *access method* (the `SAVE`/`BSAVE` flag itself) but not the obfuscation algorithm's internal workings.
 10. **`fat8_d88_tool` project (original research)**: Recognizing that NEC's N88-BASIC protected-save format follows the same paired-XOR-key structure documented for GW-BASIC (per item 8) but with different key data baked into PC-88 ROM, and devising a known-plaintext `SAVE`-based method to recover the PC-88 combined XOR key without needing the ROM itself. The related PC-98 `N88-BASIC(86)` protected-save format uses an unrelated single-bit-rotation scheme, identified independently by direct known-plaintext testing rather than from any published reference. See the [`fat8_d88_tool` README](https://github.com/f-fix/fat8_d88_tool#de-obfuscation-pc98-version) for the full derivation and recovered key material.
 
 ---
 
 ## 14. Revision History
 
-### [0.1.6.0-dev] — 2026-08-23 (Milestone 1.6) `[ ] IN PROGRESS` (Hash: unsealed / pending `version-bump`)
+### [0.1.6.0-dev] - 2026-08-23 (Milestone 1.6) `[ ] IN PROGRESS` (Hash: unsealed / pending `version-bump`)
 * **Summary**: Milestone 1.6: Developer infrastructure, self-packaging, testing & documentation architecture
   * `[x] COMPLETE`: Content-addressed test fixture registry (`dwimsy.tests.fixtures`) and discovery pool (`FixturePool`)
   * `[ ] PLANNED`: Add `dwimsy meta bundle` (with `--baseline` export) and `dwimsy meta bundle-fixtures` portable unpacker generators
@@ -1816,7 +1868,7 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
   * `[ ] PLANNED`: Maintain `README.md` and `CHANGELOG.md` as canonical markdown sources of truth with in-memory `blztar` fallback
   * `[ ] PLANNED`: Unified `dwimsy test` CLI runner with scoped subsystem filtering
 
-### [0.1.5.0] — 2026-08-23 (Milestone 1.5 Baseline) `[x] COMPLETE`
+### [0.1.5.0] - 2026-08-23 (Milestone 1.5 Baseline) `[x] COMPLETE`
 * **Summary**: Milestone 1 & 1.5: Native PC-88 DSP vertical slice and container/protocol parity
   * Native core DSP libraries: `core.pulse`, `core.fsk`, and `core.audio` (Streaming WAV reader/writer)
   * Native PC-88 container and protocol models: `tape.t88` and `protocols.pc88`

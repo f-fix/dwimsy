@@ -360,7 +360,7 @@ def run_join(args, raw_inputs: Optional[List[str]] = None):
 def main(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         prog="dwimsy",
-        description="dwimsy — retrocomputing media preservation, demodulation, and conversion.",
+        description="dwimsy - retrocomputing media preservation, demodulation, and conversion.",
         epilog="Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -735,8 +735,21 @@ def main(argv: Optional[List[str]] = None):
         "archive",
         "recover",
     ):
+        milestones = {
+            "help": "Milestone 1.6",
+            "readme": "Milestone 1.6",
+            "license": "Milestone 1.6",
+            "changelog": "Milestone 1.6",
+            "charset": "Milestone 2.3",
+            "extract": "Milestone 2.3",
+            "package": "Milestone 2.4",
+            "bridge": "Milestone 2.5",
+            "archive": "Milestone 2.5",
+            "recover": "Milestone 4.0",
+        }
+        ms = milestones.get(args.command, "a future milestone")
         print(
-            f"[NOT IMPLEMENTED] 'dwimsy {args.command}' is scheduled for a future milestone.",
+            f"[NOT IMPLEMENTED] 'dwimsy {args.command}' is scheduled for {ms}.",
             file=sys.stderr,
         )
         sys.exit(1)

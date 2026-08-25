@@ -18,6 +18,10 @@ from dwimsy.cli import main as dwimsy_cli_main
 from dwimsy.meta import bundle, integrity, unbundle
 
 
+@unittest.skipIf(
+    os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+    "Excluded during bundle build verification",
+)
 class TestMetaBundle(unittest.TestCase):
     def test_unbundle_asset_readers(self):
         assets = unbundle.list_assets()

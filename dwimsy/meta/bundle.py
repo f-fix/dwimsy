@@ -12,8 +12,14 @@ import re
 import subprocess
 import sys
 import tarfile
+import tempfile
 from pathlib import Path
 from typing import List, Optional
+
+for p in Path(__file__).resolve().parents:
+    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+        break
 
 from dwimsy.meta import integrity, unbundle
 
@@ -59,17 +65,23 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                             tarinfo = tarfile.TarInfo(name=arcname)
                             tarinfo.type = m.type
                             tarinfo.size = m.size
-                            tarinfo.mode = m.mode
-                            tarinfo.mtime = m.mtime
+                            tarinfo.mtime = int(m.mtime)
                             tarinfo.uid = 0
                             tarinfo.gid = 0
                             tarinfo.uname = ""
                             tarinfo.gname = ""
-                            fallback_entries[arcname] = tarinfo
-                            if m.isfile():
+                            if m.isdir():
+                                tarinfo.mode = 0o755
+                            elif m.isfile():
                                 f = src_tar.extractfile(m)
                                 if f is not None:
-                                    fallback_data[arcname] = f.read()
+                                    content = f.read()
+                                    fallback_data[arcname] = content
+                                    if arcname.endswith(".py") and content.startswith(b"#!"):
+                                        tarinfo.mode = 0o755
+                                    else:
+                                        tarinfo.mode = 0o644
+                            fallback_entries[arcname] = tarinfo
             except Exception:
                 pass
 
@@ -78,7 +90,7 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
         for arcname in all_arcnames:
             if arcname in disk_entries:
                 full_p = disk_entries[arcname]
-                tarinfo = tar.gettarinfo(str(full_p), arcname=arcname)
+                tarinfo = tarfile.TarInfo(name=arcname)
                 tarinfo.uid = 0
                 tarinfo.gid = 0
                 tarinfo.uname = ""
@@ -86,17 +98,30 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                 if full_p.is_file():
                     with open(full_p, "rb") as f:
                         content = f.read()
+                    tarinfo.type = tarfile.REGTYPE
+                    tarinfo.size = len(content)
+                    tarinfo.mtime = int(full_p.stat().st_mtime)
                     if arcname.endswith(".py") and content.startswith(b"#!"):
                         tarinfo.mode = 0o755
+                    else:
+                        tarinfo.mode = 0o644
                     tar.addfile(tarinfo, io.BytesIO(content))
                 elif full_p.is_dir():
+                    tarinfo.type = tarfile.DIRTYPE
+                    tarinfo.mode = 0o755
+                    child_files = [
+                        p for arc, p in disk_entries.items()
+                        if arc.startswith(arcname + "/") and p.is_file()
+                    ]
+                    if child_files:
+                        tarinfo.mtime = max(int(f.stat().st_mtime) for f in child_files)
+                    else:
+                        tarinfo.mtime = int(full_p.stat().st_mtime)
                     tar.addfile(tarinfo)
             elif arcname in fallback_entries:
                 tarinfo = fallback_entries[arcname]
                 if tarinfo.isreg():
                     data = fallback_data.get(arcname, b"")
-                    if arcname.endswith(".py") and data.startswith(b"#!"):
-                        tarinfo.mode = 0o755
                     tar.addfile(tarinfo, io.BytesIO(data))
                 elif tarinfo.isdir():
                     tar.addfile(tarinfo)
@@ -168,27 +193,98 @@ def run_meta_bundle(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
         else:
             script_text = build_bundle_script(repo_root=repo_root, with_deps=True)
         out_name = args.output or get_default_bundle_name(repo_root, is_baseline=True)
-    else:
-        script_text = build_bundle_script(repo_root=repo_root, with_deps=True)
-        out_name = args.output or get_default_bundle_name(
-            repo_root,
-            tag=getattr(args, "tag", None),
-            with_deps=True,
-            is_baseline=False,
+
+        if out_name == "-":
+            stdout.write(script_text)
+        else:
+            out_path = Path(out_name).resolve()
+            out_path.write_text(script_text, encoding="utf-8")
+            try:
+                out_path.chmod(0o755)
+            except OSError:
+                pass
+            print(f"[SUCCESS] Generated bundle -> {out_path}", file=stderr)
+        return 0
+
+    # Multi-phase build
+    with_deps = getattr(args, "with_deps", False)
+    tag = getattr(args, "tag", None)
+    out_name = args.output or get_default_bundle_name(
+        repo_root,
+        tag=tag,
+        with_deps=with_deps,
+        is_baseline=False,
+    )
+
+    with tempfile.TemporaryDirectory(prefix="dwimsy_bundle_") as tmp:
+        tmp_path = Path(tmp)
+        # Phase 1: Build stage 1 bundle script in temporary directory
+        stage1_script = build_bundle_script(repo_root=repo_root, with_deps=True)
+        stage1_bundle_file = tmp_path / "stage1_bundle.py"
+        stage1_bundle_file.write_text(stage1_script, encoding="utf-8")
+
+        # Phase 2: Extract stage 1 bundle to an isolated unpacked/ directory with with_deps=False
+        unpacked_dir = tmp_path / "unpacked"
+        m_b = re.search(r'blztar = """\n([\s\S]*?)\n"""', stage1_script)
+        stage1_blztar = m_b.group(1) if m_b else unbundle.blztar
+        unbundle.extract_b64_lzma_tar(
+            stage1_blztar,
+            unpacked_dir,
+            self_path=stage1_bundle_file,
+            with_deps=False,
         )
 
-    if out_name == "-":
-        stdout.write(script_text)
-    else:
-        out_path = Path(out_name).resolve()
-        out_path.write_text(script_text, encoding="utf-8")
-        try:
-            out_path.chmod(0o755)
-        except OSError:
-            pass
-        print(f"[SUCCESS] Generated bundle -> {out_path}", file=stderr)
+        # Phase 3: Rebundle from unpacked/ (verifying in-memory dependency splicing)
+        stage2_script = build_bundle_script(repo_root=unpacked_dir, with_deps=True)
 
-    return 0
+        # Phase 4: Run tests on unpacked_dir with os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
+        from dwimsy.tests import run_tests
+
+        old_env = os.environ.get("DWIMSY_BUNDLE_BUILD")
+        os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
+        test_stream = io.StringIO()
+        try:
+            rc = run_tests(patterns=None, verbose=0, stream=test_stream, repo_root=unpacked_dir)
+        finally:
+            if old_env is None:
+                os.environ.pop("DWIMSY_BUNDLE_BUILD", None)
+            else:
+                os.environ["DWIMSY_BUNDLE_BUILD"] = old_env
+
+        # Phase 5 & 6
+        if rc == 0:
+            if out_name == "-":
+                stdout.write(stage2_script)
+            else:
+                out_path = Path(out_name).resolve()
+                out_path.write_text(stage2_script, encoding="utf-8")
+                try:
+                    out_path.chmod(0o755)
+                except OSError:
+                    pass
+                print(f"[SUCCESS] Generated bundle -> {out_path}", file=stderr)
+            return 0
+        else:
+            err_details = test_stream.getvalue()
+            out_p = Path(out_name)
+            stem = out_p.stem
+            suffix = out_p.suffix or ".py"
+            failed_name = f"{stem}_failed_{rc}_tests{suffix}"
+            if out_name == "-":
+                failed_path = Path(failed_name).resolve()
+            else:
+                failed_path = out_p.with_name(failed_name).resolve()
+
+            failed_path.write_text(stage2_script, encoding="utf-8")
+            try:
+                failed_path.chmod(0o755)
+            except OSError:
+                pass
+            print(
+                f"[FAILURE] Test suite failed ({rc} failed test(s)). Diagnostic bundle saved to {failed_path}\n{err_details}",
+                file=stderr,
+            )
+            return 1
 
 
 def run_meta_fetch_deps(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
@@ -212,6 +308,13 @@ def run_meta_fetch_deps(args, stdout=sys.stdout, stderr=sys.stderr) -> int:
             "[NOTICE] Git submodule update failed or unavailable; falling back to bundled baseline.",
             file=stderr,
         )
+
+    if deps_dir.exists() and any(deps_dir.iterdir()) and not getattr(args, "force", False):
+        print(
+            f"[NOTICE] '{deps_dir}' already exists and is not empty. Use --force / -f to overwrite.",
+            file=stderr,
+        )
+        return 0
 
     extracted = unbundle.extract_deps(repo_root)
     print(

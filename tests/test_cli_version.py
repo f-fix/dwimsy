@@ -3,6 +3,7 @@
 
 import io
 import os
+import shutil
 import subprocess
 import sys
 import unittest
@@ -112,10 +113,34 @@ class TestCLIVersion(unittest.TestCase):
                 f"python -m {target} --version output '{out}' missing expected '{expected_v}'",
             )
 
+    def test_cross_interpreter_cli_version(self):
+        repo_root = Path(pkg_root)
+        expected_v = get_version()
+        candidate_interpreters = ["python3", "python", "py", "pypy3"]
+
+        tested_any = False
+        for interp in candidate_interpreters:
+            interp_path = shutil.which(interp)
+            if not interp_path:
+                continue
+            try:
+                res = subprocess.run(
+                    [interp_path, "-m", "dwimsy", "--version"],
+                    cwd=str(repo_root),
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if res.returncode == 0:
+                    out = (res.stdout or res.stderr).strip()
+                    self.assertIn(expected_v, out)
+                    tested_any = True
+            except (OSError, subprocess.SubprocessError):
+                pass
+        self.assertTrue(tested_any, "At least one Python interpreter must be available")
+
 
 def main(argv=None):
-    import sys
-
     effective = sys.argv[1:] if argv is None else list(argv)
     if any(a in ("-V", "--version") for a in effective):
         from dwimsy.meta.integrity import version as get_version
