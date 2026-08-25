@@ -54,17 +54,28 @@ class IntegrityTests(unittest.TestCase):
     def test_path_order_is_canonical(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "_version.py").write_text(
+            pkg = root / "dwimsy"
+            pkg.mkdir()
+            (pkg / "__init__.py").write_text("x = 1\n", encoding="utf-8")
+            (pkg / "_version.py").write_text(
                 '__version__ = "x"\n__code_hash__ = ""\n', encoding="utf-8"
             )
-            (root / "z.py").write_text("z = 1\n", encoding="utf-8")
-            (root / "a.py").write_text("a = 1\n", encoding="utf-8")
+            (pkg / "z.py").write_text("z = 1\n", encoding="utf-8")
+            (pkg / "a.py").write_text("a = 1\n", encoding="utf-8")
             self.assertEqual(
                 tuple(
                     p.relative_to(root).as_posix() for p in integrity.source_files(root)
                 ),
-                ("_version.py", "a.py", "z.py"),
+                ("dwimsy/__init__.py", "dwimsy/_version.py", "dwimsy/a.py", "dwimsy/z.py"),
             )
+
+    def test_bundle_asset_names_preserve_dotfiles(self):
+        self.assertIn(".gitignore", unbundle.list_assets())
+        self.assertIn(".gitmodules", unbundle.list_assets())
+        self.assertEqual(
+            unbundle.get_asset(".gitignore"),
+            (integrity.find_repo_root() / ".gitignore").read_bytes(),
+        )
 
     def test_unbundle_module_ignored(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -77,6 +88,33 @@ class IntegrityTests(unittest.TestCase):
             (root / "unbundle.py").write_text('blztar = "xyz"\n', encoding="utf-8")
             h2 = integrity.canonical_code_hash(root)
             self.assertEqual(h1, h2)
+
+
+    def test_manifest_contains_portable_project_window(self):
+        patterns = integrity.canonical_manifest()
+        self.assertIn("dwimsy/**/*.py", patterns)
+        self.assertIn("tests/**/*.py", patterns)
+        self.assertIn("README.md", patterns)
+        self.assertIn("LICENSE", patterns)
+        self.assertIn(".gitignore", patterns)
+        self.assertIn(".gitmodules", patterns)
+        self.assertIn("deps/pc88_tape_tools/**/*", patterns)
+
+    def test_gitmodule_dependency_globs_are_lazy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "dwimsy").mkdir()
+            (root / "dwimsy" / "__init__.py").write_text("x = 1\n", encoding="utf-8")
+            (root / "dwimsy" / "_version.py").write_text(
+                '__version__ = "x"\n__code_hash__ = ""\n', encoding="utf-8"
+            )
+            (root / ".gitmodules").write_text(
+                '[submodule "deps/example"]\npath = deps/example\nurl = https://example.invalid/example.git\n',
+                encoding="utf-8",
+            )
+            patterns = integrity.canonical_manifest(root)
+            self.assertIn("deps/example/**/*", patterns)
+            self.assertNotIn("deps/example/file.py", patterns)
 
     def test_unsealed_tree_is_modified(self):
         self.assertEqual(integrity.sealed_code_hash(), "")
