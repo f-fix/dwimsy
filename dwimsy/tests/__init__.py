@@ -103,28 +103,35 @@ def expand_test_patterns(patterns: Optional[Sequence[str]]) -> List[str]:
 
 
 def _extract_tests_from_bundle(target_dir: Path) -> Path:
-    """Extract tests/ from embedded blztar into a temp directory."""
+    """Extract the test suite and canonical on-disk test support files."""
     target_dir.mkdir(parents=True, exist_ok=True)
     tests_out = target_dir / "tests"
     tests_out.mkdir(parents=True, exist_ok=True)
 
+    prefixes = ("tests/", "dwimsy/")
+    top_assets = {"README.md", "LICENSE", ".gitignore", ".gitmodules"}
     with unbundle._open_bundle_tar() as tar:
         for m in tar.getmembers():
-            norm_name = m.name.lstrip("./")
-            if norm_name == "tests" or norm_name.startswith("tests/"):
-                if m.isfile():
-                    f = tar.extractfile(m)
-                    if f is not None:
-                        dest = target_dir / norm_name
-                        dest.parent.mkdir(parents=True, exist_ok=True)
-                        dest.write_bytes(f.read())
-                        if os.access(str(dest), os.X_OK):
-                            try:
-                                dest.chmod(0o755)
-                            except OSError:
-                                pass
-                elif m.isdir():
-                    (target_dir / norm_name).mkdir(parents=True, exist_ok=True)
+            norm_name = m.name[2:] if m.name.startswith("./") else m.name
+            include = norm_name.startswith(prefixes) or norm_name in top_assets
+            if not include or not m.isfile():
+                continue
+            f = tar.extractfile(m)
+            if f is None:
+                continue
+            dest = target_dir / norm_name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            data = f.read()
+            if norm_name == "dwimsy/meta/unbundle.py":
+                # The payload stores the canonical elided template. The in-memory
+                # bundle remains the executable unbundle module for this process.
+                continue
+            dest.write_bytes(data)
+            if dest.suffix == ".py" and data.startswith(b"#!"):
+                try:
+                    dest.chmod(0o755)
+                except OSError:
+                    pass
 
     return tests_out
 
@@ -191,12 +198,11 @@ def run_tests(
             tmp_path = Path(tmp)
             tests_dir = _extract_tests_from_bundle(tmp_path)
             orig_sys_path = list(sys.path)
+            old_test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
             if str(tests_dir) in sys.path:
                 sys.path.remove(str(tests_dir))
-            if str(tmp_path) in sys.path:
-                sys.path.remove(str(tmp_path))
             sys.path.insert(0, str(tests_dir))
-            sys.path.insert(0, str(tmp_path))
+            os.environ["DWIMSY_TEST_REPO_ROOT"] = str(tmp_path)
             try:
                 for pat in expanded_patterns:
                     suite.addTests(
@@ -216,3 +222,7 @@ def run_tests(
                 )
             finally:
                 sys.path[:] = orig_sys_path
+                if old_test_root is None:
+                    os.environ.pop("DWIMSY_TEST_REPO_ROOT", None)
+                else:
+                    os.environ["DWIMSY_TEST_REPO_ROOT"] = old_test_root
