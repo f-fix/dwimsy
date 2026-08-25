@@ -1,15 +1,17 @@
-"""dwimsy.meta.integrity - Canonical source-tree hashing and runtime modification detection.
+"""dwimsy.meta.integrity - Canonical portable-project hashing and runtime modification detection.
 
-The integrity hash covers the canonical source and test files of the project.
-Files are ordered by their POSIX relative path, source text is normalized to LF line
-endings, and the sealed ``__code_hash__`` value in ``_version.py`` is replaced
-with the empty sentinel before hashing. This makes the recorded hash
-self-referentially stable.
+The integrity hash covers the canonical project window used by portable bundles:
+native Python code, tests, project metadata, and the dependency paths declared by
+``.gitmodules``. Files are ordered by POSIX relative path, text is normalized to LF
+line endings, and the sealed ``__code_hash__`` value in ``_version.py`` is replaced
+with the empty sentinel before hashing.
 """
 
 from __future__ import annotations
 
 import hashlib
+import ast
+import fnmatch
 import re
 import sys
 from pathlib import Path
@@ -72,41 +74,75 @@ def version_file_path(root: Optional[Path] = None) -> Path:
     return _VERSION_FILE
 
 
-def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
-    """Return canonical source and test files in sorted relative-path order."""
-    repo = find_repo_root(root) if root is None else Path(root)
-    if (repo / "dwimsy").is_dir() and (repo / "dwimsy" / "__init__.py").is_file():
-        files: list[Path] = []
-        for top_name in (".gitignore", ".gitmodules", "LICENSE", "README.md"):
-            p = repo / top_name
-            if p.is_file():
-                files.append(p)
-        for p in (repo / "dwimsy").rglob("*.py"):
-            if p.is_file() and p.name != "unbundle.py":
-                files.append(p)
-        if (repo / "tests").is_dir():
-            for p in (repo / "tests").rglob("*"):
-                if p.is_file() and p.suffix in (".py", ".md"):
-                    files.append(p)
-        return tuple(sorted(files, key=lambda p: p.relative_to(repo).as_posix()))
-    elif (repo / "_version.py").is_file() or (repo / "__init__.py").is_file():
-        files = [
-            p for p in repo.rglob("*.py") if p.is_file() and p.name != "unbundle.py"
-        ]
-        return tuple(sorted(files, key=lambda p: p.relative_to(repo).as_posix()))
-    else:
-        files = [
-            p
-            for p in repo.rglob("*")
-            if p.is_file()
-            and p.name != "unbundle.py"
-            and (
-                p.suffix in (".py", ".md")
-                or p.name in (".gitignore", ".gitmodules", "LICENSE", "README.md")
-            )
-        ]
-        return tuple(sorted(files, key=lambda p: p.relative_to(repo).as_posix()))
+def canonical_manifest(root: Optional[Path] = None) -> Tuple[str, ...]:
+    """Return the canonical portable-project manifest patterns.
 
+    The manifest covers native Python code, tests, canonical project metadata,
+    and one lazy recursive glob for each path declared by .gitmodules.
+    """
+    repo = find_repo_root(root) if root is None else Path(root).resolve()
+    patterns = [
+        "dwimsy/**/*.py",
+        "tests/**/*.py",
+        "tests/**/*.md",
+        ".gitignore",
+        ".gitmodules",
+        "LICENSE",
+        "README.md",
+    ]
+    gitmodules = repo / ".gitmodules"
+    gitmodules_text = None
+    if gitmodules.is_file():
+        gitmodules_text = gitmodules.read_text(encoding="utf-8")
+    else:
+        try:
+            from dwimsy.meta import unbundle
+            gitmodules_text = unbundle.get_asset_text(".gitmodules")
+        except Exception:
+            pass
+    if gitmodules_text is not None:
+        for line in gitmodules_text.splitlines():
+            m = re.match(r"\s*path\s*=\s*(\S+)\s*$", line)
+            if m:
+                path = m.group(1).strip("/")
+                patterns.append(f"{path}/**/*")
+    return tuple(patterns)
+
+
+def _manifest_matches(rel_path: str, patterns: Iterable[str]) -> bool:
+    """Return whether a normalized relative path belongs to a manifest glob."""
+    for pattern in patterns:
+        if fnmatch.fnmatchcase(rel_path, pattern):
+            return True
+        # Treat **/ as zero or more directory components.
+        if "**/" in pattern:
+            if fnmatch.fnmatchcase(rel_path, pattern.replace("**/", "", 1)):
+                return True
+        if pattern.endswith("/**/*"):
+            prefix = pattern[:-4]
+            if rel_path == prefix or rel_path.startswith(prefix + "/"):
+                return True
+    return False
+
+
+def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
+    """Return canonical on-disk files selected by the portable manifest."""
+    repo = find_repo_root(root) if root is None else Path(root).resolve()
+    patterns = canonical_manifest(repo)
+    if not ((repo / "dwimsy").is_dir() and (repo / "dwimsy" / "__init__.py").is_file()):
+        return ()
+    files = []
+    for p in repo.rglob("*"):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(repo).as_posix()
+        if rel == "dwimsy/meta/unbundle.py":
+            continue
+        if "__pycache__" in p.parts or p.suffix == ".pyc":
+            continue
+        if _manifest_matches(rel, patterns):
+            files.append(p)
+    return tuple(sorted(files, key=lambda p: p.relative_to(repo).as_posix()))
 
 def _canonical_bytes(data: bytes, rel_path: str) -> bytes:
     """Return normalized bytes for one source or asset file."""
@@ -134,76 +170,85 @@ def _canonical_bytes(data: bytes, rel_path: str) -> bytes:
 
 
 def canonical_code_hash(root: Optional[Path] = None) -> str:
-    """Calculate the canonical SHA-256 hash of the dwimsy source and test tree.
+    """Calculate the canonical SHA-256 hash of the portable project window.
 
-    Each file contributes its POSIX relative path, a NUL separator, its
-    normalized source bytes, and a second NUL separator. Including the path
-    prevents two different file layouts from producing the same byte stream.
+    Each selected file contributes its POSIX relative path, a NUL separator,
+    normalized content bytes, and a second NUL separator. The launcher
+    ``dwimsy/meta/unbundle.py`` is excluded because it contains the bundle
+    payload itself and is therefore generated from the files being hashed.
     """
     from dwimsy.meta import unbundle
 
-    repo = find_repo_root(root) if root is None else Path(root)
-    digest = hashlib.sha256()
+    repo = find_repo_root(root) if root is None else Path(root).resolve()
+    patterns = canonical_manifest(repo)
+    candidates = {}
 
-    if (repo / "dwimsy").is_dir() and (repo / "dwimsy" / "__init__.py").is_file():
-        canonical_rel_paths = []
-        for top_name in (".gitignore", ".gitmodules", "LICENSE", "README.md"):
-            canonical_rel_paths.append(top_name)
-        for p in sorted((repo / "dwimsy").rglob("*.py")):
-            if p.is_file() and p.name != "unbundle.py":
-                canonical_rel_paths.append(p.relative_to(repo).as_posix())
-        if (repo / "tests").is_dir():
-            for p in sorted((repo / "tests").rglob("*")):
-                if p.is_file() and p.suffix in (".py", ".md"):
-                    canonical_rel_paths.append(p.relative_to(repo).as_posix())
-        else:
-            try:
-                for a in unbundle.list_assets():
-                    if (
-                        a.startswith("tests/")
-                        and (a.endswith(".py") or a.endswith(".md"))
-                    ) or a in (".gitignore", ".gitmodules", "LICENSE", "README.md"):
-                        if a not in canonical_rel_paths:
-                            canonical_rel_paths.append(a)
-            except Exception:
-                pass
+    for p in source_files(repo):
+        candidates[p.relative_to(repo).as_posix()] = p.read_bytes()
 
-        for rel in sorted(set(canonical_rel_paths)):
-            disk_p = repo / rel
-            if disk_p.is_file():
-                raw = disk_p.read_bytes()
-            else:
-                try:
-                    raw = unbundle.get_asset(rel)
-                except Exception:
+    # A portable bundle may carry canonical assets even when they are not on
+    # disk. Only open/decompress the embedded payload when the on-disk window
+    # is incomplete; normal source checkouts should not pay that cost.
+    required_top = (".gitignore", ".gitmodules", "LICENSE", "README.md")
+    needs_fallback = not all(name in candidates for name in required_top)
+    if not needs_fallback:
+        dep_prefixes = [
+            pattern[:-5] for pattern in patterns if pattern.endswith("/**/*")
+        ]
+        if dep_prefixes and not all(
+            any(rel == prefix or rel.startswith(prefix + "/") for rel in candidates)
+            for prefix in dep_prefixes
+        ):
+            needs_fallback = True
+    try:
+        if needs_fallback:
+            for asset in unbundle.list_assets():
+                rel = asset[2:] if asset.startswith("./") else asset
+                if rel == "dwimsy/meta/unbundle.py":
                     continue
-            cdata = _canonical_bytes(raw, rel)
-            digest.update(rel.encode("utf-8"))
-            digest.update(b"\0")
-            digest.update(cdata)
-            digest.update(b"\0")
-    else:
-        for p in source_files(repo):
-            rel = p.relative_to(repo).as_posix()
-            cdata = _canonical_bytes(p.read_bytes(), rel)
-            digest.update(rel.encode("utf-8"))
-            digest.update(b"\0")
-            digest.update(cdata)
-            digest.update(b"\0")
+                if _manifest_matches(rel, patterns) and rel not in candidates:
+                    candidates[rel] = unbundle.get_asset(rel)
+    except Exception:
+        pass
 
+    digest = hashlib.sha256()
+    for rel in sorted(candidates):
+        cdata = _canonical_bytes(candidates[rel], rel)
+        digest.update(rel.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(cdata)
+        digest.update(b"\0")
     return digest.hexdigest()
 
 
+def _version_values(root: Optional[Path] = None) -> dict[str, str]:
+    """Read version metadata from disk or the in-memory portable bundle."""
+    v_file = version_file_path(root)
+    if v_file.is_file():
+        source = v_file.read_text(encoding="utf-8")
+        filename = str(v_file)
+    else:
+        from dwimsy.meta import unbundle
+
+        try:
+            source = unbundle.get_asset_text("dwimsy/_version.py")
+        except Exception:
+            source = unbundle.get_asset_text("_version.py")
+        filename = "<dwimsy-bundle>/dwimsy/_version.py"
+    tree = ast.parse(source, filename=filename)
+    values: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name) and target.id in {"__version__", "__code_hash__"}:
+                if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                    values[target.id] = node.value.value
+    return values
+
 def sealed_code_hash(root: Optional[Path] = None) -> str:
     """Return the recorded canonical hash, or ``\"\"`` when unsealed."""
-    v_file = version_file_path(root)
-    namespace: dict[str, object] = {}
-    source = v_file.read_text(encoding="utf-8")
-    exec(compile(source, str(v_file), "exec"), namespace)
-    value = namespace.get("__code_hash__", "")
-    if not isinstance(value, str):
-        raise TypeError("__code_hash__ must be a string")
-    return value.lower()
+    values = _version_values(root)
+    return values.get("__code_hash__", "").lower()
 
 
 def is_modified(root: Optional[Path] = None) -> bool:
@@ -212,9 +257,6 @@ def is_modified(root: Optional[Path] = None) -> bool:
     An empty/unsealed hash is considered modified. That is intentional: an
     unsealed development tree cannot claim to be a canonical baseline.
     """
-    v_file = version_file_path(root)
-    if not v_file.is_file():
-        return False
     current = canonical_code_hash(root)
     sealed = sealed_code_hash(root)
     return not sealed or current != sealed
@@ -233,13 +275,9 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
     If no base version is supplied it is read from ``dwimsy._version``.
     """
     if base_version is None:
-        v_file = version_file_path(root)
-        if v_file.is_file():
-            namespace: dict[str, object] = {}
-            source = v_file.read_text(encoding="utf-8")
-            exec(compile(source, str(v_file), "exec"), namespace)
-            base_version = namespace.get("__version__")
-        else:
+        values = _version_values(root)
+        base_version = values.get("__version__")
+        if not base_version:
             try:
                 import dwimsy._version as _v_mod
 
@@ -256,6 +294,7 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
 
 __all__ = [
     "canonical_code_hash",
+    "canonical_manifest",
     "find_repo_root",
     "is_modified",
     "modification_hash",
