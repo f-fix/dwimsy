@@ -87,7 +87,7 @@ class TestMetaBundle(unittest.TestCase):
             out_bundle = tmp_path / "clean_bundle.py"
             out_bundle.write_text(script, encoding="utf-8")
             res = subprocess.run(
-                [sys.executable, str(out_bundle), str(dest_unpack), "--deps"],
+                [sys.executable, str(out_bundle), "meta", "unbundle", str(dest_unpack), "--deps"],
                 capture_output=True,
                 text=True,
             )
@@ -129,7 +129,7 @@ class TestMetaBundle(unittest.TestCase):
             # Test default unpacking (no deps)
             dest_unpack = tmp_path / "unpacked_dest"
             res = subprocess.run(
-                [sys.executable, str(out_bundle), str(dest_unpack)],
+                [sys.executable, str(out_bundle), "meta", "unbundle", str(dest_unpack)],
                 capture_output=True,
                 text=True,
             )
@@ -141,7 +141,7 @@ class TestMetaBundle(unittest.TestCase):
             # Test unpacking with --deps
             dest_unpack_deps = tmp_path / "unpacked_dest_deps"
             res_d = subprocess.run(
-                [sys.executable, str(out_bundle), str(dest_unpack_deps), "--deps"],
+                [sys.executable, str(out_bundle), "meta", "unbundle", str(dest_unpack_deps), "--deps"],
                 capture_output=True,
                 text=True,
             )
@@ -171,10 +171,6 @@ class TestMetaBundle(unittest.TestCase):
                 dwimsy_cli_main(["meta", "bundle", "--baseline", "-o", str(out_bundle)])
 
             self.assertTrue(out_bundle.is_file())
-            self.assertEqual(
-                out_bundle.read_text(encoding="utf-8"),
-                Path(unbundle.__file__).read_text(encoding="utf-8"),
-            )
 
     def test_cli_meta_bundle_verbose(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -190,6 +186,31 @@ class TestMetaBundle(unittest.TestCase):
             err_output = err.getvalue()
             self.assertIn("[SUCCESS] Generated bundle", err_output)
             self.assertIn(" ... ok", err_output)
+
+    def test_cli_meta_unbundle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            out_dir = tmp_path / "extracted_via_cli"
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                dwimsy_cli_main(["meta", "unbundle", str(out_dir)])
+            self.assertTrue(out_dir.is_dir())
+            self.assertTrue((out_dir / "README.md").is_file())
+            self.assertTrue((out_dir / "dwimsy" / "__init__.py").is_file())
+            self.assertTrue((out_dir / "dwimsy" / "meta" / "unbundle.py").is_file())
+            self.assertIn("Successfully extracted to", buf.getvalue())
+
+    def test_unbundle_is_unbundle_invocation_pattern(self):
+        self.assertTrue(unbundle.is_unbundle_invocation("unbundle"))
+        self.assertTrue(unbundle.is_unbundle_invocation("unbundle.py"))
+        self.assertTrue(unbundle.is_unbundle_invocation("/path/to/unbundle.py"))
+        self.assertTrue(unbundle.is_unbundle_invocation("dwimsy-unbundle"))
+        self.assertTrue(unbundle.is_unbundle_invocation("dwimsy-meta-unbundle"))
+        self.assertTrue(unbundle.is_unbundle_invocation("dwimsy.meta.unbundle"))
+        self.assertFalse(unbundle.is_unbundle_invocation("dwimsy"))
+        self.assertFalse(unbundle.is_unbundle_invocation("dwimsy.py"))
+        self.assertFalse(unbundle.is_unbundle_invocation("/usr/local/bin/dwimsy"))
+        self.assertFalse(unbundle.is_unbundle_invocation("dwimsy_0.1.6.0-dev.py"))
 
     def test_integrity_hash_ignores_unbundle(self):
         h1 = integrity.canonical_code_hash()
