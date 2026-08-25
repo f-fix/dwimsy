@@ -78,6 +78,10 @@ class TestCLIVersion(unittest.TestCase):
                 f"{mod_name} --version output '{out}' missing expected '{expected_v}'",
             )
 
+    @unittest.skipIf(
+        os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+        'Portable bundle mode has no on-disk package for child interpreters; run "meta unbundle" first to run subprocess CLI tests.',
+    )
     def test_subprocess_cli_module_invocations(self):
         repo_root = Path(pkg_root)
         interp = sys.executable
@@ -113,6 +117,10 @@ class TestCLIVersion(unittest.TestCase):
                 f"python -m {target} --version output '{out}' missing expected '{expected_v}'",
             )
 
+    @unittest.skipIf(
+        os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+        'Portable bundle mode has no on-disk package for child interpreters; run "meta unbundle" first to run subprocess CLI tests.',
+    )
     def test_cross_interpreter_cli_version(self):
         repo_root = Path(pkg_root)
         expected_v = get_version()
