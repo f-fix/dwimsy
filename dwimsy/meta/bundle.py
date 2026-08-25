@@ -24,6 +24,30 @@ for p in Path(__file__).resolve().parents:
 from dwimsy.meta import integrity, unbundle
 
 
+_BLZTAR_RE = re.compile(rb'(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?P<data>.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)')
+
+
+def elide_blztar_bytes(data: bytes) -> bytes:
+    """Replace the embedded blztar payload with an empty placeholder."""
+    data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    match = _BLZTAR_RE.search(data)
+    if match is None:
+        raise ValueError("unbundle.py does not contain a blztar assignment")
+    return data[:match.start()] + match.group("prefix") + b"\n" + match.group("suffix") + data[match.end():]
+
+
+def inject_blztar_bytes(template: bytes, b64_string: str) -> bytes:
+    """Inject a base64 payload into an elided unbundle.py template."""
+    template = template.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    match = _BLZTAR_RE.search(template)
+    if match is None:
+        raise ValueError("unbundle.py template does not contain a blztar assignment")
+    payload = b"".join(b64_string.encode("ascii").split())
+    lines = b"\n".join(payload[i:i + 76] for i in range(0, len(payload), 76))
+    replacement = match.group("prefix") + b"\n" + lines + b"\n" + match.group("suffix")
+    return template[:match.start()] + replacement + template[match.end():]
+
+
 def find_repo_root(start: Optional[Path] = None) -> Path:
     """Locate the root directory of the dwimsy repository or extracted tree."""
     return integrity.find_repo_root(start)
@@ -44,7 +68,7 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                 continue
             if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
                 continue
-            if p.name in ("unbundle.py", "restore_dwimsy.py") or (
+            if p.name == "restore_dwimsy.py" or (
                 p.name.startswith("dwimsy_") and p.name.endswith(".py")
             ):
                 continue
@@ -100,6 +124,8 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                 if full_p.is_file():
                     with open(full_p, "rb") as f:
                         content = f.read()
+                    if arcname == "./dwimsy/meta/unbundle.py":
+                        content = elide_blztar_bytes(content)
                     tarinfo.type = tarfile.REGTYPE
                     tarinfo.size = len(content)
                     tarinfo.mtime = int(full_p.stat().st_mtime)
@@ -146,10 +172,8 @@ def build_bundle_script(
     if not unbundle_file.is_file():
         unbundle_file = Path(unbundle.__file__).resolve()
 
-    template = unbundle_file.read_text(encoding="utf-8")
-    blztar_re = re.compile(r'blztar = """[\s\S]*?"""')
-    replacement = f'blztar = """\n{b64_lines}\n"""'
-    return blztar_re.sub(replacement, template, count=1)
+    template = unbundle_file.read_bytes()
+    return inject_blztar_bytes(elide_blztar_bytes(template), b64_str).decode("utf-8")
 
 
 def get_default_bundle_name(
@@ -186,19 +210,19 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
             print(res.stdout.strip(), file=stderr)
 
     if getattr(args, "diff", False):
-        res = subprocess.run(
-            ["git", "diff"], cwd=repo_root, capture_output=True, text=True
-        )
-        if res.returncode == 0 and res.stdout.strip():
-            print("=== Working Tree Git Diff ===", file=stderr)
-            print(res.stdout.strip(), file=stderr)
+        from dwimsy.meta.diff import render_diff
+        diff_text = render_diff(repo_root)
+        if diff_text:
+            stdout.write(diff_text)
 
     if getattr(args, "baseline", False):
-        unbundle_file = repo_root / "dwimsy" / "meta" / "unbundle.py"
-        if unbundle_file.is_file():
-            script_text = unbundle_file.read_text(encoding="utf-8")
-        else:
-            script_text = build_bundle_script(repo_root=repo_root, with_deps=True)
+        try:
+            template = unbundle.get_asset("dwimsy/meta/unbundle.py")
+        except FileNotFoundError:
+            # Legacy baseline bundles predate the embedded template. New bundles
+            # always carry it; keep older baselines usable during the transition.
+            template = elide_blztar_bytes((repo_root / "dwimsy" / "meta" / "unbundle.py").read_bytes())
+        script_text = inject_blztar_bytes(template, unbundle.blztar).decode("utf-8")
         out_name = args.output or get_default_bundle_name(repo_root, is_baseline=True)
 
         if out_name == "-":
