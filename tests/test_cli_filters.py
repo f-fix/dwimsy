@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dwimsy.tape.t88 import T88File
 from dwimsy.cli.filters import t882wav as native_t882wav
 from dwimsy.cli.filters import wav2t88 as native_wav2t88
-from dwimsy.cli import main as dwimsy_cli
+from dwimsy.cli import __main__ as dwimsy_cli
 from dwimsy.tests.fixtures import get_fixture_pool
 
 
