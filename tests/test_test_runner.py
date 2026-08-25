@@ -21,6 +21,10 @@ from dwimsy.tests.__main__ import main as dw_tests_main
 from tests.__main__ import main as tests_main
 
 
+@unittest.skipIf(
+    os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+    "Excluded during bundle build verification",
+)
 class TestTestRunner(unittest.TestCase):
     def test_expand_test_patterns(self):
         self.assertEqual(dw_tests.expand_test_patterns(None), ["test_*.py"])
