@@ -3481,7 +3481,7 @@ def extract_b64_lzma_tar(
     with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:*") as tar:
         members_to_extract = []
         for m in tar.getmembers():
-            norm_name = m.name.lstrip("./")
+            norm_name = (m.name[2:] if m.name.startswith("./") else m.name)
             if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
                 continue
             members_to_extract.append(m)
@@ -3496,7 +3496,7 @@ def extract_b64_lzma_tar(
     # Set execute permissions for any .py files starting with a shebang
     for m in members_to_extract:
         if m.isfile():
-            dest_file = out_path / m.name.lstrip("./")
+            dest_file = out_path / (m.name[2:] if m.name.startswith("./") else m.name)
             if dest_file.suffix == ".py" and dest_file.is_file():
                 try:
                     with open(dest_file, "rb") as f:
@@ -3575,7 +3575,7 @@ def extract_deps(output_dir: str | Path, b64_string: Optional[str] = None) -> Li
     with _open_bundle_tar(b64_string) as tar:
         dep_members = []
         for m in tar.getmembers():
-            norm_name = m.name.lstrip("./")
+            norm_name = (m.name[2:] if m.name.startswith("./") else m.name)
             if norm_name == "deps" or norm_name.startswith("deps/"):
                 dep_members.append(m)
                 if m.isfile():
@@ -3588,7 +3588,7 @@ def extract_deps(output_dir: str | Path, b64_string: Optional[str] = None) -> Li
 
     for m in dep_members:
         if m.isfile():
-            dest_file = out_path / m.name.lstrip("./")
+            dest_file = out_path / (m.name[2:] if m.name.startswith("./") else m.name)
             if dest_file.suffix == ".py" and dest_file.is_file():
                 try:
                     with open(dest_file, "rb") as f:
@@ -3625,17 +3625,17 @@ def list_assets(b64_string: Optional[str] = None) -> List[str]:
         names = []
         for m in tar.getmembers():
             if m.isfile():
-                name = m.name.lstrip("./")
+                name = (m.name[2:] if m.name.startswith("./") else m.name)
                 names.append(name)
         return names
 
 
 def get_asset(filename: str, b64_string: Optional[str] = None) -> bytes:
     """Extract a single file from the in-memory bundle payload as raw bytes."""
-    norm_target = Path(filename).as_posix().lstrip("./")
+    norm_target = Path(filename).as_posix()
     with _open_bundle_tar(b64_string) as tar:
         for m in tar.getmembers():
-            if m.isfile() and m.name.lstrip("./") == norm_target:
+            if m.isfile() and (m.name[2:] if m.name.startswith("./") else m.name) == norm_target:
                 f = tar.extractfile(m)
                 if f is not None:
                     return f.read()
