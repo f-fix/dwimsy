@@ -77,17 +77,22 @@ class IntegrityTests(unittest.TestCase):
             (integrity.find_repo_root() / ".gitignore").read_bytes(),
         )
 
-    def test_unbundle_module_ignored(self):
+    def test_unbundle_payload_is_elided_but_code_is_hashed(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "_version.py").write_text(
+            pkg = root / "dwimsy" / "meta"
+            pkg.mkdir(parents=True)
+            (root / "dwimsy" / "__init__.py").write_text("x = 1\n", encoding="utf-8")
+            (root / "dwimsy" / "_version.py").write_text(
                 '__version__ = "x"\n__code_hash__ = ""\n', encoding="utf-8"
             )
-            (root / "a.py").write_text("a = 1\n", encoding="utf-8")
+            template = '#!/usr/bin/env python3\nblztar = """\nPAYLOAD\n"""\nvalue = 1\n'
+            (pkg / "unbundle.py").write_text(template, encoding="utf-8")
             h1 = integrity.canonical_code_hash(root)
-            (root / "unbundle.py").write_text('blztar = "xyz"\n', encoding="utf-8")
-            h2 = integrity.canonical_code_hash(root)
-            self.assertEqual(h1, h2)
+            (pkg / "unbundle.py").write_text(template.replace("PAYLOAD", "OTHER"), encoding="utf-8")
+            self.assertEqual(h1, integrity.canonical_code_hash(root))
+            (pkg / "unbundle.py").write_text(template.replace("value = 1", "value = 2"), encoding="utf-8")
+            self.assertNotEqual(h1, integrity.canonical_code_hash(root))
 
 
     def test_manifest_contains_portable_project_window(self):
@@ -115,6 +120,11 @@ class IntegrityTests(unittest.TestCase):
             patterns = integrity.canonical_manifest(root)
             self.assertIn("deps/example/**/*", patterns)
             self.assertNotIn("deps/example/file.py", patterns)
+
+    def test_baseline_hash_uses_embedded_payload(self):
+        current = integrity.canonical_code_hash(baseline=True)
+        self.assertEqual(len(current), 64)
+        self.assertEqual(current, integrity.canonical_code_hash(baseline=True))
 
     def test_unsealed_tree_is_modified(self):
         self.assertEqual(integrity.sealed_code_hash(), "")
