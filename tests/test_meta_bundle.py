@@ -3,6 +3,7 @@
 
 import io
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -185,6 +186,23 @@ class TestMetaBundle(unittest.TestCase):
                 dwimsy_cli_main(["meta", "bundle", "--baseline", "-o", str(out_bundle)])
 
             self.assertTrue(out_bundle.is_file())
+            self.assertTrue(out_bundle.read_text(encoding="utf-8").startswith("#!/usr/bin/env python3"))
+
+    def test_unbundle_reconstitutes_self_from_embedded_template(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "tree"
+            script = bundle.build_bundle_script(integrity.find_repo_root(), with_deps=False, preset=0)
+            match = re.search(r'blztar = """\n([A-Za-z0-9+/\n=]+)\n"""', script)
+            self.assertIsNotNone(match)
+            payload = match.group(1)
+            unbundle.extract_b64_lzma_tar(payload, target, with_deps=False)
+            restored = target / "dwimsy" / "meta" / "unbundle.py"
+            with unbundle._open_bundle_tar(payload) as tar:
+                member = next(m for m in tar.getmembers() if (m.name[2:] if m.name.startswith("./") else m.name) == "dwimsy/meta/unbundle.py")
+                template = tar.extractfile(member).read()
+                mtime = member.mtime
+            self.assertEqual(unbundle.elide_blztar_bytes(restored.read_bytes()), template)
+            self.assertEqual(int(restored.stat().st_mtime), int(mtime))
 
     def test_cli_meta_bundle_verbose(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -200,6 +218,12 @@ class TestMetaBundle(unittest.TestCase):
             err_output = err.getvalue()
             self.assertIn("[SUCCESS] Generated bundle", err_output)
             self.assertIn(" ... ok", err_output)
+
+    def test_cli_meta_diff_writes_stdout(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            dwimsy_cli_main(["meta", "diff"])
+        self.assertIsInstance(buf.getvalue(), str)
 
     def test_cli_meta_unbundle(self):
         with tempfile.TemporaryDirectory() as tmp:
