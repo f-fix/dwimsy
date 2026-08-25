@@ -2,6 +2,7 @@
 """tests.test_lint_headers - Verify source file sh-bangs, docstrings, and module headers."""
 
 import os
+import sys
 import unittest
 from pathlib import Path
 
