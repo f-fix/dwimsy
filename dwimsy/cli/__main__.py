@@ -625,7 +625,7 @@ def main(argv: Optional[List[str]] = None):
     p_meta_bundle.add_argument(
         "--diff",
         action="store_true",
-        help="Display working tree git diff on stderr before bundling",
+        help="Display working tree diff on stdout before bundling",
     )
     p_meta_bundle.add_argument(
         "-v",
@@ -634,6 +634,10 @@ def main(argv: Optional[List[str]] = None):
         default=0,
         help="Increase verbosity of bundle build and test verification",
     )
+    p_meta_diff = meta_subparsers.add_parser(
+        "diff", help="Show differences between the working tree and embedded baseline."
+    )
+
     p_meta_fetch_deps = meta_subparsers.add_parser(
         "fetch-deps",
         help="Fetch or materialize legacy reference submodules into deps/.",
@@ -664,6 +668,9 @@ def main(argv: Optional[List[str]] = None):
     )
 
     # Registered roadmap placeholder commands
+    subparsers.add_parser(
+        "test", help="[TODO / Milestone 1.6] Run the dwimsy test suite (placeholder entry)."
+    )
     subparsers.add_parser(
         "help", help="[TODO / Milestone 1.6] Interactive technical manual viewer."
     )
@@ -703,8 +710,12 @@ def main(argv: Optional[List[str]] = None):
         "version-bump",
         help="[TODO / Milestone 1.6] Advance revision and update changelog.",
     )
-    meta_subparsers.add_parser(
+    p_meta_integrity = meta_subparsers.add_parser(
         "integrity", help="Verify the canonical portable-project integrity hash."
+    )
+    p_meta_integrity.add_argument(
+        "--baseline", action="store_true",
+        help="Run the integrity check against the embedded baseline payload."
     )
 
     if not effective_argv:
@@ -774,14 +785,18 @@ def main(argv: Optional[List[str]] = None):
                 with_deps=args.deps,
             )
             print(f"Successfully extracted to {args.target_directory}")
+        elif args.meta_command == "diff":
+            from dwimsy.meta.diff import render_diff
+            print(render_diff(), end="")
         elif args.meta_command == "integrity":
-            current = integrity.canonical_code_hash()
-            sealed = integrity.sealed_code_hash()
-            modified = integrity.is_modified()
+            baseline = getattr(args, "baseline", False)
+            current = integrity.canonical_code_hash(baseline=baseline)
+            sealed = integrity.sealed_code_hash(baseline=baseline)
+            modified = integrity.is_modified(baseline=baseline)
             print(f"Canonical hash : {current}")
             print(f"Sealed hash    : {sealed or '(unsealed)'}")
             print(f"Status         : {'MODIFIED' if modified else 'CLEAN'}")
-            print(f"Version        : {integrity.version()}")
+            print(f"Version        : {integrity.version() if not baseline else integrity._version_values(baseline=True).get('__version__', '')}")
             sys.exit(1 if modified else 0)
         elif args.meta_command in ("bundle-fixtures", "version-bump"):
             print(
