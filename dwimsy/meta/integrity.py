@@ -14,11 +14,14 @@ import ast
 import fnmatch
 import re
 import sys
+import os
 from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
+_BUNDLE_ASSET_CACHE: Optional[dict[str, bytes]] = None
 _VERSION_FILE = _PACKAGE_ROOT / "_version.py"
+_UNBUNDLE_RE = re.compile(rb'(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?:.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)')
 _HASH_RE = re.compile(
     rb"(?m)^(?P<prefix>[ \t]*__code_hash__[ \t]*=[ \t]*)"
     rb"(?P<quote>['\"])[^'\"]*(?P=quote)(?P<suffix>[ \t]*(?:#.*)?\r?\n?)$"
@@ -34,6 +37,12 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
                 return cur
             cur = cur.parent
         return Path(start).resolve()
+
+    test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
+    if test_root:
+        candidate = Path(test_root).resolve()
+        if (candidate / "dwimsy").is_dir():
+            return candidate
 
     cur = Path.cwd().resolve()
     while cur != cur.parent:
@@ -74,7 +83,7 @@ def version_file_path(root: Optional[Path] = None) -> Path:
     return _VERSION_FILE
 
 
-def canonical_manifest(root: Optional[Path] = None) -> Tuple[str, ...]:
+def canonical_manifest(root: Optional[Path] = None, baseline: bool = False) -> Tuple[str, ...]:
     """Return the canonical portable-project manifest patterns.
 
     The manifest covers native Python code, tests, canonical project metadata,
@@ -92,9 +101,9 @@ def canonical_manifest(root: Optional[Path] = None) -> Tuple[str, ...]:
     ]
     gitmodules = repo / ".gitmodules"
     gitmodules_text = None
-    if gitmodules.is_file():
+    if not baseline and gitmodules.is_file():
         gitmodules_text = gitmodules.read_text(encoding="utf-8")
-    else:
+    if gitmodules_text is None:
         try:
             from dwimsy.meta import unbundle
             gitmodules_text = unbundle.get_asset_text(".gitmodules")
@@ -136,8 +145,6 @@ def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
         if not p.is_file():
             continue
         rel = p.relative_to(repo).as_posix()
-        if rel == "dwimsy/meta/unbundle.py":
-            continue
         if "__pycache__" in p.parts or p.suffix == ".pyc":
             continue
         if _manifest_matches(rel, patterns):
@@ -149,6 +156,17 @@ def _canonical_bytes(data: bytes, rel_path: str) -> bytes:
     data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     if data and not data.endswith(b"\n"):
         data = data + b"\n"
+    if rel_path == "dwimsy/meta/unbundle.py":
+        match = _UNBUNDLE_RE.search(data)
+        if match is None:
+            raise ValueError("dwimsy/meta/unbundle.py does not contain a blztar assignment")
+        data = (
+            data[: match.start()]
+            + match.group("prefix")
+            + b"\n"
+            + match.group("suffix")
+            + data[match.end() :]
+        )
     if (
         rel_path == "dwimsy/_version.py"
         or rel_path == "_version.py"
@@ -169,62 +187,62 @@ def _canonical_bytes(data: bytes, rel_path: str) -> bytes:
     return data
 
 
-def canonical_code_hash(root: Optional[Path] = None) -> str:
-    """Calculate the canonical SHA-256 hash of the portable project window.
-
-    Each selected file contributes its POSIX relative path, a NUL separator,
-    normalized content bytes, and a second NUL separator. The launcher
-    ``dwimsy/meta/unbundle.py`` is excluded because it contains the bundle
-    payload itself and is therefore generated from the files being hashed.
-    """
+def canonical_assets(root: Optional[Path] = None, baseline: bool = False) -> dict[str, bytes]:
+    """Return canonical portable-project assets before content normalization."""
     from dwimsy.meta import unbundle
 
     repo = find_repo_root(root) if root is None else Path(root).resolve()
-    patterns = canonical_manifest(repo)
-    candidates = {}
+    patterns = canonical_manifest(repo, baseline=baseline)
+    candidates: dict[str, bytes] = {}
 
-    for p in source_files(repo):
-        candidates[p.relative_to(repo).as_posix()] = p.read_bytes()
+    if not baseline:
+        for p in source_files(repo):
+            candidates[p.relative_to(repo).as_posix()] = p.read_bytes()
 
-    # A portable bundle may carry canonical assets even when they are not on
-    # disk. Only open/decompress the embedded payload when the on-disk window
-    # is incomplete; normal source checkouts should not pay that cost.
-    required_top = (".gitignore", ".gitmodules", "LICENSE", "README.md")
-    needs_fallback = not all(name in candidates for name in required_top)
-    if not needs_fallback:
-        dep_prefixes = [
-            pattern[:-5] for pattern in patterns if pattern.endswith("/**/*")
-        ]
-        if dep_prefixes and not all(
-            any(rel == prefix or rel.startswith(prefix + "/") for rel in candidates)
-            for prefix in dep_prefixes
-        ):
-            needs_fallback = True
     try:
-        if needs_fallback:
-            for asset in unbundle.list_assets():
-                rel = asset[2:] if asset.startswith("./") else asset
-                if rel == "dwimsy/meta/unbundle.py":
-                    continue
-                if _manifest_matches(rel, patterns) and rel not in candidates:
-                    candidates[rel] = unbundle.get_asset(rel)
+        need_bundle = baseline or not candidates
+        if not need_bundle:
+            required_top = (".gitignore", ".gitmodules", "LICENSE", "README.md")
+            need_bundle = not all(name in candidates for name in required_top)
+            if not need_bundle:
+                dep_prefixes = [
+                    pattern[:-5] for pattern in patterns if pattern.endswith("/**/*")
+                ]
+                need_bundle = any(
+                    not any(rel == prefix or rel.startswith(prefix + "/") for rel in candidates)
+                    for prefix in dep_prefixes
+                )
+        if need_bundle:
+            global _BUNDLE_ASSET_CACHE
+            if _BUNDLE_ASSET_CACHE is None:
+                _BUNDLE_ASSET_CACHE = {
+                    (asset[2:] if asset.startswith("./") else asset): unbundle.get_asset(asset)
+                    for asset in unbundle.list_assets()
+                }
+            for rel, data in _BUNDLE_ASSET_CACHE.items():
+                if _manifest_matches(rel, patterns) and (baseline or rel not in candidates):
+                    candidates[rel] = data
     except Exception:
-        pass
+        if baseline:
+            raise
+    return dict(sorted(candidates.items()))
 
+
+def canonical_code_hash(root: Optional[Path] = None, baseline: bool = False) -> str:
+    """Calculate the canonical SHA-256 hash of the portable project window."""
     digest = hashlib.sha256()
-    for rel in sorted(candidates):
-        cdata = _canonical_bytes(candidates[rel], rel)
+    for rel, data in canonical_assets(root, baseline=baseline).items():
+        cdata = _canonical_bytes(data, rel)
         digest.update(rel.encode("utf-8"))
         digest.update(b"\0")
         digest.update(cdata)
         digest.update(b"\0")
     return digest.hexdigest()
 
-
-def _version_values(root: Optional[Path] = None) -> dict[str, str]:
+def _version_values(root: Optional[Path] = None, baseline: bool = False) -> dict[str, str]:
     """Read version metadata from disk or the in-memory portable bundle."""
     v_file = version_file_path(root)
-    if v_file.is_file():
+    if v_file.is_file() and not baseline:
         source = v_file.read_text(encoding="utf-8")
         filename = str(v_file)
     else:
@@ -245,28 +263,28 @@ def _version_values(root: Optional[Path] = None) -> dict[str, str]:
                     values[target.id] = node.value.value
     return values
 
-def sealed_code_hash(root: Optional[Path] = None) -> str:
+def sealed_code_hash(root: Optional[Path] = None, baseline: bool = False) -> str:
     """Return the recorded canonical hash, or ``\"\"`` when unsealed."""
     values = _version_values(root)
     return values.get("__code_hash__", "").lower()
 
 
-def is_modified(root: Optional[Path] = None) -> bool:
+def is_modified(root: Optional[Path] = None, baseline: bool = False) -> bool:
     """Return whether the current source differs from its sealed hash.
 
     An empty/unsealed hash is considered modified. That is intentional: an
     unsealed development tree cannot claim to be a canonical baseline.
     """
-    current = canonical_code_hash(root)
-    sealed = sealed_code_hash(root)
+    current = canonical_code_hash(root, baseline=baseline)
+    sealed = sealed_code_hash(root, baseline=baseline)
     return not sealed or current != sealed
 
 
-def modification_hash(root: Optional[Path] = None, length: int = 12) -> str:
+def modification_hash(root: Optional[Path] = None, length: int = 12, baseline: bool = False) -> str:
     """Return the short current canonical hash used for ``+mod.`` versions."""
     if length < 1:
         raise ValueError("length must be positive")
-    return canonical_code_hash(root)[:length]
+    return canonical_code_hash(root, baseline=baseline)[:length]
 
 
 def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> str:
@@ -293,6 +311,7 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
 
 
 __all__ = [
+    "canonical_assets",
     "canonical_code_hash",
     "canonical_manifest",
     "find_repo_root",
