@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """dwimsy.cli.__main__ - Central CLI entrypoint for dwimsy.
 
-Exposes 'convert', 'inspect', 'split', and 'join' verbs.
+Exposes the primary media verbs plus maintainer and roadmap placeholder commands.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from dwimsy.protocols.pc88 import (
 )
 from dwimsy.meta.integrity import version as get_version
 from dwimsy.meta.bundle import run_meta_bundle, run_meta_fetch_deps
+from dwimsy.meta import integrity
 
 
 def inspect_audio(
@@ -703,7 +704,7 @@ def main(argv: Optional[List[str]] = None):
         help="[TODO / Milestone 1.6] Advance revision and update changelog.",
     )
     meta_subparsers.add_parser(
-        "integrity", help="[TODO / Milestone 1.6] Verify source code integrity hash."
+        "integrity", help="Verify the canonical portable-project integrity hash."
     )
 
     if not effective_argv:
@@ -773,7 +774,16 @@ def main(argv: Optional[List[str]] = None):
                 with_deps=args.deps,
             )
             print(f"Successfully extracted to {args.target_directory}")
-        elif args.meta_command in ("bundle-fixtures", "version-bump", "integrity"):
+        elif args.meta_command == "integrity":
+            current = integrity.canonical_code_hash()
+            sealed = integrity.sealed_code_hash()
+            modified = integrity.is_modified()
+            print(f"Canonical hash : {current}")
+            print(f"Sealed hash    : {sealed or '(unsealed)'}")
+            print(f"Status         : {'MODIFIED' if modified else 'CLEAN'}")
+            print(f"Version        : {integrity.version()}")
+            sys.exit(1 if modified else 0)
+        elif args.meta_command in ("bundle-fixtures", "version-bump"):
             print(
                 f"[NOT IMPLEMENTED] 'dwimsy meta {args.meta_command}' is scheduled for Milestone 1.6.",
                 file=sys.stderr,
