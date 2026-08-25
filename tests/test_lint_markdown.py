@@ -2,6 +2,7 @@
 """tests.test_lint_markdown - Verify markdown documentation formatting and rules."""
 
 import re
+import sys
 import unittest
 from pathlib import Path
 
