@@ -42,17 +42,27 @@ class TestLintHeaders(unittest.TestCase):
             if forbidden_triple in text:
                 errors.append(f"{rel}: contains forbidden triple single-quotes")
 
+            for i, line in enumerate(lines, start=1):
+                if "\u2014" in line:
+                    errors.append(f"{rel}:{i}: contains forbidden em dash (U+2014)")
+                if "\u2013" in line:
+                    errors.append(f"{rel}:{i}: contains forbidden en dash (U+2013)")
+
             has_main = (
                 '__name__ == "__main__"' in text or "__name__ == '__main__'" in text
             )
             is_cli = (
                 has_main
-                or p.name.startswith("test_")
-                or p.name
+                or Path(rel).name.startswith("test_")
+                or Path(rel).name
                 in (
                     "__main__.py",
                     "unbundle.py",
                     "bundle.py",
+                    "diff.py",
+                    "integrity.py",
+                    "version_bump.py",
+                    "lint.py",
                     "t882wav.py",
                     "wav2t88.py",
                 )
@@ -71,7 +81,10 @@ class TestLintHeaders(unittest.TestCase):
 
             doc_line = lines[doc_idx]
             if not (
-                doc_line.startswith(chr(34) * 3) or doc_line.startswith(chr(39) * 3)
+                doc_line.startswith(chr(34) * 3)
+                or doc_line.startswith('r' + chr(34) * 3)
+                or doc_line.startswith('R' + chr(34) * 3)
+                or doc_line.startswith(chr(39) * 3)
             ):
                 errors.append(
                     f"{rel}: line {doc_idx + 1} does not start with docstring quote (got `{doc_line[:30]}`)"
@@ -80,7 +93,7 @@ class TestLintHeaders(unittest.TestCase):
 
             expected_mod = derive_module_name(rel)
             expected_prefix = f"{expected_mod} - "
-            clean_doc = doc_line.lstrip(chr(34) + chr(39))
+            clean_doc = doc_line.lstrip("rR" + chr(34) + chr(39))
             if not clean_doc.startswith(expected_prefix):
                 errors.append(
                     f"{rel}: docstring must begin with `{expected_prefix}`, got `{clean_doc[:45]}`"
