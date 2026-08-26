@@ -100,6 +100,7 @@ class IntegrityTests(unittest.TestCase):
         self.assertIn("dwimsy/**/*.py", patterns)
         self.assertIn("tests/**/*.py", patterns)
         self.assertIn("README.md", patterns)
+        self.assertIn("CHANGELOG.md", patterns)
         self.assertIn("LICENSE", patterns)
         self.assertIn(".gitignore", patterns)
         self.assertIn(".gitmodules", patterns)
