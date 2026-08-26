@@ -390,6 +390,31 @@ def run_meta_fetch_deps(args, stdout=None, stderr=None) -> int:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI entrypoint for running dwimsy.meta.bundle directly."""
+    effective = sys.argv[1:] if argv is None else list(argv)
+
+    test_arg = None
+    for a in effective:
+        if a in ("-T", "--test") or a.startswith("--test="):
+            test_arg = a
+            break
+    if test_arg is not None:
+        verbosity = 1
+        for a in effective:
+            if a in ("-v", "--verbose"):
+                verbosity = max(verbosity + 1, 2)
+            elif a.startswith("-") and len(a) > 1 and all(c == "v" for c in a[1:]):
+                verbosity = max(verbosity + len(a) - 1, 2)
+        from dwimsy.tests import run_tests
+        pattern = None
+        if test_arg.startswith("--test="):
+            pattern = [test_arg.split("=", 1)[1]]
+        else:
+            pattern = ["meta bundle"]
+        return run_tests(pattern, verbose=verbosity)
+
+    if any(a == "--help-all" for a in effective):
+        effective = ["-h" if a == "--help-all" else a for a in effective]
+
     parser = argparse.ArgumentParser(
         prog="dwimsy-bundle",
         description="Generate a self-extracting single-file Python unpacker bundle of dwimsy.",
@@ -399,6 +424,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--version",
         action="version",
         version=f"%(prog)s {integrity.version()}",
+    )
+    parser.add_argument(
+        "-T",
+        "--test",
+        nargs="?",
+        const=True,
+        default=False,
+        help="Run scoped bundle self-tests in-process (optional pattern filter)",
     )
     parser.add_argument(
         "-o",
@@ -439,9 +472,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=0,
         help="Increase verbosity of bundle build and test verification",
     )
-    args = parser.parse_args(argv)
-    return run_meta_bundle(args)
+    parser.add_argument(
+        "--help-all",
+        action="store_true",
+        help="Show full help documentation and exit",
+    )
+    args = parser.parse_args(effective)
 
+    if args.test is not False:
+        from dwimsy.tests import run_tests
+        pattern = [args.test] if isinstance(args.test, str) else ["meta bundle"]
+        return run_tests(pattern, verbose=max(args.verbose, 1))
+
+    return run_meta_bundle(args)
 
 if __name__ == "__main__":
     sys.exit(main())
