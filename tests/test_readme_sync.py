@@ -18,7 +18,7 @@ class TestReadmeSync(unittest.TestCase):
         readme_text = (pkg_root / "README.md").read_text(encoding="utf-8")
 
         required_snippets = [
-            "usage: dwimsy [-h] [-V] [-T] [--help-all] <command>",
+            "usage: dwimsy [-h] [-V] [-T] [-v] [--help-all] <command>",
             "usage: dwimsy convert",
             "usage: dwimsy inspect",
             "usage: dwimsy split",
