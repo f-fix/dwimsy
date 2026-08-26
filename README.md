@@ -1,7 +1,7 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and mastering
 
-**Version: 0.1.6.2-dev** (Milestone 1.6 [IN PROGRESS], 2026-08-23)
+**Version: 0.1.6.3-dev** (Milestone 1.6 [IN PROGRESS], 2026-08-26)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
@@ -202,6 +202,28 @@ git submodule update --init --recursive
 
 ### Usage
 
+### Standalone Bundle Basics
+
+Project Homepage: https://github.com/f-fix/dwimsy
+Version: 0.1.6.3-dev (2026-08-26)
+
+`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.3-dev.py`).
+
+To use the embedded dwimsy CLI directly from the bundle:
+```bash
+python3 dwimsy_0.1.6.3-dev.py dwimsy --help
+python3 dwimsy_0.1.6.3-dev.py dwimsy --version
+python3 dwimsy_0.1.6.3-dev.py dwimsy readme
+python3 dwimsy_0.1.6.3-dev.py dwimsy license
+python3 dwimsy_0.1.6.3-dev.py dwimsy changelog
+```
+
+To extract the repository tree to disk:
+```bash
+python3 dwimsy_0.1.6.3-dev.py meta unbundle /path/to/target --deps
+```
+
+
 `dwimsy` is currently invoked from a checkout as `python3 -m dwimsy <command> ...`. **The package is not yet packaged for installation**: there is currently no `pyproject.toml`/`setup.py` console-script entry point, so `pip install -e .` and the bare `dwimsy` command are future Milestone 1.6 work. The currently implemented primary commands are exactly four: `convert`, `inspect`, `split`, and `join`. Two standalone filter applets are also implemented: `t882wav` and `wav2t88`. The `test`, `help`, `readme`, `changelog`, `license`, and `meta` commands described later in this section are **planned Milestone 1.6 interfaces and are not currently available**. The current CLI does implement `--help-all`; use `python3 -m dwimsy --help`, `python3 -m dwimsy --help-all`, or `python3 -m dwimsy <command> --help` from the repository environment.
 
 `python3 -m dwimsy` is the recommended form when the repository is the current directory (or the checkout has otherwise been added to `PYTHONPATH`/installed). It does **not** work from an arbitrary directory in the current un-packaged checkout. `dwimsy/__main__.py` also makes the package directory itself directly executable - `python3 path/to/dwimsy <command> ...`, pointing at the `dwimsy/` directory rather than a file - which does work from elsewhere on disk:
@@ -249,6 +271,7 @@ options:
   -v, --verbose  Increase test or command verbosity
   --help-all     Show full detailed help for all subcommands at once and exit
 
+Project Homepage: https://github.com/f-fix/dwimsy
 Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.
 ```
 
@@ -602,11 +625,11 @@ options:
   * `dwimsy meta bundle --baseline`: Reconstructs the baseline standalone unpacker from the embedded baseline `blztar` payload and its canonical, blztar-elided `unbundle.py` template.
 
 ```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.1-dev.py
+# Bundle live working tree -> generates dwimsy_0.1.6.3-dev.py
 dwimsy meta bundle
 
 # Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.1-dev_clean.py
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.3-dev.py
 ```
 
 ##### `dwimsy meta unbundle`

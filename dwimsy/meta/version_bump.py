@@ -73,34 +73,23 @@ def update_version_files(
     repo_root: Optional[Path] = None,
     message: Optional[str] = None,
 ) -> None:
-    """Update dwimsy/_version.py, README.md, and CHANGELOG.md with new_version."""
+    """Update dwimsy/_version.py, README.md, unbundle.py docstring, and CHANGELOG.md with new_version."""
     root = integrity.find_repo_root(repo_root)
+    today_str = datetime.date.today().isoformat()
 
     # 1. Update dwimsy/_version.py
     version_file = root / "dwimsy" / "_version.py"
     if version_file.is_file():
         text = version_file.read_text(encoding="utf-8")
         text = re.sub(
-            r'__version__\s*=\s*["\'][^"\']+["\']',
+            r'__version__\s*=\s*["\x27][^"\x27]+["\x27]',
             f'__version__ = "{new_version}"',
             text,
         )
         version_file.write_text(text, encoding="utf-8")
 
-    # 2. Update README.md
-    readme_file = root / "README.md"
-    if readme_file.is_file():
-        r_text = readme_file.read_text(encoding="utf-8")
-        r_text = re.sub(
-            r"\*\*Version:\s*[^)]+\*\*",
-            f"**Version: {new_version}**",
-            r_text,
-        )
-        readme_file.write_text(r_text, encoding="utf-8")
-
-    # 3. Update CHANGELOG.md
+    # 2. Update CHANGELOG.md
     changelog_file = root / "CHANGELOG.md"
-    today_str = datetime.date.today().isoformat()
     if changelog_file.is_file():
         c_text = changelog_file.read_text(encoding="utf-8")
         header = f"## [{new_version}] - {today_str}"
@@ -113,6 +102,59 @@ def update_version_files(
             else:
                 c_text += entry
             changelog_file.write_text(c_text, encoding="utf-8")
+
+    # 3. Update README.md
+    readme_file = root / "README.md"
+    if readme_file.is_file():
+        r_text = readme_file.read_text(encoding="utf-8")
+        r_text = re.sub(
+            r"\*\*Version:\s*([^*]+)\*\*\s*\(([^,)]+,\s*)?\d{4}-\d{2}-\d{2}\)",
+            f"**Version: {new_version}** (\\g<2>{today_str})",
+            r_text,
+        )
+        r_text = re.sub(
+            r"(### Standalone Bundle Basics[\s\S]*?Version:\s*)[^\n]+",
+            f"\\g<1>{new_version} ({today_str})",
+            r_text,
+        )
+        r_text = re.sub(
+            r"dwimsy_\d+\.\d+\.\d+(?:\.\d+)?(?:-[a-zA-Z0-9_.-]+)?\.py",
+            f"dwimsy_{new_version}.py",
+            r_text,
+        )
+        readme_file.write_text(r_text, encoding="utf-8")
+
+    # 4. Update dwimsy/meta/unbundle.py docstring
+    unbundle_file = root / "dwimsy" / "meta" / "unbundle.py"
+    if unbundle_file.is_file():
+        u_text = unbundle_file.read_text(encoding="utf-8")
+        q3 = chr(34) * 3
+        new_doc = (
+            q3
+            + "dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.\n\n"
+            + "Project Homepage: https://github.com/f-fix/dwimsy\n"
+            + f"Version: {new_version} ({today_str})\n\n"
+            + "dwimsy - retrocomputing media preservation, demodulation, restoration, and mastering.\n"
+            + "A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.\n\n"
+            + f"This standalone script is also distributed as dwimsy_{new_version}.py.\n\n"
+            + "Bundle Basics:\n"
+            + "To use the embedded dwimsy CLI directly from the bundle:\n"
+            + f"  python3 dwimsy_{new_version}.py dwimsy --help\n"
+            + f"  python3 dwimsy_{new_version}.py dwimsy --version\n"
+            + f"  python3 dwimsy_{new_version}.py dwimsy readme\n"
+            + f"  python3 dwimsy_{new_version}.py dwimsy license\n"
+            + f"  python3 dwimsy_{new_version}.py dwimsy changelog\n\n"
+            + "To extract the repository tree to disk:\n"
+            + f"  python3 dwimsy_{new_version}.py meta unbundle /path/to/target --deps\n"
+            + q3
+        )
+        u_text = re.sub(
+            r'"""dwimsy\.meta\.unbundle - .*?"""',
+            lambda m: new_doc,
+            u_text,
+            flags=re.DOTALL,
+        )
+        unbundle_file.write_text(u_text, encoding="utf-8")
 
 
 def sync_bundle_baseline(
@@ -132,13 +174,13 @@ def sync_bundle_baseline(
     m_b = re.search(r'blztar = """\n([\s\S]*?)\n"""', bundle_script)
     if m_b:
         unbundle.blztar = m_b.group(1)
-    integrity._BUNDLE_ASSET_CACHE = None
+    integrity.clear_integrity_cache()
 
     diff_text = diff.render_diff(root)
     if diff_text:
         raise RuntimeError(f"Baseline diff is not clean after bundle synchronization:\n{diff_text}")
 
-    pkg_ver = integrity.version(root=root)
+    pkg_ver = integrity.version(root=root).split("+")[0]
     default_bundle_name = f"dwimsy_{pkg_ver}.py"
     bundle_path = root / default_bundle_name
     bundle_path.write_text(bundle_script, encoding="utf-8")
@@ -216,79 +258,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         prog="dwimsy-version-bump",
         description="Advance version revision, record changelog, and synchronize bundle baseline.",
     )
-    parser.add_argument(
-        "-V",
-        "--version",
-        action="version",
-        version=f"%(prog)s {integrity.version()}",
-    )
-    parser.add_argument(
-        "-T",
-        "--test",
-        nargs="?",
-        const=True,
-        default=False,
-        help="Run scoped version-bump self-tests in-process (optional pattern filter)",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase output verbosity",
-    )
-    parser.add_argument(
-        "--help-all",
-        action="store_true",
-        help="Show full help documentation and exit",
-    )
-    parser.add_argument(
-        "target_version",
-        nargs="?",
-        default=None,
-        help="Explicit new version string (e.g. '0.1.6.1-dev')",
-    )
-    parser.add_argument(
-        "--patch",
-        action="store_true",
-        help="Increment patch component (default)",
-    )
-    parser.add_argument(
-        "--minor",
-        action="store_true",
-        help="Increment minor component and reset patch",
-    )
-    parser.add_argument(
-        "--major",
-        action="store_true",
-        help="Increment major component and reset minor and patch",
-    )
-    parser.add_argument(
-        "--rev",
-        action="store_true",
-        help="Increment fourth revision/build digit",
-    )
-    parser.add_argument(
-        "--release",
-        action="store_true",
-        help="Remove '-dev' suffix for a release milestone",
-    )
-    parser.add_argument(
-        "--dev",
-        action="store_true",
-        help="Ensure '-dev' suffix is present",
-    )
-    parser.add_argument(
-        "-m",
-        "--message",
-        default=None,
-        help="Changelog entry description message",
-    )
-    parser.add_argument(
-        "--no-bundle",
-        action="store_true",
-        help="Update version files without synchronizing bundle baseline",
-    )
+    parser.add_argument("-V", "--version", action="version", version=f"%(prog)s {integrity.version()}")
+    parser.add_argument("-T", "--test", nargs="?", const=True, default=False, help="Run scoped version-bump self-tests in-process (optional pattern filter)")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase output verbosity")
+    parser.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    parser.add_argument("target_version", nargs="?", default=None, help="Explicit new version string (e.g. '0.1.6.1-dev')")
+    parser.add_argument("--patch", action="store_true", help="Increment patch component (default)")
+    parser.add_argument("--minor", action="store_true", help="Increment minor component and reset patch")
+    parser.add_argument("--major", action="store_true", help="Increment major component and reset minor and patch")
+    parser.add_argument("--rev", action="store_true", help="Increment fourth revision/build digit")
+    parser.add_argument("--release", action="store_true", help="Remove '-dev' suffix for a release milestone")
+    parser.add_argument("--dev", action="store_true", help="Ensure '-dev' suffix is present")
+    parser.add_argument("-m", "--message", default=None, help="Changelog entry description message")
+    parser.add_argument("--no-bundle", action="store_true", help="Update version files without synchronizing bundle baseline")
     args = parser.parse_args(effective)
 
     if args.test is not False:

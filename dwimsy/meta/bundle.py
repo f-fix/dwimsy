@@ -183,11 +183,16 @@ def get_default_bundle_name(
     is_baseline: bool = False,
 ) -> str:
     """Derive standard bundle filename."""
+    from dwimsy.meta import diff
     root = find_repo_root(repo_root)
     pkg_ver = integrity.version(root=root)
     if is_baseline:
         base_v = pkg_ver.split("+")[0]
         return f"dwimsy_{base_v}_clean.py"
+    if not diff.render_diff(root):
+        base_v = pkg_ver.split("+")[0]
+        clean_tag = f"_{re.sub(r'[^a-zA-Z0-9_.-]', '_', tag)}" if tag else ""
+        return f"dwimsy_{base_v}{clean_tag}.py"
 
     clean_tag = f"_{re.sub(r'[^a-zA-Z0-9_.-]', '_', tag)}" if tag else ""
     return f"dwimsy_{pkg_ver}{clean_tag}.py"

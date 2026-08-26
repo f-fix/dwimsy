@@ -21,6 +21,52 @@ from typing import Iterable, Optional, Tuple
 
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 _BUNDLE_ASSET_CACHE: Optional[dict[str, bytes]] = None
+_HASH_CACHE: dict[tuple, tuple[tuple, str]] = {}
+
+
+def clear_integrity_cache():
+    """Clear integrity hash and bundle asset caches."""
+    global _HASH_CACHE, _BUNDLE_ASSET_CACHE
+    _HASH_CACHE.clear()
+    _BUNDLE_ASSET_CACHE = None
+
+
+def _repo_fingerprint(repo: Path, baseline: bool) -> tuple:
+    if baseline:
+        return (str(repo), True)
+    files = source_files(repo)
+    mtimes = []
+    for f in files:
+        try:
+            st = f.stat()
+            mtimes.append((f.relative_to(repo).as_posix(), st.st_mtime_ns, st.st_size))
+        except OSError:
+            pass
+    return (str(repo), False, tuple(mtimes))
+
+def get_latest_release_info(root: Optional[Path] = None) -> tuple[str, str]:
+    """Retrieve (version, datestamp) for the most recent changelog entry."""
+    repo = find_repo_root(root) if root is not None else find_repo_root()
+    c_file = repo / "CHANGELOG.md"
+    c_text = None
+    if c_file.is_file():
+        try:
+            c_text = c_file.read_text(encoding="utf-8")
+        except OSError:
+            pass
+    if c_text is None:
+        try:
+            from dwimsy.meta import unbundle
+            c_text = unbundle.get_asset_text("CHANGELOG.md")
+        except Exception:
+            pass
+    if c_text:
+        m = re.search(r"## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})", c_text)
+        if m:
+            return (m.group(1), m.group(2))
+    v = _version_values(root).get("__version__", "0.1.6.0-dev")
+    return (v, "2026-08-26")
+
 _VERSION_FILE = _PACKAGE_ROOT / "_version.py"
 _UNBUNDLE_RE = re.compile(rb'(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?:.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)')
 _HASH_RE = re.compile(
@@ -217,10 +263,14 @@ def canonical_assets(root: Optional[Path] = None, baseline: bool = False) -> dic
         if need_bundle:
             global _BUNDLE_ASSET_CACHE
             if _BUNDLE_ASSET_CACHE is None:
-                _BUNDLE_ASSET_CACHE = {
-                    (asset[2:] if asset.startswith("./") else asset): unbundle.get_asset(asset)
-                    for asset in unbundle.list_assets()
-                }
+                _BUNDLE_ASSET_CACHE = {}
+                with unbundle._open_bundle_tar() as tar:
+                    for m in tar.getmembers():
+                        if m.isfile():
+                            name = m.name[2:] if m.name.startswith("./") else m.name
+                            f = tar.extractfile(m)
+                            if f is not None:
+                                _BUNDLE_ASSET_CACHE[name] = f.read()
             for rel, data in _BUNDLE_ASSET_CACHE.items():
                 if _manifest_matches(rel, patterns) and (baseline or rel not in candidates):
                     candidates[rel] = data
@@ -232,6 +282,12 @@ def canonical_assets(root: Optional[Path] = None, baseline: bool = False) -> dic
 
 def canonical_code_hash(root: Optional[Path] = None, baseline: bool = False) -> str:
     """Calculate the canonical SHA-256 hash of the portable project window."""
+    repo = find_repo_root(root) if root is None else Path(root).resolve()
+    key = (str(repo), baseline)
+    fp = _repo_fingerprint(repo, baseline)
+    if key in _HASH_CACHE and _HASH_CACHE[key][0] == fp:
+        return _HASH_CACHE[key][1]
+
     digest = hashlib.sha256()
     for rel, data in canonical_assets(root, baseline=baseline).items():
         cdata = _canonical_bytes(data, rel)
@@ -239,7 +295,9 @@ def canonical_code_hash(root: Optional[Path] = None, baseline: bool = False) -> 
         digest.update(b"\0")
         digest.update(cdata)
         digest.update(b"\0")
-    return digest.hexdigest()
+    result = digest.hexdigest()
+    _HASH_CACHE[key] = (fp, result)
+    return result
 
 def _version_values(root: Optional[Path] = None, baseline: bool = False) -> dict[str, str]:
     """Read version metadata from disk or the in-memory portable bundle."""
@@ -315,6 +373,8 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
 __all__ = [
     "canonical_assets",
     "canonical_code_hash",
+    "clear_integrity_cache",
+    "get_latest_release_info",
     "canonical_manifest",
     "find_repo_root",
     "is_modified",

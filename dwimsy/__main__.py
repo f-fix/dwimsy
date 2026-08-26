@@ -13,4 +13,4 @@ if str(pkg_root) not in sys.path:
 from dwimsy.cli import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

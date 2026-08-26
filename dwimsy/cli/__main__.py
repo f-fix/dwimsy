@@ -30,6 +30,31 @@ from dwimsy.protocols.pc88 import (
     analyze_tape,
 )
 from dwimsy.meta.integrity import version as get_version
+
+class _LazyVersionAction(argparse.Action):
+    """Only evaluates version function if -V or --version is present in CLI arguments."""
+
+    def __init__(
+        self,
+        option_strings,
+        dest=argparse.SUPPRESS,
+        default=argparse.SUPPRESS,
+        help="show program's version number and exit",
+        version_fn=None,
+    ):
+        super().__init__(
+            option_strings=option_strings,
+            dest=dest,
+            default=default,
+            nargs=0,
+            help=help,
+        )
+        self.version_fn = version_fn
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        fn = self.version_fn or get_version
+        parser._print_message(f"{parser.prog} {fn()}\n", sys.stdout)
+        parser.exit()
 from dwimsy.meta.bundle import run_meta_bundle, run_meta_fetch_deps
 from dwimsy.meta import integrity
 
@@ -412,6 +437,8 @@ def run_join(args, raw_inputs: Optional[List[str]] = None):
 
 def main(argv: Optional[List[str]] = None):
     effective_argv = sys.argv[1:] if argv is None else list(argv)
+    if effective_argv and effective_argv[0] == "dwimsy":
+        effective_argv = effective_argv[1:]
 
     for p in Path(__file__).resolve().parents:
         if (p / "dwimsy").is_dir():
@@ -465,19 +492,19 @@ def main(argv: Optional[List[str]] = None):
         else:
             pattern = [cmd] if cmd else None
         rc = run_tests(pattern, verbose=verbosity)
-        sys.exit(rc)
+        return rc
 
     parser = argparse.ArgumentParser(
         prog="dwimsy",
         description="dwimsy - retrocomputing media preservation, demodulation, and conversion.",
-        epilog="Tip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.",
+        epilog="Project Homepage: https://github.com/f-fix/dwimsy\nTip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "-V",
         "--version",
-        action="version",
-        version=f"%(prog)s {get_version()}",
+        action=_LazyVersionAction,
+        version_fn=get_version,
     )
     parser.add_argument(
         "-T",
@@ -838,17 +865,17 @@ def main(argv: Optional[List[str]] = None):
 
     if not effective_argv:
         parser.print_help(sys.stderr)
-        sys.exit(0)
+        return 0
 
     if any(a == "--help-all" for a in effective_argv):
         non_flags = [a for a in effective_argv if not a.startswith("-")]
         if not non_flags:
             safe_page(format_all_help(parser))
-            sys.exit(0)
+            return 0
         elif non_flags[0] == "meta":
             from dwimsy.meta.__main__ import format_meta_help_all, build_parser as build_meta_p
             safe_page(format_meta_help_all(build_meta_p()))
-            sys.exit(0)
+            return 0
         else:
             effective_argv = ["-h" if a == "--help-all" else a for a in effective_argv]
 
@@ -856,7 +883,7 @@ def main(argv: Optional[List[str]] = None):
 
     if getattr(args, "help_all", False):
         safe_page(format_all_help(parser))
-        sys.exit(0)
+        return 0
 
     if args.command == "convert":
         run_convert(args)
@@ -916,18 +943,18 @@ def main(argv: Optional[List[str]] = None):
         if args.list:
             for tid in list_tests(args.patterns):
                 print(tid)
-            sys.exit(0)
+            return 0
         rc = run_tests(args.patterns, verbose=args.verbose)
-        sys.exit(rc)
+        return rc
     elif args.command == "readme":
         safe_page(get_doc_asset_text("README.md"))
-        sys.exit(0)
+        return 0
     elif args.command == "license":
         safe_page(get_doc_asset_text("LICENSE"))
-        sys.exit(0)
+        return 0
     elif args.command == "changelog":
         safe_page(get_doc_asset_text("CHANGELOG.md"))
-        sys.exit(0)
+        return 0
     elif args.command == "help":
         if args.topic:
             topic = args.topic.strip()
@@ -941,14 +968,14 @@ def main(argv: Optional[List[str]] = None):
                     break
             if not found:
                 print(f"Unknown command topic '{topic}'. Run 'dwimsy --help-all' for all topics.", file=sys.stderr)
-                sys.exit(1)
+                return 1
         else:
             safe_page(format_all_help(parser))
-        sys.exit(0)
+        return 0
     elif args.command == "meta":
         from dwimsy.meta import __main__ as meta_main
         meta_args = [a for a in effective_argv[1:]]
-        sys.exit(meta_main.main(meta_args))
+        return meta_main.main(meta_args)
     elif args.command in (
         "charset",
         "extract",
@@ -970,11 +997,11 @@ def main(argv: Optional[List[str]] = None):
             f"[NOT IMPLEMENTED] 'dwimsy {args.command}' is scheduled for {ms}.",
             file=sys.stderr,
         )
-        sys.exit(1)
+        return 1
     else:
         parser.print_help(sys.stderr)
-        sys.exit(1)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
