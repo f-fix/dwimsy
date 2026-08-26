@@ -27,6 +27,7 @@ class TestMetaBundle(unittest.TestCase):
     def test_unbundle_asset_readers(self):
         assets = unbundle.list_assets()
         self.assertIn("README.md", assets)
+        self.assertIn("CHANGELOG.md", assets)
         self.assertIn("LICENSE", assets)
         self.assertIn("deps/bin2fds/bin2fds.py", assets)
 
