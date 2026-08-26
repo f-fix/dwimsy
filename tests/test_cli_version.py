@@ -18,8 +18,13 @@ import dwimsy
 from dwimsy.cli import main as dwimsy_cli_main
 from dwimsy.cli.filters import t882wav as t882wav_mod
 from dwimsy.cli.filters import wav2t88 as wav2t88_mod
+from dwimsy.meta import __main__ as meta_main_mod
 from dwimsy.meta import bundle as bundle_mod
 from dwimsy.meta import unbundle as unbundle_mod
+from dwimsy.meta import diff as diff_mod
+from dwimsy.meta import integrity as integrity_mod
+from dwimsy.meta import version_bump as version_bump_mod
+from dwimsy.meta import lint as lint_mod
 from dwimsy.tests import __main__ as dw_tests_main_mod
 from tests import __main__ as tests_main_mod
 from dwimsy.meta.integrity import version as get_version
@@ -55,8 +60,13 @@ class TestCLIVersion(unittest.TestCase):
             ("dwimsy.cli", dwimsy_cli_main),
             ("dwimsy.cli.filters.t882wav", t882wav_mod.main),
             ("dwimsy.cli.filters.wav2t88", wav2t88_mod.main),
+            ("dwimsy.meta", meta_main_mod.main),
             ("dwimsy.meta.bundle", bundle_mod.main),
             ("dwimsy.meta.unbundle", unbundle_mod.main),
+            ("dwimsy.meta.diff", diff_mod.main),
+            ("dwimsy.meta.integrity", integrity_mod.main),
+            ("dwimsy.meta.version_bump", version_bump_mod.main),
+            ("dwimsy.meta.lint", lint_mod.main),
             ("dwimsy.tests", dw_tests_main_mod.main),
             ("tests", tests_main_mod.main),
         ]
@@ -92,8 +102,13 @@ class TestCLIVersion(unittest.TestCase):
             "dwimsy.cli",
             "dwimsy.cli.filters.t882wav",
             "dwimsy.cli.filters.wav2t88",
+            "dwimsy.meta",
             "dwimsy.meta.bundle",
             "dwimsy.meta.unbundle",
+            "dwimsy.meta.diff",
+            "dwimsy.meta.integrity",
+            "dwimsy.meta.version_bump",
+            "dwimsy.meta.lint",
             "dwimsy.tests",
             "tests",
         ]
