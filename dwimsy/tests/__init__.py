@@ -66,7 +66,6 @@ SCOPED_TEST_MAPPINGS = {
     "inspect": ["test_core_audio.py", "test_core_pulse.py", "test_core_fsk.py"],
     "split": ["test_tape_t88.py", "test_protocols_pc88.py"],
     "join": ["test_tape_t88.py", "test_protocols_pc88.py"],
-    "meta": ["test_meta_bundle.py", "test_meta_integrity.py"],
     "t882wav": ["test_core_audio.py", "test_tape_t88.py", "test_cli_filters.py"],
     "wav2t88": [
         "test_core_audio.py",
@@ -79,15 +78,33 @@ SCOPED_TEST_MAPPINGS = {
     "fsk": ["test_core_fsk.py"],
     "tape": ["test_tape_t88.py"],
     "protocols": ["test_protocols_pc88.py"],
-    "integrity": ["test_meta_integrity.py"],
+    "meta": ["test_meta_bundle.py", "test_meta_integrity.py"],
+    "meta bundle": ["test_meta_bundle.py"],
+    "meta unbundle": ["test_meta_bundle.py"],
+    "meta diff": ["test_meta_bundle.py"],
+    "meta integrity": ["test_meta_integrity.py"],
+    "meta version-bump": ["test_cli_version.py", "test_meta_integrity.py"],
+    "meta fetch-deps": ["test_meta_bundle.py"],
+    "meta lint": ["test_lint_headers.py", "test_lint_markdown.py"],
     "bundle": ["test_meta_bundle.py"],
+    "unbundle": ["test_meta_bundle.py"],
+    "diff": ["test_meta_bundle.py"],
+    "integrity": ["test_meta_integrity.py"],
+    "version-bump": ["test_cli_version.py", "test_meta_integrity.py"],
+    "version": ["test_cli_version.py", "test_meta_integrity.py"],
+    "fetch-deps": ["test_meta_bundle.py"],
     "lint": ["test_lint_headers.py", "test_lint_markdown.py"],
-    "readme": ["test_readme_sync.py"],
+    "tests": ["test_test_runner.py"],
+    "test": ["test_test_runner.py"],
+    "readme": ["test_readme_sync.py", "test_lint_markdown.py"],
+    "license": ["test_readme_sync.py"],
+    "changelog": ["test_readme_sync.py", "test_lint_markdown.py"],
+    "help": ["test_readme_sync.py", "test_cli_version.py"],
 }
 
 
 def expand_test_patterns(patterns: Optional[Sequence[str]]) -> List[str]:
-    """Expand alias keywords (e.g. 'convert', 'meta', 'audio') into test file patterns."""
+    """Expand alias keywords into test file patterns."""
     if not patterns:
         return ["test_*.py"]
     expanded: List[str] = []
@@ -109,7 +126,7 @@ def _extract_tests_from_bundle(target_dir: Path) -> Path:
     tests_out.mkdir(parents=True, exist_ok=True)
 
     prefixes = ("tests/", "dwimsy/")
-    top_assets = {"README.md", "LICENSE", ".gitignore", ".gitmodules"}
+    top_assets = {"README.md", "LICENSE", "CHANGELOG.md", ".gitignore", ".gitmodules"}
     with unbundle._open_bundle_tar() as tar:
         for m in tar.getmembers():
             norm_name = m.name[2:] if m.name.startswith("./") else m.name
@@ -123,8 +140,6 @@ def _extract_tests_from_bundle(target_dir: Path) -> Path:
             dest.parent.mkdir(parents=True, exist_ok=True)
             data = f.read()
             if norm_name == "dwimsy/meta/unbundle.py":
-                # The payload stores the canonical elided template. The in-memory
-                # bundle remains the executable unbundle module for this process.
                 continue
             dest.write_bytes(data)
             if dest.suffix == ".py" and data.startswith(b"#!"):
@@ -136,24 +151,94 @@ def _extract_tests_from_bundle(target_dir: Path) -> Path:
     return tests_out
 
 
+def list_tests(
+    patterns: Optional[Sequence[str]] = None,
+    repo_root: Optional[Path] = None,
+) -> List[str]:
+    """Return sorted list of test IDs matching patterns."""
+    expanded_patterns = expand_test_patterns(patterns)
+    disk_tests = find_disk_tests_dir(repo_root)
+
+    for mod_name in list(sys.modules.keys()):
+        if (
+            mod_name.startswith("test_")
+            or mod_name == "tests"
+            or mod_name.startswith("tests.")
+            or mod_name == "dwimsy"
+            or mod_name.startswith("dwimsy.")
+        ):
+            del sys.modules[mod_name]
+
+    loader = unittest.defaultTestLoader
+    test_ids = []
+
+    def _collect_ids(item):
+        if isinstance(item, unittest.TestCase):
+            test_ids.append(item.id())
+        elif isinstance(item, unittest.TestSuite):
+            for t in item:
+                _collect_ids(t)
+
+    if disk_tests is not None and any(disk_tests.glob("test_*.py")):
+        root = disk_tests.parent
+        orig_sys_path = list(sys.path)
+        if str(disk_tests) in sys.path:
+            sys.path.remove(str(disk_tests))
+        if str(root) in sys.path:
+            sys.path.remove(str(root))
+        sys.path.insert(0, str(disk_tests))
+        sys.path.insert(0, str(root))
+        try:
+            for pat in expanded_patterns:
+                suite = loader.discover(
+                    start_dir=str(disk_tests),
+                    pattern=pat,
+                    top_level_dir=str(root),
+                )
+                _collect_ids(suite)
+        finally:
+            sys.path[:] = orig_sys_path
+    else:
+        with tempfile.TemporaryDirectory(prefix="dwimsy_test_list_") as tmp:
+            tmp_path = Path(tmp)
+            tests_dir = _extract_tests_from_bundle(tmp_path)
+            orig_sys_path = list(sys.path)
+            old_test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
+            if str(tests_dir) in sys.path:
+                sys.path.remove(str(tests_dir))
+            sys.path.insert(0, str(tests_dir))
+            os.environ["DWIMSY_TEST_REPO_ROOT"] = str(tmp_path)
+            try:
+                for pat in expanded_patterns:
+                    suite = loader.discover(
+                        start_dir=str(tests_dir),
+                        pattern=pat,
+                        top_level_dir=str(tmp_path),
+                    )
+                    _collect_ids(suite)
+            finally:
+                sys.path[:] = orig_sys_path
+                if old_test_root is None:
+                    os.environ.pop("DWIMSY_TEST_REPO_ROOT", None)
+                else:
+                    os.environ["DWIMSY_TEST_REPO_ROOT"] = old_test_root
+
+    return sorted(dict.fromkeys(test_ids))
+
+
 def run_tests(
     patterns: Optional[Sequence[str]] = None,
     verbose: int = 1,
     stream=None,
     repo_root: Optional[Path] = None,
 ) -> int:
-    """Discover and run unit tests matching patterns in-process.
-
-    Runs from disk tests/ directory if available, or automatically extracts tests
-    from embedded bundle assets into an ephemeral temporary directory.
-    """
+    """Discover and run unit tests matching patterns in-process."""
     if stream is None:
         stream = sys.stderr
 
     expanded_patterns = expand_test_patterns(patterns)
     disk_tests = find_disk_tests_dir(repo_root)
 
-    # Purge stale test_*, tests, and dwimsy modules from sys.modules
     for mod_name in list(sys.modules.keys()):
         if (
             mod_name.startswith("test_")
