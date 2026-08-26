@@ -347,7 +347,12 @@ def main(argv: Optional[List[str]] = None):
             sys.path.insert(0, str(p))
             break
 
-    if "-T" in effective_argv or "--test" in effective_argv:
+    test_arg = None
+    for a in effective_argv:
+        if a in ("-T", "--test") or a.startswith("--test="):
+            test_arg = a
+            break
+    if test_arg is not None:
         verbosity = 1
         for arg in effective_argv:
             if arg in ("-v", "--verbose"):
@@ -358,8 +363,12 @@ def main(argv: Optional[List[str]] = None):
                 verbosity = max(verbosity + len(arg) - 1, 2)
         from dwimsy.tests import run_tests
 
-        rc = run_tests(["t882wav"], verbose=verbosity)
+        pattern = [test_arg.split("=", 1)[1]] if test_arg.startswith("--test=") else ["t882wav"]
+        rc = run_tests(pattern, verbose=verbosity)
         sys.exit(rc)
+
+    if any(a == "--help-all" for a in effective_argv):
+        effective_argv = ["-h" if a == "--help-all" else a for a in effective_argv]
 
     parser = argparse.ArgumentParser(
         prog="dwimsy-t882wav",
@@ -421,41 +430,65 @@ def main(argv: Optional[List[str]] = None):
         "--amplitude",
         "-a",
         "--volume",
-        "-v",
         type=float,
         default=0.80,
-        help="Peak amplitude 0.01..1.0",
-    )
-    parser.add_argument(
-        "--baud",
-        type=int,
-        choices=[600, 1200],
-        default=None,
-        help="Baud override",
+        help="Waveform amplitude (0.01 to 1.0, default: 0.80)",
     )
     parser.add_argument(
         "--speed",
         "-s",
         type=float,
         default=1.0,
-        help="Speed multiplier",
+        help="Speed multiplier factor (default: 1.0)",
     )
-    parser.add_argument("--invert", action="store_true", help="Invert polarity")
-    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress progress")
+    parser.add_argument(
+        "--invert",
+        action="store_true",
+        help="Invert audio polarity (default: False)",
+    )
+    parser.add_argument(
+        "--baud",
+        "-b",
+        type=int,
+        choices=[600, 1200],
+        default=None,
+        help="Baud rate override (default: auto)",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Quiet mode: suppress progress output",
+    )
     parser.add_argument(
         "-T",
         "--test",
-        action="store_true",
+        nargs="?",
+        const=True,
+        default=False,
         help="Run filter self-tests in-process and exit",
     )
     parser.add_argument(
+        "-v",
         "--verbose",
         action="count",
         default=1,
         help="Increase test runner verbosity when running self-tests",
     )
+    parser.add_argument(
+        "--help-all",
+        action="store_true",
+        help="Show full help documentation and exit",
+    )
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args(effective_argv)
+
+    if args.test is not False:
+        from dwimsy.tests import run_tests
+        pattern = [args.test] if isinstance(args.test, str) else ["t882wav"]
+        rc = run_tests(pattern, verbose=args.verbose)
+        sys.exit(rc)
+
     if not args.input or args.input == "-":
         in_s = sys.stdin.buffer
     else:
@@ -485,7 +518,6 @@ def main(argv: Optional[List[str]] = None):
             in_s.close()
         if out_s is not sys.stdout.buffer:
             out_s.close()
-
 
 if __name__ == "__main__":
     main()
