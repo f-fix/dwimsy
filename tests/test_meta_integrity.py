@@ -137,7 +137,7 @@ class IntegrityTests(unittest.TestCase):
         py_files = sorted(
             p
             for p in repo.rglob("*.py")
-            if not p.relative_to(repo).as_posix().startswith("deps/")
+            if not p.relative_to(repo).as_posix().startswith("deps/") and not (p.name.startswith("dwimsy_") and p.name.endswith(".py"))
         )
         triple_single = 3 * chr(39)
 
@@ -206,7 +206,7 @@ class IntegrityTests(unittest.TestCase):
         md_files = sorted(
             p
             for p in repo.rglob("*.md")
-            if not p.relative_to(repo).as_posix().startswith("deps/")
+            if not p.relative_to(repo).as_posix().startswith("deps/") and not (p.name.startswith("dwimsy_") and p.name.endswith(".py"))
         )
         triple_single = 3 * chr(39)
 

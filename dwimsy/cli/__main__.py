@@ -492,7 +492,7 @@ def main(argv: Optional[List[str]] = None):
         else:
             pattern = [cmd] if cmd else None
         rc = run_tests(pattern, verbose=verbosity)
-        return rc
+        sys.exit(rc)
 
     parser = argparse.ArgumentParser(
         prog="dwimsy",

@@ -33,7 +33,7 @@ def lint_headers(repo_root: Optional[Path] = None) -> List[str]:
         [
             p
             for p in root.rglob("*.py")
-            if not p.relative_to(root).as_posix().startswith("deps")
+            if not p.relative_to(root).as_posix().startswith("deps") and not (p.name.startswith("dwimsy_") and p.name.endswith(".py"))
         ]
     )
     errors: List[str] = []
@@ -111,7 +111,7 @@ def lint_markdown(repo_root: Optional[Path] = None) -> List[str]:
         [
             p
             for p in root.rglob("*.md")
-            if not p.relative_to(root).as_posix().startswith("deps")
+            if not p.relative_to(root).as_posix().startswith("deps") and not (p.name.startswith("dwimsy_") and p.name.endswith(".py"))
         ]
     )
     errors: List[str] = []

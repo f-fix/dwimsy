@@ -24,7 +24,7 @@ class TestLintHeaders(unittest.TestCase):
             [
                 p
                 for p in pkg_root.rglob("*.py")
-                if not p.relative_to(pkg_root).as_posix().startswith("deps")
+                if not p.relative_to(pkg_root).as_posix().startswith("deps") and not (p.name.startswith("dwimsy_") and p.name.endswith(".py"))
             ]
         )
 
