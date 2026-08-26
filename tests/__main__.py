@@ -36,6 +36,25 @@ def main(argv: Optional[List[str]] = None):
     if any(arg in ("-V", "--version") for arg in effective_argv):
         print(f"dwimsy {get_version()}")
         return 0
+    if any(arg == "--help-all" for arg in effective_argv):
+        effective_argv = ["-h" if a == "--help-all" else a for a in effective_argv]
+    test_arg = None
+    for a in effective_argv:
+        if a in ("-T", "--test") or a.startswith("--test="):
+            test_arg = a
+            break
+    if test_arg is not None:
+        verbosity = 1
+        for a in effective_argv:
+            if a in ("-v", "--verbose"):
+                verbosity = max(verbosity + 1, 2)
+            elif a.startswith("-") and len(a) > 1 and all(c == "v" for c in a[1:]):
+                verbosity = max(verbosity + len(a) - 1, 2)
+        from dwimsy.tests import run_tests
+        pattern = None
+        if test_arg.startswith("--test="):
+            pattern = [test_arg.split("=", 1)[1]]
+        return run_tests(pattern, verbose=verbosity)
     TestProgram(module=None, argv=[sys.argv[0]] + effective_argv)
     return 0
 
