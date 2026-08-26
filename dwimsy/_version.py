@@ -6,5 +6,5 @@ calculating the canonical source-tree hash, so changing the sealed hash does
 not change the hash it is intended to record.
 """
 
-__version__ = "0.1.6.0-dev"
+__version__ = "0.1.6.2-dev"
 __code_hash__ = ""
