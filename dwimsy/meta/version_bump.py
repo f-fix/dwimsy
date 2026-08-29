@@ -11,12 +11,15 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-for p in Path(__file__).resolve().parents:
-    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
-        sys.path.insert(0, str(p))
-        break
+_HERE = Path(__file__).resolve()
+if len(_HERE.parts) >= 3 and _HERE.parts[-3] == "dwimsy" and _HERE.parts[-2] == "meta":
+    _REPO_ROOT = _HERE.parents[2]
+    if (_REPO_ROOT / "dwimsy" / "_version.py").is_file() and str(
+        _REPO_ROOT
+    ) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
 
-from dwimsy.meta import bundle, diff, integrity, unbundle
+from dwimsy.meta import bundle, diff, integrity, unbundle, versions
 
 
 def parse_and_bump_version(
@@ -26,9 +29,7 @@ def parse_and_bump_version(
     dev: bool = False,
 ) -> str:
     """Derive next version string based on current and increment rules."""
-    m = re.match(
-        r"^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-zA-Z0-9_.-]+))?$", current
-    )
+    m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-zA-Z0-9_.-]+))?$", current)
     if not m:
         raise ValueError(f"Cannot parse version string: {current}")
     major = int(m.group(1))
@@ -94,7 +95,11 @@ def update_version_files(
         c_text = changelog_file.read_text(encoding="utf-8")
         header = f"## [{new_version}] - {today_str}"
         if header not in c_text:
-            msg_entry = f"- {message}\n" if message else "- Maintenance release and baseline synchronization.\n"
+            msg_entry = (
+                f"- {message}\n"
+                if message
+                else "- Maintenance release and baseline synchronization.\n"
+            )
             entry = f"\n{header}\n\n### Changed\n{msg_entry}\n"
             match = re.search(r"(## \[[^\]]+\] - \d{4}-\d{2}-\d{2})", c_text)
             if match:
@@ -134,7 +139,7 @@ def update_version_files(
             + "dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.\n\n"
             + "Project Homepage: https://github.com/f-fix/dwimsy\n"
             + f"Version: {new_version} ({today_str})\n\n"
-            + "dwimsy - retrocomputing media preservation, demodulation, restoration, and mastering.\n"
+            + "dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.\n"
             + "A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.\n\n"
             + f"This standalone script is also distributed as dwimsy_{new_version}.py.\n\n"
             + "Bundle Basics:\n"
@@ -158,13 +163,47 @@ def update_version_files(
 
 
 def sync_bundle_baseline(
-    repo_root: Optional[Path] = None, verbose: bool = False
+    repo_root: Optional[Path] = None, verbose: bool = False, *, release: bool = False
 ) -> Path:
-    """Rebuild the standalone bundle from the live working tree and sync unbundle.py."""
+    """Synchronize the embedded VersionSpace with the current working tree."""
     root = integrity.find_repo_root(repo_root)
     unbundle_file = root / "dwimsy" / "meta" / "unbundle.py"
 
-    bundle_script = bundle.build_bundle_script(repo_root=root, with_deps=True)
+    # Preserve the existing stream history and append the current working tree
+    # as a delta rather than replacing the history with a flat snapshot.
+    space = versions.VersionSpace.from_blztar(unbundle.blztar)
+    primary = space.streams[0]
+    old_head = primary.get_head_version()
+    old_state = primary.materialize_layer_state(old_head.ordinal) if old_head else {}
+    new_state = bundle.create_tree_state(root, with_deps=True)
+    delta = versions.compute_tree_delta(old_state, new_state)
+    if "dwimsy/_version.py" in new_state:
+        delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
+    new_tag = integrity._version_values(root).get("__version__", "0.1.6.0-dev")
+    if old_head and (
+        old_head.tag.split("+")[0].lower() == new_tag.split("+")[0].lower()
+        or "+mod." in old_head.tag.lower()
+    ):
+        primary.layers[-1] = versions.Layer(delta, is_delta=True, version_tag=new_tag)
+        primary.mark_mutated()
+    elif delta or not old_head:
+        primary.layers.append(versions.Layer(delta, is_delta=True, version_tag=new_tag))
+        primary.mark_mutated()
+
+    if release:
+        primary.seal_open_dev()
+        # The sealed state carries the canonical hash in _version.py; write it
+        # back to the live tree before serializing the final bundle.
+        sealed_state = primary.materialize_layer_state(0)
+        vpath = root / "dwimsy" / "_version.py"
+        if "dwimsy/_version.py" in sealed_state:
+            vpath.write_bytes(sealed_state["dwimsy/_version.py"])
+        elif "_version.py" in sealed_state:
+            vpath.write_bytes(sealed_state["_version.py"])
+
+    bundle_script = bundle.build_bundle_script(
+        repo_root=root, with_deps=True, version_space=space
+    )
     unbundle_file.write_text(bundle_script, encoding="utf-8")
     try:
         unbundle_file.chmod(0o755)
@@ -176,19 +215,18 @@ def sync_bundle_baseline(
         unbundle.blztar = m_b.group(1)
     integrity.clear_integrity_cache()
 
-    diff_text = diff.render_diff(root)
-    if diff_text:
-        raise RuntimeError(f"Baseline diff is not clean after bundle synchronization:\n{diff_text}")
-
     pkg_ver = integrity.version(root=root).split("+")[0]
-    default_bundle_name = f"dwimsy_{pkg_ver}.py"
-    bundle_path = root / default_bundle_name
+    bundle_path = root / space.composite_bundle_name(".py")
     bundle_path.write_text(bundle_script, encoding="utf-8")
     try:
         bundle_path.chmod(0o755)
     except OSError:
         pass
-
+    pyz_path = root / space.composite_bundle_name(".pyz")
+    try:
+        bundle.write_pyz_bundle(bundle_script, pyz_path)
+    except Exception:
+        pass
     return bundle_path
 
 
@@ -208,21 +246,53 @@ def bump_version(
     current_ver = values.get("__version__", "0.1.6.0-dev")
 
     if version_str:
+        versions.validate_version_tag(version_str)
         new_ver = version_str
     else:
         new_ver = parse_and_bump_version(
             current_ver, part=part, release=release, dev=dev
         )
+        versions.validate_version_tag(new_ver)
 
     update_version_files(new_ver, repo_root=root, message=message)
 
     if not no_bundle:
-        bundle_path = sync_bundle_baseline(repo_root=root, verbose=verbose)
+        from dwimsy.tests import run_tests
+        import io
+
+        test_buf = io.StringIO()
+        old_env = os.environ.get("DWIMSY_BUNDLE_BUILD")
+        os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
+        try:
+            rc = run_tests(repo_root=root, stream=test_buf)
+        finally:
+            if old_env is None:
+                os.environ.pop("DWIMSY_BUNDLE_BUILD", None)
+            else:
+                os.environ["DWIMSY_BUNDLE_BUILD"] = old_env
+        if rc != 0:
+            raise RuntimeError(
+                f"Cannot bump version: test suite failed with {rc} error(s).\n{test_buf.getvalue()}"
+            )
+
+    if not no_bundle:
+        bundle_path = sync_bundle_baseline(
+            repo_root=root, verbose=verbose, release=release
+        )
         if verbose:
-            print(f"[SUCCESS] Advanced version: {current_ver} -> {new_ver}", file=sys.stderr)
-            print(f"[SUCCESS] Reconstituted unbundle.py and generated {bundle_path.name}", file=sys.stderr)
+            print(
+                f"[SUCCESS] Advanced version: {current_ver} -> {new_ver}",
+                file=sys.stderr,
+            )
+            print(
+                f"[SUCCESS] Reconstituted unbundle.py and generated {bundle_path.name}",
+                file=sys.stderr,
+            )
     elif verbose:
-        print(f"[SUCCESS] Advanced version files to {new_ver} (bundle sync skipped)", file=sys.stderr)
+        print(
+            f"[SUCCESS] Advanced version files to {new_ver} (bundle sync skipped)",
+            file=sys.stderr,
+        )
 
     return new_ver
 
@@ -230,7 +300,13 @@ def bump_version(
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI entrypoint for running dwimsy.meta.version_bump directly."""
     effective = sys.argv[1:] if argv is None else list(argv)
+    from dwimsy.cli.dispatch import early_dispatch
 
+    handled, effective = early_dispatch(
+        effective, ["meta", "version-bump"], use_process_argv0=(argv is None)
+    )
+    if handled:
+        return 0
     test_arg = None
     for a in effective:
         if a in ("-T", "--test") or a.startswith("--test="):
@@ -244,6 +320,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             elif a.startswith("-") and len(a) > 1 and all(c == "v" for c in a[1:]):
                 verbosity = max(verbosity + len(a) - 1, 2)
         from dwimsy.tests import run_tests
+
         pattern = None
         if test_arg.startswith("--test="):
             pattern = [test_arg.split("=", 1)[1]]
@@ -258,23 +335,79 @@ def main(argv: Optional[List[str]] = None) -> int:
         prog="dwimsy-version-bump",
         description="Advance version revision, record changelog, and synchronize bundle baseline.",
     )
-    parser.add_argument("-V", "--version", action="version", version=f"%(prog)s {integrity.version()}")
-    parser.add_argument("-T", "--test", nargs="?", const=True, default=False, help="Run scoped version-bump self-tests in-process (optional pattern filter)")
-    parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase output verbosity")
-    parser.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
-    parser.add_argument("target_version", nargs="?", default=None, help="Explicit new version string (e.g. '0.1.6.1-dev')")
-    parser.add_argument("--patch", action="store_true", help="Increment patch component (default)")
-    parser.add_argument("--minor", action="store_true", help="Increment minor component and reset patch")
-    parser.add_argument("--major", action="store_true", help="Increment major component and reset minor and patch")
-    parser.add_argument("--rev", action="store_true", help="Increment fourth revision/build digit")
-    parser.add_argument("--release", action="store_true", help="Remove '-dev' suffix for a release milestone")
-    parser.add_argument("--dev", action="store_true", help="Ensure '-dev' suffix is present")
-    parser.add_argument("-m", "--message", default=None, help="Changelog entry description message")
-    parser.add_argument("--no-bundle", action="store_true", help="Update version files without synchronizing bundle baseline")
+    parser.add_argument(
+        "-V",
+        "--version",
+        action=integrity._LazyVersionAction,
+        version_fn=integrity.version,
+    )
+    parser.add_argument(
+        "-T",
+        "--test",
+        nargs="?",
+        const=True,
+        default=False,
+        help="Run scoped version-bump self-tests in-process (optional pattern filter)",
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="count", default=0, help="Increase output verbosity"
+    )
+    parser.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
+    parser.add_argument(
+        "target_version",
+        nargs="?",
+        default=None,
+        help="Explicit new version string (e.g. '0.1.6.1-dev')",
+    )
+    parser.add_argument(
+        "--set-version",
+        dest="set_version",
+        default=None,
+        help="Explicit new version string (alias for the positional target version)",
+    )
+    parser.add_argument(
+        "--patch", action="store_true", help="Increment patch component (default)"
+    )
+    parser.add_argument(
+        "--minor", action="store_true", help="Increment minor component and reset patch"
+    )
+    parser.add_argument(
+        "--major",
+        action="store_true",
+        help="Increment major component and reset minor and patch",
+    )
+    parser.add_argument(
+        "--rev", action="store_true", help="Increment fourth revision/build digit"
+    )
+    parser.add_argument(
+        "--release",
+        action="store_true",
+        help="Remove '-dev' suffix for a release milestone",
+    )
+    parser.add_argument(
+        "--dev", action="store_true", help="Ensure '-dev' suffix is present"
+    )
+    parser.add_argument(
+        "-m", "--message", default=None, help="Changelog entry description message"
+    )
+    parser.add_argument(
+        "--no-bundle",
+        action="store_true",
+        help="Update version files without synchronizing bundle baseline",
+    )
     args = parser.parse_args(effective)
+
+    if args.target_version is not None and args.set_version is not None:
+        parser.error("target_version and --set-version are mutually exclusive")
+    explicit_version = (
+        args.set_version if args.set_version is not None else args.target_version
+    )
 
     if args.test is not False:
         from dwimsy.tests import run_tests
+
         pattern = [args.test] if isinstance(args.test, str) else ["meta version-bump"]
         return run_tests(pattern, verbose=max(args.verbose, 1))
 
@@ -288,7 +421,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         new_ver = bump_version(
-            version_str=args.target_version,
+            version_str=explicit_version,
             part=part,
             release=args.release,
             dev=args.dev,

@@ -9,10 +9,11 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-for p in Path(__file__).resolve().parents:
-    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+here = Path(__file__).resolve()
+if len(here.parts) >= 3 and here.parts[-3] == "dwimsy" and here.parts[-2] == "meta":
+    p = here.parents[2]
+    if (p / "dwimsy" / "_version.py").is_file() and str(p) not in sys.path:
         sys.path.insert(0, str(p))
-        break
 
 from dwimsy.meta import bundle, diff, integrity, lint, unbundle, version_bump
 
@@ -56,23 +57,69 @@ def build_parser() -> argparse.ArgumentParser:
         "bundle",
         help="Generate a self-extracting single-file Python unpacker bundle of dwimsy.",
     )
-    p_bundle.add_argument("-o", "--output", default=None, help="Output script path or '-' for stdout")
-    p_bundle.add_argument("-t", "--tag", default=None, help="Optional short descriptive tag/label")
-    p_bundle.add_argument("--baseline", action="store_true", help="Directly emit installed baseline bundle")
-    p_bundle.add_argument("--with-deps", action="store_true", help="Include legacy submodule scaffolding from deps/")
-    p_bundle.add_argument("--status", action="store_true", help="List uncommitted/modified and untracked files")
-    p_bundle.add_argument("--diff", action="store_true", help="Display working tree diff before bundling")
-    p_bundle.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity")
-    p_bundle.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_bundle.add_argument(
+        "-o", "--output", default=None, help="Output script path or '-' for stdout"
+    )
+    p_bundle.add_argument(
+        "-t", "--tag", default=None, help="Optional short descriptive tag/label"
+    )
+    p_bundle.add_argument(
+        "--with-deps",
+        action="store_true",
+        help="Include legacy submodule scaffolding from deps/",
+    )
+    p_bundle.add_argument(
+        "--status",
+        action="store_true",
+        help="List uncommitted/modified and untracked files",
+    )
+    p_bundle.add_argument(
+        "--diff", action="store_true", help="Display working tree diff before bundling"
+    )
+    p_bundle.add_argument(
+        "-f", "--force", action="store_true", help="Force bundle emission"
+    )
+    p_bundle.add_argument(
+        "--baseline", action="store_true", help="Bundle clean baseline"
+    )
+    p_bundle.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build bundle in memory/temp and display manifest without committing",
+    )
+    p_bundle.add_argument(
+        "-v", "--verbose", action="count", default=0, help="Increase verbosity"
+    )
+    p_bundle.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # unbundle
     p_unbundle = subparsers.add_parser(
         "unbundle",
         help="Extract dwimsy standalone bundle to a target directory.",
     )
-    p_unbundle.add_argument("target_directory", nargs="?", default=None, help="Target directory for extraction")
-    p_unbundle.add_argument("--deps", "-d", action="store_true", help="Also extract reference dependencies into deps/")
-    p_unbundle.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_unbundle.add_argument(
+        "target_directory",
+        nargs="?",
+        default=None,
+        help="Target directory for extraction",
+    )
+    p_unbundle.add_argument(
+        "--deps",
+        "-d",
+        action="store_true",
+        help="Also extract reference dependencies into deps/",
+    )
+    p_unbundle.add_argument(
+        "-f", "--force", action="store_true", help="Force unbundle extraction"
+    )
+    p_unbundle.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress progress output"
+    )
+    p_unbundle.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # diff
     p_diff = subparsers.add_parser(
@@ -80,49 +127,77 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show differences between the working tree and embedded baseline.",
     )
     p_diff.add_argument("-r", "--root", default=None, help="Target repository root")
-    p_diff.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_diff.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # integrity
     p_integrity = subparsers.add_parser(
         "integrity",
         help="Verify the canonical portable-project integrity hash.",
     )
-    p_integrity.add_argument("--baseline", action="store_true", help="Inspect embedded baseline")
-    p_integrity.add_argument("-q", "--quiet", action="store_true", help="Suppress output on clean status")
-    p_integrity.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_integrity.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress output on clean status"
+    )
+    p_integrity.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # fetch-deps
     p_fetch = subparsers.add_parser(
         "fetch-deps",
         help="Fetch or materialize legacy reference submodules into deps/.",
     )
-    p_fetch.add_argument("--baseline", action="store_true", help="Force extraction from bundled baseline")
-    p_fetch.add_argument("-f", "--force", action="store_true", help="Overwrite existing deps/ files")
-    p_fetch.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_fetch.add_argument(
+        "-f", "--force", action="store_true", help="Overwrite existing deps/ files"
+    )
+    p_fetch.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # version-bump
     p_bump = subparsers.add_parser(
         "version-bump",
         help="Advance revision, record changelog, and synchronize bundle baseline.",
     )
-    p_bump.add_argument("target_version", nargs="?", default=None, help="Explicit new version string")
-    p_bump.add_argument("--patch", action="store_true", help="Increment patch component")
-    p_bump.add_argument("--minor", action="store_true", help="Increment minor component")
-    p_bump.add_argument("--major", action="store_true", help="Increment major component")
-    p_bump.add_argument("--rev", action="store_true", help="Increment build/revision digit")
+    p_bump.add_argument(
+        "target_version", nargs="?", default=None, help="Explicit new version string"
+    )
+    p_bump.add_argument(
+        "--patch", action="store_true", help="Increment patch component"
+    )
+    p_bump.add_argument(
+        "--minor", action="store_true", help="Increment minor component"
+    )
+    p_bump.add_argument(
+        "--major", action="store_true", help="Increment major component"
+    )
+    p_bump.add_argument(
+        "--rev", action="store_true", help="Increment build/revision digit"
+    )
     p_bump.add_argument("--release", action="store_true", help="Remove -dev suffix")
     p_bump.add_argument("--dev", action="store_true", help="Ensure -dev suffix")
-    p_bump.add_argument("-m", "--message", default=None, help="Changelog description message")
-    p_bump.add_argument("--no-bundle", action="store_true", help="Skip bundle baseline synchronization")
-    p_bump.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_bump.add_argument(
+        "-m", "--message", default=None, help="Changelog description message"
+    )
+    p_bump.add_argument(
+        "--no-bundle", action="store_true", help="Skip bundle baseline synchronization"
+    )
+    p_bump.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # lint
     p_lint = subparsers.add_parser(
         "lint",
         help="Verify repository headers, docstrings, markdown syntax, and dash policy.",
     )
-    p_lint.add_argument("-q", "--quiet", action="store_true", help="Suppress output on success")
-    p_lint.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_lint.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress output on success"
+    )
+    p_lint.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # bundle-fixtures (placeholder)
     subparsers.add_parser(
@@ -152,6 +227,20 @@ def format_meta_help_all(parser: argparse.ArgumentParser) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     effective = sys.argv[1:] if argv is None else list(argv)
+    from dwimsy.cli.dispatch import early_dispatch
+
+    handled, effective = early_dispatch(
+        effective, ["meta"], use_process_argv0=(argv is None)
+    )
+    if handled:
+        return 0
+    from dwimsy.cli.dispatch import early_dispatch
+
+    handled, effective = early_dispatch(
+        effective, ["meta"], use_process_argv0=(argv is None)
+    )
+    if handled:
+        return 0
 
     test_arg = None
     for a in effective:
@@ -166,6 +255,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             elif a.startswith("-") and len(a) > 1 and all(c == "v" for c in a[1:]):
                 verbosity = max(verbosity + len(a) - 1, 2)
         from dwimsy.tests import run_tests
+
         pattern = None
         if test_arg.startswith("--test="):
             pattern = [test_arg.split("=", 1)[1]]
@@ -189,11 +279,21 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if any(a == "--help-all" for a in effective):
         non_flags = [a for a in effective if not a.startswith("-")]
-        if len(non_flags) > 0 and non_flags[0] in ("bundle", "unbundle", "diff", "integrity", "fetch-deps", "version-bump", "lint", "bundle-fixtures"):
+        if len(non_flags) > 0 and non_flags[0] in (
+            "bundle",
+            "unbundle",
+            "diff",
+            "integrity",
+            "fetch-deps",
+            "version-bump",
+            "lint",
+            "bundle-fixtures",
+        ):
             effective = ["-h" if a == "--help-all" else a for a in effective]
         else:
             parser = build_parser()
             from dwimsy.cli.__main__ import safe_page
+
             safe_page(format_meta_help_all(parser))
             return 0
 
@@ -208,16 +308,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         return bundle.run_meta_bundle(args)
     elif args.meta_command == "unbundle":
         if not getattr(args, "target_directory", None):
-            print("usage: dwimsy meta unbundle [-h] [--deps] target_directory", file=sys.stderr)
+            print(
+                "usage: dwimsy meta unbundle [-h] [--deps] target_directory",
+                file=sys.stderr,
+            )
             return 1
-        unbundle.extract_b64_lzma_tar(
-            unbundle.blztar,
-            args.target_directory,
-            self_path=sys.argv[0],
-            with_deps=args.deps,
-        )
-        print(f"Successfully extracted to {args.target_directory}")
-        return 0
+        try:
+            unbundle.safe_unbundle(
+                b64_string=unbundle._get_active_blztar(),
+                output_dir=args.target_directory,
+                with_deps=args.deps,
+                force=getattr(args, "force", False),
+                dry_run=getattr(args, "dry_run", False),
+                quiet=getattr(args, "quiet", False),
+            )
+            return 0
+        except RuntimeError as e:
+            print(str(e), file=sys.stderr)
+            return 1
     elif args.meta_command == "diff":
         root_path = Path(args.root).resolve() if getattr(args, "root", None) else None
         out = diff.render_diff(root_path)
@@ -225,11 +333,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             sys.stdout.write(out)
         return 0
     elif args.meta_command == "integrity":
-        baseline = getattr(args, "baseline", False)
-        current = integrity.canonical_code_hash(baseline=baseline)
-        sealed = integrity.sealed_code_hash(baseline=baseline)
-        modified = integrity.is_modified(baseline=baseline)
-        ver_str = integrity.version() if not baseline else integrity._version_values(baseline=True).get("__version__", "")
+        current = integrity.canonical_code_hash()
+        sealed = integrity.sealed_code_hash()
+        modified = integrity.is_modified()
+        ver_str = integrity.version()
         if not getattr(args, "quiet", False):
             print(f"Canonical hash : {current}")
             print(f"Sealed hash    : {sealed or '(unsealed)'}")
@@ -267,7 +374,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("[SUCCESS] All repository lint checks passed cleanly.")
         return 0
     elif args.meta_command == "bundle-fixtures":
-        print("[NOT IMPLEMENTED] 'dwimsy meta bundle-fixtures' is scheduled for Milestone 1.6.", file=sys.stderr)
+        print(
+            "[NOT IMPLEMENTED] 'dwimsy meta bundle-fixtures' is scheduled for Milestone 1.6.",
+            file=sys.stderr,
+        )
         return 1
     else:
         parser.print_help(sys.stderr)

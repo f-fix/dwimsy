@@ -13,18 +13,30 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 from pathlib import Path
 from typing import List, Optional
 
-for p in Path(__file__).resolve().parents:
-    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+here = Path(__file__).resolve()
+if len(here.parts) >= 3 and here.parts[-3] == "dwimsy" and here.parts[-2] == "meta":
+    p = here.parents[2]
+    if (p / "dwimsy" / "_version.py").is_file() and str(p) not in sys.path:
         sys.path.insert(0, str(p))
-        break
 
 from dwimsy.meta import integrity, unbundle
+from dwimsy.meta.unbundle import extract_b64_lzma_tar
+from dwimsy.meta.versions import (
+    VersionSpace,
+    Stream,
+    Layer,
+    compute_tree_delta,
+    portable_path_error,
+)
 
 
-_BLZTAR_RE = re.compile(rb'(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?P<data>.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)')
+_BLZTAR_RE = re.compile(
+    rb"(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?P<data>.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)"
+)
 
 
 def elide_blztar_bytes(data: bytes) -> bytes:
@@ -33,7 +45,13 @@ def elide_blztar_bytes(data: bytes) -> bytes:
     match = _BLZTAR_RE.search(data)
     if match is None:
         raise ValueError("unbundle.py does not contain a blztar assignment")
-    return data[:match.start()] + match.group("prefix") + b"\n" + match.group("suffix") + data[match.end():]
+    return (
+        data[: match.start()]
+        + match.group("prefix")
+        + b"\n"
+        + match.group("suffix")
+        + data[match.end() :]
+    )
 
 
 def inject_blztar_bytes(template: bytes, b64_string: str) -> bytes:
@@ -43,14 +61,87 @@ def inject_blztar_bytes(template: bytes, b64_string: str) -> bytes:
     if match is None:
         raise ValueError("unbundle.py template does not contain a blztar assignment")
     payload = b"".join(b64_string.encode("ascii").split())
-    lines = b"\n".join(payload[i:i + 76] for i in range(0, len(payload), 76))
+    lines = b"\n".join(payload[i : i + 76] for i in range(0, len(payload), 76))
     replacement = match.group("prefix") + b"\n" + lines + b"\n" + match.group("suffix")
-    return template[:match.start()] + replacement + template[match.end():]
+    return template[: match.start()] + replacement + template[match.end() :]
 
 
 def find_repo_root(start: Optional[Path] = None) -> Path:
     """Locate the root directory of the dwimsy repository or extracted tree."""
     return integrity.find_repo_root(start)
+
+
+def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, bytes]:
+    """Return the deterministic portable file tree used by bundle creation."""
+    result: dict[str, bytes] = {}
+    invalid_paths: list[tuple[str, str]] = []
+    for p in repo_root.rglob("*"):
+        rel = p.relative_to(repo_root)
+        parts = rel.parts
+        if any(part in (".git", "__pycache__", ".pytest_cache") for part in parts):
+            continue
+        if not with_deps and parts and parts[0] == "deps":
+            continue
+        if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
+            continue
+        if p.name == "restore_dwimsy.py" or (
+            p.name.startswith("dwimsy_") and p.suffix in (".py", ".pyz")
+        ):
+            continue
+        if p.is_file():
+            name = rel.as_posix()
+            err = portable_path_error(name)
+            if err:
+                invalid_paths.append((name, err))
+                continue
+            data = p.read_bytes()
+            if name == "dwimsy/meta/unbundle.py":
+                data = elide_blztar_bytes(data)
+            result[name] = data
+    if with_deps and not any(k.startswith("deps/") for k in result):
+        embedded_assets = unbundle.materialize_stream0_assets()
+        for k, v in embedded_assets.items():
+            clean_k = (
+                k[len("<dwimsy-bundle>/") :] if k.startswith("<dwimsy-bundle>/") else k
+            )
+            if clean_k.startswith("deps/"):
+                result[clean_k] = v
+
+    if invalid_paths:
+        details = "\n".join(err for _name, err in invalid_paths)
+        raise ValueError("Cannot bundle non-portable paths:\n" + details)
+
+    # If deps are absent on disk, use the embedded dependency shadow.
+    if with_deps and not any(k == "deps" or k.startswith("deps/") for k in result):
+        # In a checkout, only shadow dependencies explicitly declared by
+        # .gitmodules may be restored from the embedded bundle. Standalone
+        # bundles have no live .gitmodules and may use the embedded copy.
+        declared = set()
+        gm = repo_root / ".gitmodules"
+        if gm.is_file():
+            for line in gm.read_text(encoding="utf-8", errors="replace").splitlines():
+                m = re.match(r"\s*path\s*=\s*(.+?)\s*$", line)
+                if m:
+                    declared.add(m.group(1).strip().replace("\\", "/"))
+        try:
+            with unbundle._open_bundle_tar() as src_tar:
+                for m in src_tar.getmembers():
+                    name = m.name.removeprefix("./")
+                    if not (name == "deps" or name.startswith("deps/")):
+                        continue
+                    dep_root = name.split("/", 2)[:2]
+                    dep_path = "/".join(dep_root) if len(dep_root) >= 2 else name
+                    if gm.is_file() and not any(
+                        dep_path == d or dep_path.startswith(d.rstrip("/") + "/")
+                        for d in declared
+                    ):
+                        continue
+                    f = src_tar.extractfile(m) if m.isfile() else None
+                    if f is not None:
+                        result[name] = f.read()
+        except Exception:
+            pass
+    return result
 
 
 def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
@@ -69,7 +160,8 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
             if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
                 continue
             if p.name == "restore_dwimsy.py" or (
-                p.name.startswith("dwimsy_") and p.name.endswith(".py")
+                p.name.startswith("dwimsy_")
+                and (p.name.endswith(".py") or p.name.endswith(".pyz"))
             ):
                 continue
 
@@ -83,7 +175,7 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
             try:
                 with unbundle._open_bundle_tar() as src_tar:
                     for m in src_tar.getmembers():
-                        norm = m.name.lstrip("./")
+                        norm = m.name.removeprefix("./")
                         if norm == "deps" or norm.startswith("deps/"):
                             arcname = "./" + norm
                             tarinfo = tarfile.TarInfo(name=arcname)
@@ -111,6 +203,30 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
             except Exception:
                 pass
 
+        if "./dwimsy/meta/unbundle.py" not in disk_entries:
+            try:
+                unbundle_template = unbundle.get_asset("dwimsy/meta/unbundle.py")
+                tarinfo = tarfile.TarInfo(name="./dwimsy/meta/unbundle.py")
+                tarinfo.type = tarfile.REGTYPE
+                tarinfo.size = len(unbundle_template)
+                tarinfo.mode = 0o755
+                tarinfo.mtime = int(time.time())
+                fallback_entries["./dwimsy/meta/unbundle.py"] = tarinfo
+                fallback_data["./dwimsy/meta/unbundle.py"] = unbundle_template
+            except Exception:
+                pass
+        if "./dwimsy/meta/unbundle.py" not in disk_entries:
+            try:
+                unbundle_template = unbundle.get_asset("dwimsy/meta/unbundle.py")
+                tarinfo = tarfile.TarInfo(name="./dwimsy/meta/unbundle.py")
+                tarinfo.type = tarfile.REGTYPE
+                tarinfo.size = len(unbundle_template)
+                tarinfo.mode = 0o755
+                tarinfo.mtime = int(time.time())
+                fallback_entries["./dwimsy/meta/unbundle.py"] = tarinfo
+                fallback_data["./dwimsy/meta/unbundle.py"] = unbundle_template
+            except Exception:
+                pass
         all_arcnames = sorted(set(disk_entries.keys()) | set(fallback_entries.keys()))
 
         for arcname in all_arcnames:
@@ -159,21 +275,51 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
 
 
 def build_bundle_script(
-    repo_root: Optional[Path] = None, with_deps: bool = True, preset: int = 9
+    repo_root: Optional[Path] = None,
+    with_deps: bool = True,
+    preset: int = (9 | lzma.PRESET_EXTREME),
+    version_space: Optional[VersionSpace] = None,
 ) -> str:
-    """Pack the repository tree into a standalone self-extracting Python script string."""
+    """Pack the repository or supplied VersionSpace into a standalone bundle."""
     root = find_repo_root(repo_root)
-    tar_bytes = create_tar_archive(root, with_deps=with_deps)
-    lzma_bytes = lzma.compress(tar_bytes, preset=preset)
-    b64_str = base64.b64encode(lzma_bytes).decode("ascii")
-    b64_lines = "\n".join(b64_str[i : i + 76] for i in range(0, len(b64_str), 76))
+    if version_space is None:
+        tar_bytes = create_tar_archive(root, with_deps=with_deps)
+        lzma_bytes = lzma.compress(tar_bytes, preset=preset)
+        b64_str = base64.b64encode(lzma_bytes).decode("ascii")
+    else:
+        b64_str = version_space.to_blztar()
 
     unbundle_file = root / "dwimsy" / "meta" / "unbundle.py"
-    if not unbundle_file.is_file():
-        unbundle_file = Path(unbundle.__file__).resolve()
-
-    template = unbundle_file.read_bytes()
+    if unbundle_file.is_file():
+        template = unbundle_file.read_bytes()
+    else:
+        template = unbundle.get_asset("dwimsy/meta/unbundle.py")
     return inject_blztar_bytes(elide_blztar_bytes(template), b64_str).decode("utf-8")
+
+
+def write_pyz_bundle(script_text: str, output_path: Path) -> None:
+    """Generate a compressed .pyz bundle using stdlib zipapp."""
+    import zipapp
+
+    with tempfile.TemporaryDirectory() as staging:
+        st_path = Path(staging)
+        main_py = st_path / "__main__.py"
+        main_py.write_text(script_text, encoding="utf-8")
+        try:
+            main_py.chmod(0o755)
+        except OSError:
+            pass
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        zipapp.create_archive(
+            st_path,
+            target=output_path,
+            interpreter="/usr/bin/env python3",
+            compressed=True,
+        )
+        try:
+            output_path.chmod(0o755)
+        except OSError:
+            pass
 
 
 def get_default_bundle_name(
@@ -184,6 +330,7 @@ def get_default_bundle_name(
 ) -> str:
     """Derive standard bundle filename."""
     from dwimsy.meta import diff
+
     root = find_repo_root(repo_root)
     pkg_ver = integrity.version(root=root)
     if is_baseline:
@@ -199,153 +346,112 @@ def get_default_bundle_name(
 
 
 def run_meta_bundle(args, stdout=None, stderr=None) -> int:
-    if stdout is None:
-        stdout = sys.stdout
-    if stderr is None:
-        stderr = sys.stderr
-    """CLI handler for 'dwimsy meta bundle'."""
-    repo_root = find_repo_root()
+    """Generate a bundle while preserving the current VersionSpace history."""
+    stdout = stdout or sys.stdout
+    stderr = stderr or sys.stderr
+    cwd = Path.cwd().resolve()
+    # In standalone mode the Python package itself lives in the in-memory
+    # bundle, but `meta bundle` is a disk-facing preparation operation.  If
+    # the caller is standing in an extracted dwimsy tree, use that tree as
+    # the source rather than the virtual package root.
+    if (cwd / "dwimsy" / "__init__.py").is_file():
+        root = cwd
+    else:
+        root = find_repo_root()
 
     if getattr(args, "status", False):
         res = subprocess.run(
-            ["git", "status", "-s"], cwd=repo_root, capture_output=True, text=True
+            ["git", "status", "-s"], cwd=root, capture_output=True, text=True
         )
         if res.returncode == 0 and res.stdout.strip():
-            print("=== Working Tree Git Status ===", file=stderr)
+            print("=== Working Tree Status ===", file=stderr)
             print(res.stdout.strip(), file=stderr)
 
     if getattr(args, "diff", False):
         from dwimsy.meta.diff import render_diff
-        diff_text = render_diff(repo_root)
+
+        diff_text = render_diff(root)
         if diff_text:
             stdout.write(diff_text)
 
-    if getattr(args, "baseline", False):
-        try:
-            template = unbundle.get_asset("dwimsy/meta/unbundle.py")
-        except FileNotFoundError:
-            # Legacy baseline bundles predate the embedded template. New bundles
-            # always carry it; keep older baselines usable during the transition.
-            template = elide_blztar_bytes((repo_root / "dwimsy" / "meta" / "unbundle.py").read_bytes())
-        script_text = inject_blztar_bytes(template, unbundle.blztar).decode("utf-8")
-        out_name = args.output or get_default_bundle_name(repo_root, is_baseline=True)
+    raw_b64 = unbundle._get_active_blztar()
+    vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
+    primary = vspace.streams[0]
+    head = primary.get_head_version()
+    old_state = primary.materialize_layer_state(head.ordinal) if head else {}
+    new_state = create_tree_state(root, with_deps=True)
+    delta = compute_tree_delta(old_state, new_state) if head else dict(new_state)
+    if "dwimsy/_version.py" in new_state:
+        delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
+    current_tag = integrity.version(root=root)
+    if head and (
+        head.tag.split("+")[0].lower() == current_tag.split("+")[0].lower()
+        or "+mod." in head.tag.lower()
+    ):
+        primary.layers[-1] = Layer(delta, is_delta=True, version_tag=current_tag)
+        primary.mark_mutated()
+    elif delta or not head:
+        primary.layers.append(Layer(delta, is_delta=True, version_tag=current_tag))
+        primary.mark_mutated()
 
-        if out_name == "-":
-            stdout.write(script_text)
-        else:
-            out_path = Path(out_name).resolve()
-            out_path.write_text(script_text, encoding="utf-8")
-            try:
-                out_path.chmod(0o755)
-            except OSError:
-                pass
-            print(f"[SUCCESS] Generated bundle -> {out_path}", file=stderr)
-        return 0
+    script_text = build_bundle_script(root, with_deps=True, version_space=vspace)
+    out_name = getattr(args, "output", None) or vspace.composite_bundle_name(".py")
 
-    # Multi-phase build
-    with_deps = getattr(args, "with_deps", False)
-    tag = getattr(args, "tag", None)
-    out_name = args.output or get_default_bundle_name(
-        repo_root,
-        tag=tag,
-        with_deps=with_deps,
-        is_baseline=False,
-    )
-
+    # Verify the generated bundle in an isolated extraction before publishing it.
     with tempfile.TemporaryDirectory(prefix="dwimsy_bundle_") as tmp:
-        tmp_path = Path(tmp)
-        # Phase 1: Build stage 1 bundle script in temporary directory
-        stage1_script = build_bundle_script(
-            repo_root=repo_root, with_deps=True, preset=0
+        tmpdir = Path(tmp)
+        stage = tmpdir / "bundle.py"
+        stage.write_text(script_text, encoding="utf-8")
+        unpacked = tmpdir / "unpacked"
+        extract_b64_lzma_tar(
+            vspace.to_blztar(), unpacked, self_path=stage, with_deps=False
         )
-        stage1_bundle_file = tmp_path / "stage1_bundle.py"
-        stage1_bundle_file.write_text(stage1_script, encoding="utf-8")
-
-        # Phase 2: Extract stage 1 bundle to an isolated unpacked/ directory with with_deps=False
-        unpacked_dir = tmp_path / "unpacked"
-        m_b = re.search(r'blztar = """\n([\s\S]*?)\n"""', stage1_script)
-        stage1_blztar = m_b.group(1) if m_b else unbundle.blztar
-        unbundle.extract_b64_lzma_tar(
-            stage1_blztar,
-            unpacked_dir,
-            self_path=stage1_bundle_file,
-            with_deps=False,
-        )
-
-        # Phase 3: Rebundle from unpacked/ (verifying in-memory dependency splicing)
-        stage2_script = build_bundle_script(repo_root=unpacked_dir, with_deps=True)
-
-        # Phase 4: Run tests on unpacked_dir with os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
         from dwimsy.tests import run_tests
 
-        verbosity = getattr(args, "verbose", 0) or 0
-        if isinstance(verbosity, bool):
-            verbosity = 2 if verbosity else 0
-        elif verbosity > 0:
-            verbosity = max(verbosity + 1, 2)
-
+        test_buf = io.StringIO()
         old_env = os.environ.get("DWIMSY_BUNDLE_BUILD")
         os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
-        test_stream = io.StringIO()
         try:
             rc = run_tests(
                 patterns=None,
-                verbose=verbosity,
-                stream=test_stream,
-                repo_root=unpacked_dir,
+                verbose=(getattr(args, "verbose", 0) or 0),
+                stream=test_buf,
+                repo_root=unpacked,
             )
-            if verbosity > 0:
-                stderr.write(test_stream.getvalue())
-                stderr.flush()
         finally:
             if old_env is None:
                 os.environ.pop("DWIMSY_BUNDLE_BUILD", None)
             else:
                 os.environ["DWIMSY_BUNDLE_BUILD"] = old_env
-            for mod_name in list(sys.modules.keys()):
-                if (
-                    mod_name.startswith("test_")
-                    or mod_name == "tests"
-                    or mod_name.startswith("tests.")
-                    or mod_name == "dwimsy"
-                    or mod_name.startswith("dwimsy.")
-                ):
-                    del sys.modules[mod_name]
-
-        # Phase 5 & 6
-        if rc == 0:
-            if out_name == "-":
-                stdout.write(stage2_script)
-            else:
-                out_path = Path(out_name).resolve()
-                out_path.write_text(stage2_script, encoding="utf-8")
-                try:
-                    out_path.chmod(0o755)
-                except OSError:
-                    pass
-                print(f"[SUCCESS] Generated bundle -> {out_path}", file=stderr)
-            return 0
-        else:
-            err_details = test_stream.getvalue()
-            out_p = Path(out_name)
-            stem = out_p.stem
-            suffix = out_p.suffix or ".py"
-            failed_name = f"{stem}_failed_{rc}_tests{suffix}"
-            if out_name == "-":
-                failed_path = Path(failed_name).resolve()
-            else:
-                failed_path = out_p.with_name(failed_name).resolve()
-
-            failed_path.write_text(stage2_script, encoding="utf-8")
-            try:
-                failed_path.chmod(0o755)
-            except OSError:
-                pass
-            print(
-                f"[FAILURE] Test suite failed ({rc} failed test(s)). Diagnostic bundle saved to {failed_path}\n{err_details}",
-                file=stderr,
+        if getattr(args, "verbose", 0) and test_buf.getvalue():
+            stderr.write(test_buf.getvalue())
+            stderr.flush()
+        if rc != 0:
+            failed = Path(out_name).with_name(
+                Path(out_name).stem
+                + f"_failed_{rc}_tests"
+                + (Path(out_name).suffix or ".py")
             )
+            failed.write_text(script_text, encoding="utf-8")
+            failed.chmod(0o755)
+            if test_buf.getvalue():
+                stderr.write(test_buf.getvalue())
             return 1
+
+    if out_name == "-":
+        stdout.write(script_text)
+        return 0
+    out_path = Path(out_name).resolve()
+    if out_path.suffix == ".py":
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(script_text, encoding="utf-8")
+        out_path.chmod(0o755)
+    elif out_path.suffix == ".pyz":
+        write_pyz_bundle(script_text, out_path)
+    else:
+        raise ValueError(f"Unsupported output extension '{out_path.suffix}'")
+    print(f"[SUCCESS] Generated bundle -> {out_path}", file=stderr)
+    return 0
 
 
 def run_meta_fetch_deps(args, stdout=None, stderr=None) -> int:
@@ -354,10 +460,21 @@ def run_meta_fetch_deps(args, stdout=None, stderr=None) -> int:
     if stderr is None:
         stderr = sys.stderr
     """CLI handler for 'dwimsy meta fetch-deps'."""
-    repo_root = find_repo_root()
+    cwd = Path.cwd().resolve()
+    # When invoked from an extracted/relocated tree, that tree is the target
+    # for dependency materialization even though the dispatcher itself may
+    # have been imported from another checkout.
+    if (cwd / "dwimsy" / "__init__.py").is_file():
+        repo_root = cwd
+    else:
+        repo_root = find_repo_root()
     deps_dir = repo_root / "deps"
 
-    use_baseline = getattr(args, "baseline", False) or not (repo_root / ".git").exists()
+    # `--version=baseline` is consumed by the universal VersionSpace
+    # dispatcher before this handler runs.  Dependency materialization is
+    # therefore based on the active embedded payload here; the selected
+    # version has already determined that payload.
+    use_baseline = not (repo_root / ".git").exists()
 
     if not use_baseline:
         res = subprocess.run(
@@ -394,102 +511,111 @@ def run_meta_fetch_deps(args, stdout=None, stderr=None) -> int:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    """CLI entrypoint for running dwimsy.meta.bundle directly."""
+    """CLI entrypoint for building standalone bundles in either format."""
     effective = sys.argv[1:] if argv is None else list(argv)
+    from dwimsy.cli.dispatch import early_dispatch
 
-    test_arg = None
-    for a in effective:
-        if a in ("-T", "--test") or a.startswith("--test="):
-            test_arg = a
-            break
-    if test_arg is not None:
-        verbosity = 1
-        for a in effective:
-            if a in ("-v", "--verbose"):
-                verbosity = max(verbosity + 1, 2)
-            elif a.startswith("-") and len(a) > 1 and all(c == "v" for c in a[1:]):
-                verbosity = max(verbosity + len(a) - 1, 2)
+    handled, effective = early_dispatch(
+        effective, ["meta", "bundle"], use_process_argv0=(argv is None)
+    )
+    if handled:
+        return 0
+    if any(a in ("-T", "--test") or a.startswith("--test=") for a in effective):
+        test_arg = next(
+            a for a in effective if a in ("-T", "--test") or a.startswith("--test=")
+        )
+        verbosity = 1 + sum(1 for a in effective if a in ("-v", "--verbose"))
         from dwimsy.tests import run_tests
-        pattern = None
-        if test_arg.startswith("--test="):
-            pattern = [test_arg.split("=", 1)[1]]
-        else:
-            pattern = ["meta bundle"]
-        return run_tests(pattern, verbose=verbosity)
 
-    if any(a == "--help-all" for a in effective):
-        effective = ["-h" if a == "--help-all" else a for a in effective]
+        pattern = (
+            [test_arg.split("=", 1)[1]]
+            if test_arg.startswith("--test=")
+            else ["meta bundle"]
+        )
+        return run_tests(pattern, verbose=max(verbosity, 1))
 
     parser = argparse.ArgumentParser(
         prog="dwimsy-bundle",
-        description="Generate a self-extracting single-file Python unpacker bundle of dwimsy.",
+        description="Build self-extracting dwimsy standalone bundles.",
     )
     parser.add_argument(
         "-V",
         "--version",
-        action="version",
-        version=f"%(prog)s {integrity.version()}",
+        action=integrity._LazyVersionAction,
+        version_fn=integrity.version,
     )
+    parser.add_argument("-T", "--test", nargs="?", const=True, default=False)
+    parser.add_argument("-v", "--verbose", action="count", default=0)
     parser.add_argument(
-        "-T",
-        "--test",
-        nargs="?",
-        const=True,
-        default=False,
-        help="Run scoped bundle self-tests in-process (optional pattern filter)",
+        "-o", "--output", default=None, help="Output bundle filepath (.py, .pyz, or -)"
     )
-    parser.add_argument(
-        "-o",
-        "--output",
-        default=None,
-        help="Output script path or '-' for stdout (default: auto-derived)",
-    )
-    parser.add_argument(
-        "-t",
-        "--tag",
-        default=None,
-        help="Optional short descriptive tag/label (e.g. 'parser-fix')",
-    )
-    parser.add_argument(
-        "--baseline",
-        action="store_true",
-        help="Directly emit the installed canonical baseline bundle module (dwimsy/meta/unbundle.py) as output without bundling working tree",
-    )
-    parser.add_argument(
-        "--with-deps",
-        action="store_true",
-        help="Include legacy submodule scaffolding from deps/",
-    )
-    parser.add_argument(
-        "--status",
-        action="store_true",
-        help="List uncommitted/modified and untracked files before bundling",
-    )
-    parser.add_argument(
-        "--diff",
-        action="store_true",
-        help="Display working tree git diff on stderr before bundling",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase verbosity of bundle build and test verification",
-    )
-    parser.add_argument(
-        "--help-all",
-        action="store_true",
-        help="Show full help documentation and exit",
-    )
+    parser.add_argument("--version-include", action="append", default=[])
+    parser.add_argument("--version-restrict-to", default=None)
+    parser.add_argument("--version-prune", default=None)
+    parser.add_argument("--version-splice", default=None)
+    parser.add_argument("--version-alt", nargs="?", const=True, default=False)
     args = parser.parse_args(effective)
 
-    if args.test is not False:
-        from dwimsy.tests import run_tests
-        pattern = [args.test] if isinstance(args.test, str) else ["meta bundle"]
-        return run_tests(pattern, verbose=max(args.verbose, 1))
+    root = integrity.find_repo_root()
+    if integrity.is_standalone_bundle() or "<dwimsy-bundle>" in str(__file__):
+        root = Path.cwd()
+    raw_b64 = unbundle._get_active_blztar()
+    vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
+    if vspace.streams and root.exists():
+        primary = vspace.streams[0]
+        head = primary.get_head_version()
+        old_state = primary.materialize_layer_state(head.ordinal) if head else {}
+        new_state = create_tree_state(root, with_deps=True)
+        delta = compute_tree_delta(old_state, new_state) if head else new_state
+        v_tag = integrity.version(root=root).split("+")[0]
+        if head and (
+            head.tag.split("+")[0].lower() == v_tag.split("+")[0].lower()
+            or "+mod." in head.tag.lower()
+        ):
+            primary.layers[-1] = Layer(delta, is_delta=True, version_tag=v_tag)
+            primary.mark_mutated()
+        elif delta or not head:
+            primary.layers.append(Layer(delta, is_delta=True, version_tag=v_tag))
+            primary.mark_mutated()
+    alt_val = (
+        (True, args.version_alt)
+        if isinstance(args.version_alt, str)
+        else (bool(args.version_alt), None)
+    )
+    vspace.run_pipeline(
+        includes=args.version_include,
+        restrict_to=args.version_restrict_to,
+        prune=args.version_prune,
+        splice=args.version_splice,
+        alt=alt_val,
+    )
+    script_text = build_bundle_script(root, version_space=vspace)
 
-    return run_meta_bundle(args)
+    if args.output == "-":
+        sys.stdout.write(script_text)
+        return 0
+    if args.output is not None:
+        p = Path(args.output)
+        if p.suffix == ".py":
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(script_text, encoding="utf-8")
+        elif p.suffix == ".pyz":
+            write_pyz_bundle(script_text, p)
+        else:
+            print(
+                f"error: unsupported output extension '{p.suffix}'. Expected '.py' or '.pyz' (or '-' for stdout).",
+                file=sys.stderr,
+            )
+            return 1
+        return 0
+
+    py_name = vspace.composite_bundle_name(".py")
+    py_path = root / py_name
+    pyz_path = py_path.with_suffix(".pyz")
+    py_path.write_text(script_text, encoding="utf-8")
+    write_pyz_bundle(script_text, pyz_path)
+    return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

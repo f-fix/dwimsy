@@ -1,4 +1,4 @@
-"""dwimsy - Retrocomputing media preservation, demodulation, restoration, and mastering."""
+"""dwimsy - Retrocomputing media preservation, demodulation, restoration, and preparation."""
 
 from dwimsy._version import __version__
 

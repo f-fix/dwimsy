@@ -17,7 +17,11 @@ class TestLintMarkdown(unittest.TestCase):
 
         for p in md_files:
             rel = p.relative_to(pkg_root).as_posix()
-            if rel.startswith("deps"):
+            if (
+                rel.startswith("deps")
+                or rel.startswith("<dwimsy-bundle>/deps")
+                or "/deps/" in rel
+            ):
                 continue
             text = p.read_text(encoding="utf-8")
 
@@ -48,9 +52,13 @@ class TestLintMarkdown(unittest.TestCase):
             # Check 3: Check for forbidden em and en dashes
             for i, line in enumerate(text.splitlines(), start=1):
                 if "\u2014" in line:
-                    errors.append(f"{rel}:{i}: contains forbidden em dash (U+2014); use ASCII hyphen-minus '-' instead")
+                    errors.append(
+                        f"{rel}:{i}: contains forbidden em dash (U+2014); use ASCII hyphen-minus '-' instead"
+                    )
                 if "\u2013" in line:
-                    errors.append(f"{rel}:{i}: contains forbidden en dash (U+2013); use ASCII hyphen-minus '-' instead")
+                    errors.append(
+                        f"{rel}:{i}: contains forbidden en dash (U+2013); use ASCII hyphen-minus '-' instead"
+                    )
 
         self.assertEqual(errors, [], "Markdown lint failures:\n" + "\n".join(errors))
 

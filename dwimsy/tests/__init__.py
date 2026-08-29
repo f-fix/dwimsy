@@ -127,26 +127,26 @@ def _extract_tests_from_bundle(target_dir: Path) -> Path:
 
     prefixes = ("tests/", "dwimsy/")
     top_assets = {"README.md", "LICENSE", "CHANGELOG.md", ".gitignore", ".gitmodules"}
-    with unbundle._open_bundle_tar() as tar:
-        for m in tar.getmembers():
-            norm_name = m.name[2:] if m.name.startswith("./") else m.name
-            include = norm_name.startswith(prefixes) or norm_name in top_assets
-            if not include or not m.isfile():
-                continue
-            f = tar.extractfile(m)
-            if f is None:
-                continue
-            dest = target_dir / norm_name
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            data = f.read()
-            if norm_name == "dwimsy/meta/unbundle.py":
-                continue
+    assets = unbundle.materialize_stream0_assets()
+    for norm_name, data in assets.items():
+        if norm_name.startswith("<dwimsy-bundle>/"):
+            norm_name = norm_name[len("<dwimsy-bundle>/") :]
+        include = norm_name.startswith(prefixes) or norm_name in top_assets
+        if not include:
+            continue
+        dest = target_dir / norm_name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if norm_name == "dwimsy/meta/unbundle.py":
+            dest.write_bytes(
+                unbundle.inject_blztar_bytes(data, unbundle._get_active_blztar())
+            )
+        else:
             dest.write_bytes(data)
-            if dest.suffix == ".py" and data.startswith(b"#!"):
-                try:
-                    dest.chmod(0o755)
-                except OSError:
-                    pass
+        if dest.suffix == ".py" and data.startswith(b"#!"):
+            try:
+                dest.chmod(0o755)
+            except OSError:
+                pass
 
     return tests_out
 
@@ -255,6 +255,13 @@ def run_tests(
     if disk_tests is not None and any(disk_tests.glob("test_*.py")):
         root = disk_tests.parent
         orig_sys_path = list(sys.path)
+        removed_finders = [
+            f
+            for f in sys.meta_path
+            if hasattr(f, "b64_string") or "BundleFinder" in type(f).__name__
+        ]
+        for f in removed_finders:
+            sys.meta_path.remove(f)
         if str(disk_tests) in sys.path:
             sys.path.remove(str(disk_tests))
         if str(root) in sys.path:
@@ -278,6 +285,9 @@ def run_tests(
             )
         finally:
             sys.path[:] = orig_sys_path
+            for f in removed_finders:
+                if f not in sys.meta_path:
+                    sys.meta_path.insert(0, f)
     else:
         with tempfile.TemporaryDirectory(prefix="dwimsy_test_") as tmp:
             tmp_path = Path(tmp)

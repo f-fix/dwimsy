@@ -1,11 +1,11 @@
 # dwimsy
-dwimsy - retrocomputing media preservation, demodulation, restoration, and mastering
+dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation
 
-**Version: 0.1.6.3-dev** (Milestone 1.6 [IN PROGRESS], 2026-08-26)
+**Version: 0.1.6.48-dev** (Milestone 1.6 [IN PROGRESS], 2026-08-29)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
-> 
+>
 > A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
 > [!IMPORTANT]
@@ -86,10 +86,11 @@ grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 13. [Format & Protocol Technical Reference Guide](#13-format--protocol-technical-reference-guide)
 14. [Revision History](#14-revision-history)
 15. [Note on the code and the tools used to write it](#15-note-on-the-code-and-the-tools-used-to-write-it)
+16. [Multi-Stream Version Reconciliation, In-Memory Bootloader & Isolation](#16-multi-stream-version-reconciliation-in-memory-bootloader--isolation)
 ---
 ## 1. Overview & Approach
 
-`dwimsy` is a modular Python toolkit and real-time media transducer for decoding, restoring, converting, and analyzing vintage computer media (cassette audio, disk images, ROM cartridges, and stream dumps). 
+`dwimsy` is a modular Python toolkit and real-time media transducer for decoding, restoring, converting, and analyzing vintage computer media (cassette audio, disk images, ROM cartridges, and stream dumps).
 
 It is designed to grow incrementally, adding support for new computer platforms, physical media types, modulations, filesystems, and recovery scenarios over time.
 
@@ -101,7 +102,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Always-Available User Channel & Ephemeral Imports**: The supervisor import/export channel is always active. Images imported into a session are held ephemerally in the Virtual Image Root without touching host directories unless explicitly exported.
 * **Ephemeral In-Memory / Crash-Safe Mode (`--ephemeral`)**: When activated, ensures that no write overlays, generated save tapes, or session modifications are persisted to disk or persistent cache across runs, remaining clean even after sudden termination or power loss. Temporary storage uses auto-cleaned scratch directories or RAM.
 * **Preservation Before Interpretation**: A preservation workflow should capture and retain the highest-fidelity available source signal before conditioning, decoding, timebase correction, canonicalization, or synthesis. Derived artifacts are never substitutes for the source capture.
-* **Evidence and Claims Are Separate**: A decoded file, segmentation boundary, timing model, or semantic interpretation may be useful without being certain. Wherever practical, dwimsy records the evidence, transformation, confidence, and epistemic status that support a derived result. Canonicalization is purpose-specific and lossy by definition; it never replaces the preservation master.
+* **Evidence and Claims Are Separate**: A decoded file, segmentation boundary, timing model, or semantic interpretation may be useful without being certain. Wherever practical, dwimsy records the evidence, transformation, confidence, and epistemic status that support a derived result. Canonicalization is purpose-specific and lossy by definition; it never replaces the preservation source capture.
 * **Automated Physical Side/Tape Slicing (`--multi-side`)**: Automatically detects non-magnetic clear leader tape and magnetic tape hiss dropouts (15-25 dB step-change), splitting continuous deck digitizations into verified `Tape X Side A/B` boundaries.
 * **Standard [No-Intro Naming Conventions](https://wiki.no-intro.org/index.php?title=Naming_Convention)**: Defaults to clean naming for all output files. Tool name/version tags are strictly avoided in filenames (except where mandated by container specifications like TSX tool metadata blocks).
 * **Systematic Flavor Taxonomy & No-Intro Naming**: Each layer has an untagged canonical default flavor (e.g. standard 8-byte padded `.cas` for MSX, trimmed `.cmt` for PC-88). Non-default variants (untrimmed raw streams, compact unpadded CAS) receive standard qualifier tags and exist side-by-side to guarantee hash matches across MAME Softlists, No-Intro, and TOSEC.
@@ -111,7 +112,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 * **Layered Architecture & Cross-Copy Consensus**: Multi-copy differential recovery and consensus voting operate at signal, flux, container, and logical sector/record layers for both disks and tapes.
 * **Fault-Tolerant Automation (`fsck` Model)**: Non-interactive conversions process valid data and isolate corrupted sections with diagnostic logs rather than crashing. An offline interactive recovery mode assists with manual bit/pulse repairs.
 * **The Archival Rule (No Premature Inference)**: Never infer structure when the container or physical capture explicitly provides structure (e.g. D88 track offset tables). Preserve the observed source representation before applying interpretation, correction, canonicalization, or synthesis.
-* **Information Conservation**: A transformation cannot recover information that its input representation does not contain (e.g., CAS → UEF necessarily invents timing, which must be explicitly marked as `synthetic` / `heuristic`). Canonicalization is purpose-specific and lossy by definition; it never replaces the preservation master.
+* **Information Conservation**: A transformation cannot recover information that its input representation does not contain (e.g., CAS → UEF necessarily invents timing, which must be explicitly marked as `synthetic` / `heuristic`). Canonicalization is purpose-specific and lossy by definition; it never replaces the preservation source capture.
 * **Unified KCS Physical Layer**: For FSK-based systems (PC-88, MSX, BBC Micro, etc.), `dwimsy` utilizes a unified KCS-block (Kansas City Standard) internal representation, allowing high-fidelity export to hardware-compatible containers like TZX, TSX, and CDT.
 * **Non-Destructive Write Overlays & Hash-Indexed Media Creation**: Saving to virtual or physical media never overwrites pristine captures. Overlays are stored out-of-band in `~/.cache/dwimsy/overlays/<SHA1>/`, while newly created save media is placed in `~/.local/share/dwimsy/created/<SHA1>/` (associated with the initial tape hash, or `da39a3ee5e6b4b0d3255bfef95601890afd80709` for empty sessions).
 
@@ -205,22 +206,22 @@ git submodule update --init --recursive
 ### Standalone Bundle Basics
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.3-dev (2026-08-26)
+Version: 0.1.6.48-dev (2026-08-29)
 
-`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.3-dev.py`).
+`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.48-dev.py`).
 
 To use the embedded dwimsy CLI directly from the bundle:
 ```bash
-python3 dwimsy_0.1.6.3-dev.py dwimsy --help
-python3 dwimsy_0.1.6.3-dev.py dwimsy --version
-python3 dwimsy_0.1.6.3-dev.py dwimsy readme
-python3 dwimsy_0.1.6.3-dev.py dwimsy license
-python3 dwimsy_0.1.6.3-dev.py dwimsy changelog
+python3 dwimsy_0.1.6.48-dev.py dwimsy --help
+python3 dwimsy_0.1.6.48-dev.py dwimsy --version
+python3 dwimsy_0.1.6.48-dev.py dwimsy readme
+python3 dwimsy_0.1.6.48-dev.py dwimsy license
+python3 dwimsy_0.1.6.48-dev.py dwimsy changelog
 ```
 
 To extract the repository tree to disk:
 ```bash
-python3 dwimsy_0.1.6.3-dev.py meta unbundle /path/to/target --deps
+python3 dwimsy_0.1.6.48-dev.py meta unbundle /path/to/target --deps
 ```
 
 
@@ -459,7 +460,7 @@ options:
 ```
 
 ```bash
-dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
+dwimsy join part1.t88 part2.cmt -o prepared.t88 --bauds 1200,600
 ```
 
 
@@ -625,11 +626,11 @@ options:
   * `dwimsy meta bundle --baseline`: Reconstructs the baseline standalone unpacker from the embedded baseline `blztar` payload and its canonical, blztar-elided `unbundle.py` template.
 
 ```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.3-dev.py
+# Bundle live working tree -> generates dwimsy_0.1.6.48-dev.py
 dwimsy meta bundle
 
 # Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.3-dev.py
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.48-dev.py
 ```
 
 ##### `dwimsy meta unbundle`
@@ -958,7 +959,7 @@ Orthogonal planes
   Transport / Control         motor, relay, solenoid, drive selection, EOT
   Timebase                    capture time ↔ media time ↔ corrected time
   Segmentation / Cueing       mixed-mode regions and semantic annotations
-  Provenance / Preservation   raw masters, derivatives, hashes, epistemic tags
+  Provenance / Preservation   raw prepared copys, derivatives, hashes, epistemic tags
   Live I/O                    bounded-latency streaming between endpoints
 ```
 
@@ -1081,7 +1082,7 @@ When browsing media via the `<I>` keystroke in TTY mode:
 * **Ephemeral In-Memory / Crash-Safe Mode (`--ephemeral`)**: Overlays and newly created save media are held strictly in RAM and never written to disk or persistent cache, remaining clean even after sudden termination or power loss. Temporary storage uses auto-cleaned scratch directories or RAM.
 * **TTY UI Local Transfer Commands**: Running logically within the TTY frontend without interrupting the audio streaming engine, operators can issue local commands (`:import <path>`, `:export <file> <dest>`, `:save-overlay`) to transfer files into/out of the Virtual Image Root.
 * **Remote UI Upload/Download (IPC)**: Web and phone dashboards expose file upload/download endpoints over WebSocket / HTTP. Imported images immediately enter the Virtual Image Root and can be cycled via `[` / `]`.
-* **SHA1-Indexed Persistent Overlays**: In non-ephemeral mode, write overlays are stored out-of-band under `~/.cache/dwimsy/overlays/<SHA1>/`, indexed by the master tape SHA-1 hash. Selecting an image with an existing overlay presents an instant choice: `[1] Use Overlay`, `[2] Clean Master`, `[3] Delete Overlay`. Pressing `<D>` in TTY mode discards the active overlay.
+* **SHA1-Indexed Persistent Overlays**: In non-ephemeral mode, write overlays are stored out-of-band under `~/.cache/dwimsy/overlays/<SHA1>/`, indexed by the source tape SHA-1 hash. Selecting an image with an existing overlay presents an instant choice: `[1] Use Overlay`, `[2] Clean Master`, `[3] Delete Overlay`. Pressing `<D>` in TTY mode discards the active overlay.
 * **Pipeline / Filter Default**: Standalone filter applets and piped stream conversions default to cold, read-only mode. If a matching overlay is found in cache, `dwimsy` displays an informational notice on `stderr` explaining the `--overlay` activation flag.
 * **Deterministic Verification (`--no-overlay`)**: Explicitly bypasses overlay reading for reproducible verification and testing.
 
@@ -1127,7 +1128,7 @@ Instead of blind time-based skipping, `dwimsy` provides structure-aware transpor
 * **Loading Group Navigation**: Step forward or backward by entire loading groups (`seek --next-group`, `seek --prev-group`).
 * **Block & Record Navigation**: Step forward or backward by logical data blocks (`seek --next-block`, `seek --prev-block`).
 * **Semantic Marker Seeking**: Instantly cue to narration cue points, audio drama segments, or user cable swap prompts.
-* **Calibrated Tape Counter Seek**: Navigates using physical reel rotation models (`seek --counter "0450"`), translating between tape ticks and elapsed master FLAC time.
+* **Calibrated Tape Counter Seek**: Navigates using physical reel rotation models (`seek --counter "0450"`), translating between tape ticks and elapsed source FLAC time.
 * **Transport State Integrity**: While seeking in live bridge mode, `dwimsy` coordinates with the retrocomputer host by holding the virtual motor/pause state, smoothly re-engaging carrier lock at the target boundary without triggering framing errors.
 
 ### Fresh Blank Media Creation, Auto-Naming & Out-of-Band Storage
@@ -1184,16 +1185,16 @@ In vintage software distribution, software was duplicated onto standard or custo
 2. **Signal Preservation**: Raw observed signals (for example, lossless FLAC captures from a tape deck or raw flux captures from a disk device). The original capture is a preservation anchor and is never replaced by a cleaned, time-corrected, canonical, or synthetic derivative.
 3. **Information Preservation**: Recovered verified blocks, sectors, filesystems, BASIC code, and other decoded information, with uncertainty retained where recovery is incomplete.
 4. **Behavioral / Semantic Preservation**: Execution flow, narration/data interleaving, cable connect/disconnect prompts, motor pauses, save/record behavior, and other evidence about how the software and media were intended to interact.
-5. **Canonical / Synthetic Derivatives**: Reconstructed idealized media for emulation, comparison, deterministic regeneration, or re-mastering. These are explicitly derived artifacts, not substitutes for the source capture.
+5. **Canonical / Synthetic Derivatives**: Reconstructed idealized media for emulation, comparison, deterministic regeneration, or re-preparation. These are explicitly derived artifacts, not substitutes for the source capture.
 
 #### Epistemic Classification
 Every decoded structure or derived claim carries an epistemic tag: `established` (standard/ROM verified), `observed` (empirically seen on real media), `inferred` (working hypothesis), `heuristic` (algorithmic best-fit), or `synthetic` (generated/normalized). These tags describe the status of the *claim*, not merely the file format. Provenance should identify the source evidence and transformation that produced each derivative where practical.
 
 #### Non-Destructive Write Overlays & Media Writable Tracking
 Media is tagged as read-only or writable (tracking physical write-protect notches/tabs):
-* When writes occur (e.g., in-game saves or `CSAVE`), they **never overwrite the master capture**.
+* When writes occur (e.g., in-game saves or `CSAVE`), they **never overwrite the source capture**.
 * Writes are recorded as **time-indexed or tape-counter-indexed write overlays** with exact start/end offsets (T_start, T_end).
-* When rewinding, subsequent reads seamlessly draw from the overlay for modified regions and from the original master capture elsewhere.
+* When rewinding, subsequent reads seamlessly draw from the overlay for modified regions and from the original source capture elsewhere.
 * The UI surfaces the names and types of written overlay files in real time (e.g., `[OVERLAY @ 04:12-05:30: 'SAVED.BAS' (BASIC)]`).
 
 ---
@@ -1251,7 +1252,7 @@ All four were verified the same way: running `dwimsy convert` against real, hash
 A physical tape may contain materially different signal types in one continuous recording: for example, computer-modulated CMT data interspersed with narration or music. `dwimsy` should preserve the continuous source capture and represent the interpretation as a chronological segment timeline. Each segment can then have an appropriate derivative:
 
 ```text
-master FLAC
+source FLAC
     │
     ├── drama/music ──► timebase-corrected waveform derivative
     │
@@ -1310,9 +1311,9 @@ Layer 4 (Payload) game (Japan).bin / .rom      game (Japan) [alt-load].bin
 ### Canonical Default Collapsing
 To provide clean, immediate usability in emulators while maintaining complete archival sets, `dwimsy` uses non-destructive hardlinking (`os.link`, falling back to `shutil.copy2`):
 * **Side A as Canonical Default**: When Side A represents the primary release (e.g. standard 1200 baud version) and Side B is an alternate speed duplicate, `dwimsy` links `door_door_a.t88` to the unsuffixed default `door_door.t88`.
-* **Multi-Take / Dump Collapsing**: When multiple audio takes or dumps exist (`tape01`, `copy01`), the verified master dump collapses to the unnumbered base name (`door_door.flac`).
+* **Multi-Take / Dump Collapsing**: When multiple audio takes or dumps exist (`tape01`, `copy01`), the verified source dump collapses to the unnumbered base name (`door_door.flac`).
 * **Multi-Part / Sequential Media**: For multi-tape games (e.g. *Tomato Hime*), sequential parts are indexed `salad1_1a.cas`, `salad2_1b.cas`, `salad3_2a.cas`, `salad4_2b.cas` linked to their respective No-Intro long names.
-* **Multi-Part / Mixed-Mode Media**: For mixed-mode releases (e.g. the PC-88 *Gundam* tape with interleaved narration/music and CMT data), `dwimsy` preserves the complete master capture and a chronological segment timeline. Data regions may yield canonical CMT/T88 derivatives, while adjacent drama/music regions remain tied to their exact master-FLAC timestamps and may receive piecewise timebase correction for a regenerated mixed-mode tape. The physical capture, segmentation evidence, and generated result remain separate artifacts.
+* **Multi-Part / Mixed-Mode Media**: For mixed-mode releases (e.g. the PC-88 *Gundam* tape with interleaved narration/music and CMT data), `dwimsy` preserves the complete source capture and a chronological segment timeline. Data regions may yield canonical CMT/T88 derivatives, while adjacent drama/music regions remain tied to their exact prepared copy-FLAC timestamps and may receive piecewise timebase correction for a regenerated mixed-mode tape. The physical capture, segmentation evidence, and generated result remain separate artifacts.
 
 ### Pairing Rules
 
@@ -1324,7 +1325,7 @@ To provide clean, immediate usability in emulators while maintaining complete ar
    - `game (Japan) [unpadded].cas`: Compact unpadded byte stream (raw tight chunks).
    - `game (Japan).tsx`: Physical timing container with KCS Block 0x4B and Turbo Block 0x11.
 3. **PC-88 / PC-80 (.t88 and .cmt Pairs)**:
-   - `game (Japan).cmt` ↔ `game (Japan).t88`: Canonical DumpListEditor / c2t mastering timing.
+   - `game (Japan).cmt` ↔ `game (Japan).t88`: Canonical DumpListEditor / c2t preparation timing.
    - `game (Japan) [untrimmed].cmt` ↔ `game (Japan) [untrimmed].t88`: Raw physical stream retaining trailing carrier overshoot.
 4. **Fujitsu FM-7 / FM-8 (.t77 and .cmt Pairs)**:
    - `game (Japan).t77` ↔ `game (Japan).cmt`: Standard FM-7 / FM-8 timing container.
@@ -1401,7 +1402,7 @@ dwimsy convert game.t88 game.wav --mode tape
 dwimsy split multi_game.t88 -o ./extracted/ --format t88
 
 # Join multiple files into a single tape image (PC-88 T88/CMT)
-dwimsy join part1.t88 part2.cmt -o master.t88 --bauds 1200,600
+dwimsy join part1.t88 part2.cmt -o prepared.t88 --bauds 1200,600
 
 
 # === 2. TOOLING, PACKAGING & TESTING COMMANDS (Milestone 1.6) ===
@@ -1532,7 +1533,7 @@ dwimsy restore degraded.flac clean.wav --canonical
 dwimsy split tape.flac -o ./extracted_tracks/
 
 # Join tracks or folders into a single image (reads cue if present)
-dwimsy join ./extracted_tracks/ -o master.wav
+dwimsy join ./extracted_tracks/ -o prepared.wav
 
 # Content-aware smart seek to specific file, block, or calibrated tape counter
 dwimsy-ctl seek --file "STAGE2.BAS"
@@ -1602,7 +1603,7 @@ To prevent UI telemetry from polluting piped data streams:
   * `[` / `]`: Switch to previous / next side or tape in the Virtual Image Root.
   * `<` / `>`: Step transport backward or forward (fast-forward / rewind).
   * `<I>`: Open minimal 2-line LCD file browser (Virtual Image Root / File browser).
-  * `<D>`: Discard / purge active write overlay and revert to pristine master.
+  * `<D>`: Discard / purge active write overlay and revert to pristine prepared copy.
   * `:import <path>`: Import an external image into the Virtual Image Root on-the-fly.
   * `:export <name> <dest>`: Export any file from the Virtual Image Root to disk.
   * `Arrow Keys` (←/→/↑/↓): Fast-forward, rewind, seek block/group, adjust speed trim.
@@ -1633,7 +1634,7 @@ Options placed immediately before an input file act as scoped overrides:
 dwimsy join \
     --profile pc88   loader.cmt \
     --profile pc6001 game.p6 \
-    -o master.wav --wave tape --volume 0.85
+    -o prepared.wav --wave tape --volume 0.85
 ```
 
 ### File Linking & Paired Naming `[ ] TODO (Milestone 2.5)`
@@ -1704,7 +1705,7 @@ provenance:
 
 write_overlays:
   - overlay_id: 1
-    master_sha1: "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    prepared copy_sha1: "da39a3ee5e6b4b0d3255bfef95601890afd80709"
     overlay_path: "~/.cache/dwimsy/overlays/da39a3ee5e6b4b0d3255bfef95601890afd80709/session01.wav"
     tape_counter_start: "0342"
     tape_counter_end: "0410"
@@ -1717,7 +1718,7 @@ write_overlays:
 
 created_media:
   - media_id: 1
-    session_master_sha1: "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+    session_prepared copy_sha1: "da39a3ee5e6b4b0d3255bfef95601890afd80709"
     file_path: "~/.local/share/dwimsy/created/da39a3ee5e6b4b0d3255bfef95601890afd80709/save_tape01.p6t"
     preset: "C-30"
 ```
@@ -1741,10 +1742,10 @@ When BIOS routines (PC-6001, MSX CSAVE, PC-88) write padding bytes that CLOAD ig
     * *Canonical Regeneration Mode*: Generates intentionally standardized electrical signals for deterministic comparison, emulation, or writing replacement media. The result is synthetic and remains separate from the archival capture.
 * **Piecewise Timebase Correction & Mixed-Mode Segmentation**: `[ ] TODO` For composite tapes containing interleaved narration/drama audio and modulated data (e.g. ASCII *Tape Login*, *Tank Battle*, PC-88 *Gundam 2*):
   * Distinguishes human speech from computer carrier tones using spectral entropy, spectral flatness (SFM → 0), and zero-crossing regularity (Δt bimodal distribution).
-  * Segments the timeline into audio drama (`.ogg` / `.wav`) and data regions (`.t88` / `.t77` / `.cmt`, `.tap`, `.tzx`) referencing master FLAC timestamps.
+  * Segments the timeline into audio drama (`.ogg` / `.wav`) and data regions (`.t88` / `.t77` / `.cmt`, `.tap`, `.tzx`) referencing source FLAC timestamps.
   * Derives a tape-speed/timebase model from CMT timing observations where the format and signal quality make those observations reliable; this is an inference/model, not an automatic measurement of physical tape speed.
   * Applies piecewise timebase correction to analog audio tracks without altering their analog waveform, while data segments are canonically regenerated.
-  * Emits a companion `<basename>.cue` sheet linking audio and data tracks to exact master FLAC timestamps.
+  * Emits a companion `<basename>.cue` sheet linking audio and data tracks to exact source FLAC timestamps.
 * **Time-Base Correction (TBC)**: `[ ] TODO` Uses carrier timing observations (for formats where 2400 Hz Mark / 1200 Hz Space is established) to estimate playback-speed drift and wow/flutter into standard container timing (e.g., 4,800 ticks/sec container time). The result is an explicit timebase mapping; a particular container tick rate is a representation choice, not a universal physical clock.
 * **Adaptive Midpoint FSK Slicer**: `[ ] TODO` Fast edge detection with Schmitt-trigger dynamic hysteresis and midpoint cycle discrimination (`N_mid = (Fₛ/4) × (1/f₀ + 1/f₁)`), using local envelope tracking (AGC attack/release) to ride out fading and dropouts.
 * **Zero-Gap Demodulation**: `[ ] TODO` Snaps post-DATA carrier start ticks to the exact end tick of the preceding data block (`T_end = T_start + N_bytes × ticks_per_byte`).
@@ -1802,7 +1803,7 @@ Tasks:
 7. `[ ] TODO` **`dwimsy help`**: Implement `dwimsy help [verb|topic]` to display interactive pydoc technical manuals for CLI verbs and core subsystems.
 8. `[x] DONE` **`dwimsy meta fetch-deps`**: Parse `.gitmodules` from disk or `blztar` and materialize frozen reference submodules in non-git checkouts.
 9. `[ ] TODO` **`dwimsy meta bundle-fixtures`**: Implement `dwimsy meta bundle-fixtures` to package local private fixture subsets into self-extracting unpackers targeting `tests/fixtures/`.
-10. `[x] DONE` **`dwimsy.tests.fixtures`**: Implement content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) indexing by SHA-1 hash rather than opaque filenames.
+10. `[x] DONE` **`dwimsy.tests.fixtures`**: Implement content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) indexing by SHA-1 hash rather than non-semantic filenames.
 11. `[x] DONE` **Test runner infrastructure**: Central in-process test runner with target filtering and scoped `dwimsy <verb> --test` execution. The top-level `dwimsy test` verb remains a labeled placeholder. Subprocess tests are explicitly skipped during portable bundle verification because child interpreters cannot inherit the in-memory bundle importer; unbundle first to run them.
 12. `[ ] TODO` **Packaging & Shebangs**: Add `pyproject.toml` with console script entry points (`dwimsy`, `dwimsy-t882wav`, `dwimsy-wav2t88`, `dwimsy-test`), and ensure all CLI-executable scripts start with `#!/usr/bin/env python3`.
 
@@ -1994,3 +1995,64 @@ Parts of this code were written (including some initial ones that began in other
 ### How did I end up using those? Don't I dislike slop?
 
 Yes, I hate slop. This project began because I wanted tape image conversion tools where the conversion steps were all clearly documented and readable code, but which also performed well enough in terms of accuracy to actually be the tool I use. I started out writing the tools myself, but my manual attempts hadn't yielded comparable accuracy to existing closed-source tools for some steps, so I started using the tools to help find the bugs and suggest improvements, and IMO the result is now good enough to actually be useful in some scenarios. In terms of slop, the tool-generated code doesn't closely resemble any existing solutions I have found. Rather it's a fairly passable translation of my requests into Python.
+
+
+## 16. Multi-Stream Version Reconciliation, In-Memory Bootloader & Isolation
+
+### Purpose & The Airgapped Workflow Model
+
+Development sometimes happens on machines with python3 and nothing else (no git binary, no network, no package manager). Work still needs to happen there and reconcile with the connected, git-tracked mainline.
+
+Core workflows supported:
+1. Airgapped development: start from a standalone bundle, make edits, and seal versions offline.
+2. Safe static transport (--include): import foreign bundle streams without executing foreign code.
+3. Manual reconciliation (meta diff): compare versions across streams and branches; conflicts are surfaced for human resolution.
+4. Historical security fixes: branch with --alt, refine, seal, reinsert with --splice, and --prune temporary branches.
+
+### Stream Naming & Reserved Identifiers
+- Stream 0 is `primary`.
+- Alternate streams are `alt1`, `alt2`, ... (`alt0_` is invalid and rejected).
+- `primary_TAG` aliases bare `TAG`.
+- `_sealed` is reserved as a selector and tag suffix case-insensitively.
+
+### Selector Taxonomy:
+- `sealed` / `primary_sealed`: latest sealed primary release.
+- `alt_sealed`: latest sealed release in first alternate stream containing one.
+- `altN_sealed`: latest sealed release in `altN`.
+- `primary`: primary head (`unbundled` if on disk, else `baseline`).
+- `alt`: head of `alt1`.
+- `altN`: head of `altN`.
+- `unbundled`: current working-directory version on disk.
+- `baseline`: latest embedded primary version.
+
+### Multi-Stream Composite Bundle Naming
+Multi-stream bundles delimit stream versions using comma `,` with uniform `,altN` notation:
+- 1 stream: `dwimsy_VERSION1.py` (or `.pyz`)
+- 2 streams: `dwimsy_VERSION1,alt1_VERSION2.py` (shortened to `dwimsy_VERSION1,alt1.py` if `VERSION2 == VERSION1`)
+- 3+ streams: `dwimsy_VERSION1,alt1_VERSION2,alt2_VERSION3.py` (shortened to `,altN` if `VERSION_N == VERSION_{N-1}`)
+
+### --list-versions Notation
+- Two independent grep-friendly stateless annotation tokens:
+  1. Named-selector membership: `=keyword` (exact head) / `=~keyword` (in match set).
+  2. Peer content-equivalence: `=primary_TAG` / `=altN_TAG` (fully-qualified, symmetric).
+- Provenance column (Column 3) is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.48-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
+
+### Execution Model & The Three Paths
+- Path A: Default in-memory virtual mount via `BundleFinder` (zero disk writes).
+- Path B: Reconstruct-and-inject into single ephemeral file for non-baseline embedded versions.
+- Path C: Pass-through or swap-and-lie execution for disk-backed checkouts based on exact blztar byte comparison.
+
+### Distribution Shapes & .pyc Support
+- `.py`: Standalone self-extracting script.
+- `.pyz`: Compressed zipapp executable.
+- `.pyc`: Precompiled bytecode distribution: `python3 -m py_compile dwimsy/meta/unbundle.py` and rename to `dwimsy.pyc`.
+- `-a` / `--argv0`: Authoritative display-name and self-location override, supporting Windows batch wrappers (`@py -3 "%~dp0dwimsy.pyz" --argv0="%~n0" %*`).
+
+### Version Export & Dependency Shadow Fallback
+- Prune-to-one-layer (`--prune`) is the supported way to export a version as a standalone snapshot.
+- Dependency shadow fallback (`deps/`): inside a git checkout, falls back to embedded shadow copy iff declared in live `.gitmodules`; outside a checkout, falls back unconditionally.
+
+### Explicit Non-Goals
+- No auto-merging (`meta merge` is intentionally excluded).
+- No speculative patching (`meta patch` is deferred).
+- Coarse-grained version tags and changelog prose serve as the complete audit trail.

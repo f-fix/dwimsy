@@ -51,6 +51,7 @@ def main(argv: Optional[List[str]] = None):
             elif a.startswith("-") and len(a) > 1 and all(c == "v" for c in a[1:]):
                 verbosity = max(verbosity + len(a) - 1, 2)
         from dwimsy.tests import run_tests
+
         pattern = None
         if test_arg.startswith("--test="):
             pattern = [test_arg.split("=", 1)[1]]

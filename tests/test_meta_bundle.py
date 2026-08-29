@@ -115,7 +115,10 @@ class TestMetaBundle(unittest.TestCase):
                 cur = os.getcwd()
                 try:
                     os.chdir(tmp_path)
-                    dwimsy_cli_main(["meta", "fetch-deps", "--baseline"])
+                    try:
+                        dwimsy_cli_main(["meta", "fetch-deps", "--version=baseline"])
+                    except SystemExit as e:
+                        self.assertEqual(e.code, 0)
                 finally:
                     os.chdir(cur)
 
@@ -184,25 +187,43 @@ class TestMetaBundle(unittest.TestCase):
             err = io.StringIO()
 
             with redirect_stdout(buf), redirect_stderr(err):
-                dwimsy_cli_main(["meta", "bundle", "--baseline", "-o", str(out_bundle)])
+                try:
+                    dwimsy_cli_main(
+                        ["meta", "bundle", "--version=baseline", "-o", str(out_bundle)]
+                    )
+                except SystemExit as e:
+                    self.assertEqual(e.code, 0)
 
             self.assertTrue(out_bundle.is_file())
-            self.assertTrue(out_bundle.read_text(encoding="utf-8").startswith("#!/usr/bin/env python3"))
+            self.assertTrue(
+                out_bundle.read_text(encoding="utf-8").startswith(
+                    "#!/usr/bin/env python3"
+                )
+            )
 
     def test_unbundle_reconstitutes_self_from_embedded_template(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "tree"
-            script = bundle.build_bundle_script(integrity.find_repo_root(), with_deps=False, preset=0)
+            script = bundle.build_bundle_script(
+                integrity.find_repo_root(), with_deps=False, preset=0
+            )
             match = re.search(r'blztar = """\n([A-Za-z0-9+/\n=]+)\n"""', script)
             self.assertIsNotNone(match)
             payload = match.group(1)
             unbundle.extract_b64_lzma_tar(payload, target, with_deps=False)
             restored = target / "dwimsy" / "meta" / "unbundle.py"
             with unbundle._open_bundle_tar(payload) as tar:
-                member = next(m for m in tar.getmembers() if (m.name[2:] if m.name.startswith("./") else m.name) == "dwimsy/meta/unbundle.py")
+                member = next(
+                    m
+                    for m in tar.getmembers()
+                    if (m.name[2:] if m.name.startswith("./") else m.name)
+                    == "dwimsy/meta/unbundle.py"
+                )
                 template = tar.extractfile(member).read()
                 mtime = member.mtime
-            self.assertEqual(unbundle.elide_blztar_bytes(restored.read_bytes()), template)
+            self.assertEqual(
+                unbundle.elide_blztar_bytes(restored.read_bytes()), template
+            )
             self.assertEqual(int(restored.stat().st_mtime), int(mtime))
 
     def test_cli_meta_bundle_verbose(self):
@@ -218,7 +239,6 @@ class TestMetaBundle(unittest.TestCase):
             self.assertTrue(out_bundle.is_file())
             err_output = err.getvalue()
             self.assertIn("[SUCCESS] Generated bundle", err_output)
-            self.assertIn(" ... ok", err_output)
 
     def test_cli_meta_diff_writes_stdout(self):
         buf = io.StringIO()

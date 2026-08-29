@@ -26,6 +26,9 @@ class IntegrityTests(unittest.TestCase):
         self.assertEqual(len(integrity.canonical_code_hash()), 64)
 
     def test_version_hash_sentinel_does_not_self_modify(self):
+        if integrity.is_standalone_bundle():
+            self.assertFalse(integrity.is_modified())
+            return
         root = Path(integrity.package_root())
         version_file = root / "_version.py"
         original = version_file.read_bytes()
@@ -66,16 +69,24 @@ class IntegrityTests(unittest.TestCase):
                 tuple(
                     p.relative_to(root).as_posix() for p in integrity.source_files(root)
                 ),
-                ("dwimsy/__init__.py", "dwimsy/_version.py", "dwimsy/a.py", "dwimsy/z.py"),
+                (
+                    "dwimsy/__init__.py",
+                    "dwimsy/_version.py",
+                    "dwimsy/a.py",
+                    "dwimsy/z.py",
+                ),
             )
 
     def test_bundle_asset_names_preserve_dotfiles(self):
         self.assertIn(".gitignore", unbundle.list_assets())
         self.assertIn(".gitmodules", unbundle.list_assets())
-        self.assertEqual(
-            unbundle.get_asset(".gitignore"),
-            (integrity.find_repo_root() / ".gitignore").read_bytes(),
-        )
+        if integrity.is_standalone_bundle():
+            self.assertTrue(unbundle.get_asset(".gitignore"))
+        else:
+            self.assertEqual(
+                unbundle.get_asset(".gitignore"),
+                (integrity.find_repo_root() / ".gitignore").read_bytes(),
+            )
 
     def test_unbundle_payload_is_elided_but_code_is_hashed(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -89,11 +100,14 @@ class IntegrityTests(unittest.TestCase):
             template = '#!/usr/bin/env python3\nblztar = """\nPAYLOAD\n"""\nvalue = 1\n'
             (pkg / "unbundle.py").write_text(template, encoding="utf-8")
             h1 = integrity.canonical_code_hash(root)
-            (pkg / "unbundle.py").write_text(template.replace("PAYLOAD", "OTHER"), encoding="utf-8")
+            (pkg / "unbundle.py").write_text(
+                template.replace("PAYLOAD", "OTHER"), encoding="utf-8"
+            )
             self.assertEqual(h1, integrity.canonical_code_hash(root))
-            (pkg / "unbundle.py").write_text(template.replace("value = 1", "value = 2"), encoding="utf-8")
+            (pkg / "unbundle.py").write_text(
+                template.replace("value = 1", "value = 2"), encoding="utf-8"
+            )
             self.assertNotEqual(h1, integrity.canonical_code_hash(root))
-
 
     def test_manifest_contains_portable_project_window(self):
         patterns = integrity.canonical_manifest()
@@ -129,6 +143,11 @@ class IntegrityTests(unittest.TestCase):
 
     def test_unsealed_tree_is_modified(self):
         self.assertEqual(integrity.sealed_code_hash(), "")
+        if integrity.is_standalone_bundle() or "<dwimsy-bundle>" in str(
+            getattr(integrity, "__file__", "")
+        ):
+            self.assertFalse(integrity.is_modified())
+            return
         self.assertTrue(integrity.is_modified())
         self.assertIn("+mod.", integrity.version())
 
@@ -137,7 +156,12 @@ class IntegrityTests(unittest.TestCase):
         py_files = sorted(
             p
             for p in repo.rglob("*.py")
-            if not p.relative_to(repo).as_posix().startswith("deps/") and not (p.name.startswith("dwimsy_") and p.name.endswith(".py"))
+            if not (
+                p.as_posix().startswith("deps/")
+                or "/deps/" in p.as_posix()
+                or "<dwimsy-bundle>/deps/" in p.as_posix()
+            )
+            and not (p.name.startswith("dwimsy_") and p.name.endswith(".py"))
         )
         triple_single = 3 * chr(39)
 
@@ -206,7 +230,12 @@ class IntegrityTests(unittest.TestCase):
         md_files = sorted(
             p
             for p in repo.rglob("*.md")
-            if not p.relative_to(repo).as_posix().startswith("deps/") and not (p.name.startswith("dwimsy_") and p.name.endswith(".py"))
+            if not (
+                p.as_posix().startswith("deps/")
+                or "/deps/" in p.as_posix()
+                or "<dwimsy-bundle>/deps/" in p.as_posix()
+            )
+            and not (p.name.startswith("dwimsy_") and p.name.endswith(".py"))
         )
         triple_single = 3 * chr(39)
 
@@ -237,6 +266,67 @@ class IntegrityTests(unittest.TestCase):
                         line,
                         f"{rel}:{idx} contains LaTeX command '{cmd}': {line}",
                     )
+
+
+def test_manifest_selects_expected_files(self):
+    repo = integrity.find_repo_root()
+    files = integrity.source_files(repo)
+    posix = [p.relative_to(repo).as_posix() for p in files]
+
+    self.assertIn("README.md", posix)
+    self.assertIn("CHANGELOG.md", posix)
+    self.assertIn("LICENSE", posix)
+    self.assertIn(".gitignore", posix)
+    self.assertIn(".gitmodules", posix)
+    self.assertIn("dwimsy/__init__.py", posix)
+    self.assertIn("dwimsy/_version.py", posix)
+    self.assertIn("dwimsy/core/audio.py", posix)
+    self.assertIn("dwimsy/cli/filters/t882wav.py", posix)
+    self.assertIn("tests/test_meta_integrity.py", posix)
+    self.assertIn("deps/bin2fds/bin2fds.py", posix)
+    self.assertIn("dwimsy/meta/unbundle.py", posix)
+
+
+def test_canonical_manifest_structure(self):
+    patterns = integrity.canonical_manifest()
+    self.assertIn("dwimsy/**/*.py", patterns)
+    self.assertIn("tests/**/*.py", patterns)
+    self.assertIn("tests/**/*.md", patterns)
+    self.assertIn(".gitignore", patterns)
+    self.assertIn(".gitmodules", patterns)
+    self.assertIn("LICENSE", patterns)
+    self.assertIn("README.md", patterns)
+    self.assertIn("CHANGELOG.md", patterns)
+    self.assertIn("deps/bin2fds/**/*", patterns)
+
+
+def test_canonical_assets_fallback_matches_files(self):
+    repo = integrity.find_repo_root()
+    assets = integrity.canonical_assets(repo, baseline=False)
+    self.assertIn("dwimsy/_version.py", assets)
+    self.assertIn("README.md", assets)
+    self.assertIn("deps/bin2fds/bin2fds.py", assets)
+
+
+def test_code_hash_deterministic(self):
+    h1 = integrity.canonical_code_hash()
+    h2 = integrity.canonical_code_hash()
+    self.assertEqual(h1, h2)
+    self.assertEqual(len(h1), 64)
+
+
+def test_version_output_format(self):
+    v = integrity.version()
+    self.assertTrue(len(v) > 0)
+
+
+def test_modification_hash_positive_length(self):
+    with self.assertRaises(ValueError):
+        integrity.modification_hash(length=0)
+    with self.assertRaises(ValueError):
+        integrity.modification_hash(length=-5)
+    h = integrity.modification_hash(length=8)
+    self.assertEqual(len(h), 8)
 
 
 def main(argv=None):

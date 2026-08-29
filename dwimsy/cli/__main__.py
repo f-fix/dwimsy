@@ -13,10 +13,11 @@ import sys
 from pathlib import Path
 from typing import BinaryIO, List, Optional, Tuple
 
-for p in Path(__file__).resolve().parents:
-    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
-        sys.path.insert(0, str(p))
-        break
+from dwimsy.meta import unbundle
+
+is_checkout, repo_root = unbundle.detect_self_location()
+if is_checkout and repo_root and str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
 from dwimsy.cli.filters import t882wav as filter_t882wav
 from dwimsy.cli.filters import wav2t88 as filter_wav2t88
@@ -30,6 +31,126 @@ from dwimsy.protocols.pc88 import (
     analyze_tape,
 )
 from dwimsy.meta.integrity import version as get_version
+
+
+def pre_normalize_argv(argv: List[str]) -> Tuple[List[str], int, bool]:
+    """Normalize known commands and flags case-insensitively while preserving values."""
+    known_commands = {
+        "meta",
+        "unbundle",
+        "bundle",
+        "version-bump",
+        "diff",
+        "integrity",
+        "lint",
+        "convert",
+        "inspect",
+        "split",
+        "join",
+        "t882wav",
+        "wav2t88",
+        "fetch-deps",
+        "readme",
+        "license",
+        "changelog",
+        "tests",
+        "help",
+        "charset",
+        "extract",
+        "package",
+        "bridge",
+        "archive",
+        "recover",
+    }
+    meta_subcommands = {
+        "bundle",
+        "unbundle",
+        "diff",
+        "integrity",
+        "lint",
+        "version-bump",
+        "fetch-deps",
+        "bundle-fixtures",
+    }
+    normalized: List[str] = []
+    verbosity = 0
+    print_version = False
+    for arg in argv:
+        if arg in ("-?", "/?"):
+            normalized.append("-h")
+            continue
+        if (
+            arg.startswith("-")
+            and not arg.startswith("--")
+            and len(arg) > 1
+            and all(c in "vV" for c in arg[1:])
+        ):
+            n = len(arg) - 1
+            if n == 1:
+                print_version = True
+            else:
+                verbosity += n - 1
+            continue
+        if arg.startswith("--"):
+            if "=" in arg:
+                k, v = arg.split("=", 1)
+                normalized.append(k.lower() + "=" + v)
+            else:
+                normalized.append(arg.lower())
+            continue
+        if arg in ("-t", "-T"):
+            normalized.append("--test")
+            continue
+        if arg.startswith("-"):
+            normalized.append(arg.lower())
+            continue
+
+        arg_lower = arg.lower().replace("_", "-")
+
+        if arg_lower.startswith("dwimsy-meta-"):
+            sub = arg_lower[12:]
+            if sub in meta_subcommands:
+                normalized.extend(["meta", sub])
+                continue
+        elif arg_lower.startswith("meta-"):
+            sub = arg_lower[5:]
+            if sub in meta_subcommands:
+                normalized.extend(["meta", sub])
+                continue
+
+        clean = arg_lower
+        for pref in ("dwimsy-", "dwimsy_"):
+            if clean.startswith(pref):
+                clean = clean[len(pref) :]
+                break
+
+        if clean in ("dwimsy", ""):
+            normalized.append("dwimsy")
+        elif clean in (
+            "convert",
+            "inspect",
+            "split",
+            "join",
+            "t882wav",
+            "wav2t88",
+            "tests",
+            "readme",
+            "license",
+            "changelog",
+            "help",
+            "meta",
+            "charset",
+            "extract",
+            "package",
+            "bridge",
+            "archive",
+            "recover",
+        ):
+            normalized.append(clean)
+        else:
+            normalized.append(arg)
+    return normalized, verbosity, print_version
+
 
 class _LazyVersionAction(argparse.Action):
     """Only evaluates version function if -V or --version is present in CLI arguments."""
@@ -55,6 +176,8 @@ class _LazyVersionAction(argparse.Action):
         fn = self.version_fn or get_version
         parser._print_message(f"{parser.prog} {fn()}\n", sys.stdout)
         parser.exit()
+
+
 from dwimsy.meta.bundle import run_meta_bundle, run_meta_fetch_deps
 from dwimsy.meta import integrity
 
@@ -435,69 +558,121 @@ def run_join(args, raw_inputs: Optional[List[str]] = None):
     print(f"[SUCCESS] Merged {len(scoped_items)} file(s) -> {out_file}")
 
 
-def main(argv: Optional[List[str]] = None):
+def main(
+    argv: Optional[List[str]] = None,
+    entrypoint_fn: Optional[Any] = None,
+    entrypoint_file: Optional[str] = None,
+) -> int:
+    from dwimsy.meta import unbundle
+
     effective_argv = sys.argv[1:] if argv is None else list(argv)
-    if effective_argv and effective_argv[0] == "dwimsy":
-        effective_argv = effective_argv[1:]
+    initial_argv0 = entrypoint_file or (
+        sys.argv[0] if sys.argv and sys.argv[0] else "dwimsy"
+    )
 
-    for p in Path(__file__).resolve().parents:
-        if (p / "dwimsy").is_dir():
-            if str(p) in sys.path:
-                sys.path.remove(str(p))
-            sys.path.insert(0, str(p))
-            break
+    pipeline, remaining = unbundle.parse_early_pipeline_flags(
+        effective_argv, initial_argv0=initial_argv0
+    )
+    argv0_effective = pipeline["argv0"] or initial_argv0
 
-    test_arg = None
-    for a in effective_argv:
-        if a in ("-T", "--test") or a.startswith("--test="):
-            test_arg = a
-            break
+    if pipeline.get("print_version", False):
+        snapshot = (
+            pipeline["effective_version"] if pipeline.get("version") else get_version()
+        )
+        target_cmd = unbundle.resolve_argv0_command(argv0_effective)
+        if target_cmd:
+            prog = (
+                f"dwimsy-{target_cmd[0]}"
+                if target_cmd[0] not in ("dwimsy", "meta")
+                else ("dwimsy meta" if target_cmd[0] == "meta" else "dwimsy")
+            )
+        else:
+            prog = "dwimsy"
+        print(f"{prog} {snapshot}")
+        return 0
 
-    if test_arg is not None:
-        cmd = None
-        verbosity = 1
-        for arg in effective_argv:
-            if arg in (
-                "convert",
-                "inspect",
-                "split",
-                "join",
-                "meta",
-                "t882wav",
-                "wav2t88",
-                "audio",
-                "pulse",
-                "fsk",
-                "tape",
-                "protocols",
-                "integrity",
-                "bundle",
-                "lint",
-                "readme",
-                "license",
-                "changelog",
-                "tests",
-            ):
-                cmd = arg
-            elif arg in ("-v", "--verbose"):
-                verbosity = max(verbosity + 1, 2)
-            elif (
-                arg.startswith("-") and len(arg) > 1 and all(c == "v" for c in arg[1:])
-            ):
-                verbosity = max(verbosity + len(arg) - 1, 2)
+    if pipeline.get("early_exit") == "version-help":
+        print(unbundle.VERSION_SPACE_HELP)
+        return 0
+
+    if pipeline.get("early_exit") == "version-list":
+        is_chk, r_root = unbundle.detect_self_location(argv0_effective)
+        output = pipeline["version_list_snapshot"] or pipeline[
+            "vspace"
+        ].format_list_versions(
+            on_disk_root=r_root if is_chk else None, selected=pipeline["selected_ref"]
+        )
+        print(output)
+        return 0
+
+    if pipeline.get("test_mode", False):
         from dwimsy.tests import run_tests
 
-        if test_arg.startswith("--test="):
-            pattern = [test_arg.split("=", 1)[1]]
-        else:
-            pattern = [cmd] if cmd else None
-        rc = run_tests(pattern, verbose=verbosity)
+        non_flags = [
+            a
+            for a in remaining
+            if not a.startswith("-") and a not in ("dwimsy", "tests", "main")
+        ]
+        target_cmd = unbundle.resolve_argv0_command(argv0_effective)
+        scoped_phrase = None
+        if non_flags:
+            scoped_phrase = " ".join(non_flags)
+        elif target_cmd and target_cmd[0] not in ("dwimsy", "tests", "main"):
+            scoped_phrase = " ".join(target_cmd)
+        patterns = (
+            [pipeline["test_pattern"]]
+            if pipeline.get("test_pattern")
+            else ([scoped_phrase] if scoped_phrase else None)
+        )
+        test_verbose = max(
+            1,
+            1
+            + pipeline.get("short_v_count", 0)
+            + pipeline.get("explicit_verbose_count", 0),
+        )
+        rc = run_tests(patterns, verbose=test_verbose)
         sys.exit(rc)
+
+    target_cmd = unbundle.resolve_argv0_command(argv0_effective)
+    entry_cmd = (
+        unbundle.resolve_argv0_command(entrypoint_file) if entrypoint_file else []
+    )
+
+    if pipeline.get("argv0_overridden") and target_cmd != entry_cmd:
+        return main(list(target_cmd) + remaining)
+
+    if entrypoint_fn is not None and (
+        not target_cmd
+        or target_cmd == entry_cmd
+        or not pipeline.get("argv0_overridden")
+    ):
+        return entrypoint_fn(remaining)
+
+    if unbundle._is_unbundle_entrypoint(argv0_effective):
+        unb_args = list(remaining)
+        if pipeline["argv0"]:
+            unb_args = ["--argv0", pipeline["argv0"]] + unb_args
+        return unbundle.main(unb_args)
+
+    if target_cmd:
+        if remaining and (
+            remaining[0] == "dwimsy" or remaining[: len(target_cmd)] == target_cmd
+        ):
+            pass
+        else:
+            remaining = target_cmd + remaining
+
+    if remaining and remaining[0] == "dwimsy":
+        remaining = remaining[1:]
+
+    is_checkout, repo_root = unbundle.detect_self_location()
+    if is_checkout and repo_root and str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
 
     parser = argparse.ArgumentParser(
         prog="dwimsy",
         description="dwimsy - retrocomputing media preservation, demodulation, and conversion.",
-        epilog="Project Homepage: https://github.com/f-fix/dwimsy\nTip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.",
+        epilog="Project Homepage: https://github.com/f-fix/dwimsy\nTip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.\n\nUniversal pipeline options (also accepted by every CLI entry point): -a/--argv0 NAME, --version=TAG, --version-list, --version-include=PATH, --version-restrict-to=PATTERN, --version-prune=PATTERN, --version-splice=SPEC, --version-alt[=TAG].",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -625,9 +800,7 @@ def main(argv: Optional[List[str]] = None):
         default=1.0,
         help="Speed multiplier (default: 1.0)",
     )
-    p_conv.add_argument(
-        "--invert", action="store_true", help="Invert audio polarity"
-    )
+    p_conv.add_argument("--invert", action="store_true", help="Invert audio polarity")
     p_conv.add_argument(
         "--confidence",
         "-C",
@@ -639,7 +812,9 @@ def main(argv: Optional[List[str]] = None):
     p_conv.add_argument(
         "-q", "--quiet", action="store_true", help="Suppress progress output"
     )
-    p_conv.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_conv.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     p_inspect = subparsers.add_parser(
         "inspect",
@@ -656,7 +831,9 @@ def main(argv: Optional[List[str]] = None):
         choices=["auto", "left", "right", "mix", "diff"],
         help="Audio channel to inspect (default: auto)",
     )
-    p_inspect.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_inspect.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     p_split = subparsers.add_parser(
         "split",
@@ -689,7 +866,9 @@ def main(argv: Optional[List[str]] = None):
         default=None,
         help="Forced baud rate for T88 splitting",
     )
-    p_split.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_split.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     p_join = subparsers.add_parser(
         "join",
@@ -736,121 +915,379 @@ def main(argv: Optional[List[str]] = None):
         default="600,1200",
         help="Comma-separated candidate baud rates for autodetect mode (default: 600,1200)",
     )
-    p_join.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_join.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # t882wav
     p_t882wav = subparsers.add_parser(
         "t882wav",
         help="Synthesize PCM WAV audio from a T88 cassette image.",
     )
-    p_t882wav.add_argument("input", nargs="?", default="-", help="Input .t88 file or '-' for stdin")
-    p_t882wav.add_argument("output", nargs="?", default="-", help="Output .wav file or '-' for stdout")
-    p_t882wav.add_argument("--mode", "-m", "--wave", default="tape", choices=["tape", "cassette", "acoustic", "motor", "spinup", "shaped", "pc", "ideal", "square"], help="Synthesis mode")
-    p_t882wav.add_argument("--sample-rate", "-r", type=int, default=44100, help="Audio sample rate (default: 44100)")
-    p_t882wav.add_argument("--channels", "-c", type=int, choices=[1, 2], default=1, help="Channels: 1 (mono) or 2 (stereo)")
-    p_t882wav.add_argument("--stereo-mode", default="dual", choices=["dual", "left", "right", "diff"], help="Stereo routing")
-    p_t882wav.add_argument("--amplitude", "-a", "--volume", type=float, default=0.80, help="Waveform amplitude (0.01 to 1.0, default: 0.80)")
-    p_t882wav.add_argument("--speed", "-s", type=float, default=1.0, help="Speed multiplier factor (default: 1.0)")
-    p_t882wav.add_argument("--invert", action="store_true", help="Invert audio polarity (default: False)")
-    p_t882wav.add_argument("--baud", "-b", type=int, choices=[600, 1200], default=None, help="Baud rate override (default: auto)")
-    p_t882wav.add_argument("-q", "--quiet", action="store_true", help="Quiet mode: suppress progress output")
-    p_t882wav.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_t882wav.add_argument(
+        "input", nargs="?", default="-", help="Input .t88 file or '-' for stdin"
+    )
+    p_t882wav.add_argument(
+        "output", nargs="?", default="-", help="Output .wav file or '-' for stdout"
+    )
+    p_t882wav.add_argument(
+        "--mode",
+        "-m",
+        "--wave",
+        default="tape",
+        choices=[
+            "tape",
+            "cassette",
+            "acoustic",
+            "motor",
+            "spinup",
+            "shaped",
+            "pc",
+            "ideal",
+            "square",
+        ],
+        help="Synthesis mode",
+    )
+    p_t882wav.add_argument(
+        "--sample-rate",
+        "-r",
+        type=int,
+        default=44100,
+        help="Audio sample rate (default: 44100)",
+    )
+    p_t882wav.add_argument(
+        "--channels",
+        "-c",
+        type=int,
+        choices=[1, 2],
+        default=1,
+        help="Channels: 1 (mono) or 2 (stereo)",
+    )
+    p_t882wav.add_argument(
+        "--stereo-mode",
+        default="dual",
+        choices=["dual", "left", "right", "diff"],
+        help="Stereo routing",
+    )
+    p_t882wav.add_argument(
+        "--amplitude",
+        "--volume",
+        type=float,
+        default=0.80,
+        help="Waveform amplitude (0.01 to 1.0, default: 0.80)",
+    )
+    p_t882wav.add_argument(
+        "--speed",
+        "-s",
+        type=float,
+        default=1.0,
+        help="Speed multiplier factor (default: 1.0)",
+    )
+    p_t882wav.add_argument(
+        "--invert", action="store_true", help="Invert audio polarity (default: False)"
+    )
+    p_t882wav.add_argument(
+        "--baud",
+        "-b",
+        type=int,
+        choices=[600, 1200],
+        default=None,
+        help="Baud rate override (default: auto)",
+    )
+    p_t882wav.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Quiet mode: suppress progress output",
+    )
+    p_t882wav.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # wav2t88
     p_wav2t88 = subparsers.add_parser(
         "wav2t88",
         help="Demodulate PCM WAV audio into a T88 cassette image.",
     )
-    p_wav2t88.add_argument("input", nargs="?", default="-", help="Input WAV file or '-' for stdin")
-    p_wav2t88.add_argument("output", nargs="?", default="-", help="Output .t88 file or '-' for stdout")
-    p_wav2t88.add_argument("--baud", "-b", type=int, choices=[600, 1200], default=None, help="Forced baud rate")
-    p_wav2t88.add_argument("--channel", "-c", default="auto", choices=["auto", "left", "right", "mix", "diff"], help="Input channel")
+    p_wav2t88.add_argument(
+        "input", nargs="?", default="-", help="Input WAV file or '-' for stdin"
+    )
+    p_wav2t88.add_argument(
+        "output", nargs="?", default="-", help="Output .t88 file or '-' for stdout"
+    )
+    p_wav2t88.add_argument(
+        "--baud",
+        "-b",
+        type=int,
+        choices=[600, 1200],
+        default=None,
+        help="Forced baud rate",
+    )
+    p_wav2t88.add_argument(
+        "--channel",
+        "-c",
+        default="auto",
+        choices=["auto", "left", "right", "mix", "diff"],
+        help="Input channel",
+    )
     p_wav2t88.add_argument("--bauds", default="600,1200", help="Candidate baud rates")
-    p_wav2t88.add_argument("--flavor", default="reconstructed", choices=["verbatim", "reconstructed", "kinematic-infilled", "rom-authentic", "canonical"], help="Timing flavor")
-    p_wav2t88.add_argument("--confidence", "-C", "--min-confidence", type=float, default=0.75, help="Minimum confidence threshold")
-    p_wav2t88.add_argument("-q", "--quiet", action="store_true", help="Suppress progress output")
-    p_wav2t88.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_wav2t88.add_argument(
+        "--flavor",
+        default="reconstructed",
+        choices=[
+            "verbatim",
+            "reconstructed",
+            "kinematic-infilled",
+            "rom-authentic",
+            "canonical",
+        ],
+        help="Timing flavor",
+    )
+    p_wav2t88.add_argument(
+        "--confidence",
+        "-C",
+        "--min-confidence",
+        type=float,
+        default=0.75,
+        help="Minimum confidence threshold",
+    )
+    p_wav2t88.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress progress output"
+    )
+    p_wav2t88.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # tests
     p_tests = subparsers.add_parser(
         "tests",
         help="Run the dwimsy unit test suite in-process.",
     )
-    p_tests.add_argument("patterns", nargs="*", default=None, help="Optional test patterns or keywords")
-    p_tests.add_argument("-v", "--verbose", action="count", default=1, help="Increase test runner verbosity")
-    p_tests.add_argument("-l", "--list", action="store_true", help="List discoverable unit test IDs without running them")
-    p_tests.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_tests.add_argument(
+        "patterns", nargs="*", default=None, help="Optional test patterns or keywords"
+    )
+    p_tests.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=1,
+        help="Increase test runner verbosity",
+    )
+    p_tests.add_argument(
+        "-l",
+        "--list",
+        action="store_true",
+        help="List discoverable unit test IDs without running them",
+    )
+    p_tests.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # readme
-    p_readme = subparsers.add_parser("readme", help="Output project README documentation.")
-    p_readme.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_readme = subparsers.add_parser(
+        "readme", help="Output project README documentation."
+    )
+    p_readme.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # license
     p_license = subparsers.add_parser("license", help="Output project LICENSE terms.")
-    p_license.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_license.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # changelog
-    p_changelog = subparsers.add_parser("changelog", help="Output project revision history from CHANGELOG.md.")
-    p_changelog.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_changelog = subparsers.add_parser(
+        "changelog", help="Output project revision history from CHANGELOG.md."
+    )
+    p_changelog.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
     # help
     p_help = subparsers.add_parser("help", help="Interactive technical manual viewer.")
-    p_help.add_argument("topic", nargs="?", default=None, help="Subcommand or topic name to inspect")
-    p_help.add_argument("--help-all", action="store_true", help="Show full detailed help for all subcommands")
+    p_help.add_argument(
+        "topic", nargs="?", default=None, help="Subcommand or topic name to inspect"
+    )
+    p_help.add_argument(
+        "--help-all",
+        action="store_true",
+        help="Show full detailed help for all subcommands",
+    )
 
     # meta
     from dwimsy.meta.__main__ import build_parser as build_meta_parser
+
     p_meta = subparsers.add_parser(
         "meta",
         help="Maintainer tools and repository lifecycle management.",
     )
-    meta_subparsers = p_meta.add_subparsers(dest="meta_command", metavar="<meta-command>")
-    p_meta_bundle = meta_subparsers.add_parser("bundle", help="Generate a self-extracting single-file Python unpacker bundle of dwimsy.")
-    p_meta_bundle.add_argument("-o", "--output", default=None, help="Output script path or '-' for stdout")
-    p_meta_bundle.add_argument("-t", "--tag", default=None, help="Optional short descriptive tag/label")
-    p_meta_bundle.add_argument("--baseline", action="store_true", help="Directly emit installed baseline bundle")
-    p_meta_bundle.add_argument("--with-deps", action="store_true", help="Include legacy submodule scaffolding from deps/")
-    p_meta_bundle.add_argument("--status", action="store_true", help="List uncommitted/modified and untracked files")
-    p_meta_bundle.add_argument("--diff", action="store_true", help="Display working tree diff before bundling")
-    p_meta_bundle.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity")
-    p_meta_bundle.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    meta_subparsers = p_meta.add_subparsers(
+        dest="meta_command", metavar="<meta-command>"
+    )
+    p_meta_bundle = meta_subparsers.add_parser(
+        "bundle",
+        help="Generate a self-extracting single-file Python unpacker bundle of dwimsy.",
+    )
+    p_meta_bundle.add_argument(
+        "-o", "--output", default=None, help="Output script path or '-' for stdout"
+    )
+    p_meta_bundle.add_argument(
+        "-t", "--tag", default=None, help="Optional short descriptive tag/label"
+    )
+    p_meta_bundle.add_argument(
+        "--with-deps",
+        action="store_true",
+        help="Include legacy submodule scaffolding from deps/",
+    )
+    p_meta_bundle.add_argument(
+        "--status",
+        action="store_true",
+        help="List uncommitted/modified and untracked files",
+    )
+    p_meta_bundle.add_argument(
+        "--diff", action="store_true", help="Display working tree diff before bundling"
+    )
+    p_meta_bundle.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Force bundle emission, overwriting collisions",
+    )
+    p_meta_bundle.add_argument(
+        "--baseline",
+        action="store_true",
+        help="Bundle clean baseline without working tree delta",
+    )
+    p_meta_bundle.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build bundle in memory/temp and display manifest without committing to disk",
+    )
+    p_meta_bundle.add_argument(
+        "-v", "--verbose", action="count", default=0, help="Increase verbosity"
+    )
+    p_meta_bundle.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
-    p_meta_unbundle = meta_subparsers.add_parser("unbundle", help="Extract dwimsy standalone bundle to a target directory.")
-    p_meta_unbundle.add_argument("target_directory", nargs="?", default=None, help="Target directory for extraction")
-    p_meta_unbundle.add_argument("--deps", "-d", action="store_true", help="Also extract reference dependencies into deps/")
-    p_meta_unbundle.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_meta_unbundle = meta_subparsers.add_parser(
+        "unbundle", help="Extract dwimsy standalone bundle to a target directory."
+    )
+    p_meta_unbundle.add_argument(
+        "target_directory",
+        nargs="?",
+        default=None,
+        help="Target directory for extraction",
+    )
+    p_meta_unbundle.add_argument(
+        "--deps",
+        "-d",
+        action="store_true",
+        help="Also extract reference dependencies into deps/",
+    )
+    p_meta_unbundle.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Overwrite existing files or modified directories",
+    )
+    p_meta_unbundle.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate extraction without modifying disk",
+    )
+    p_meta_unbundle.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress status manifest output"
+    )
+    p_meta_unbundle.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
-    p_meta_diff = meta_subparsers.add_parser("diff", help="Show differences between the working tree and embedded baseline.")
-    p_meta_diff.add_argument("-r", "--root", default=None, help="Target repository root")
-    p_meta_diff.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_meta_diff = meta_subparsers.add_parser(
+        "diff", help="Show differences between the working tree and embedded baseline."
+    )
+    p_meta_diff.add_argument(
+        "-r", "--root", default=None, help="Target repository root"
+    )
+    p_meta_diff.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
-    p_meta_integrity = meta_subparsers.add_parser("integrity", help="Verify the canonical portable-project integrity hash.")
-    p_meta_integrity.add_argument("--baseline", action="store_true", help="Inspect embedded baseline")
-    p_meta_integrity.add_argument("-q", "--quiet", action="store_true", help="Suppress output on clean status")
-    p_meta_integrity.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_meta_integrity = meta_subparsers.add_parser(
+        "integrity", help="Verify the canonical portable-project integrity hash."
+    )
 
-    p_meta_fetch = meta_subparsers.add_parser("fetch-deps", help="Fetch or materialize legacy reference submodules into deps/.")
-    p_meta_fetch.add_argument("--baseline", action="store_true", help="Force extraction from bundled baseline")
-    p_meta_fetch.add_argument("-f", "--force", action="store_true", help="Overwrite existing deps/ files")
-    p_meta_fetch.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_meta_integrity.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress output on clean status"
+    )
+    p_meta_integrity.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
-    p_meta_bump = meta_subparsers.add_parser("version-bump", help="Advance revision, record changelog, and synchronize bundle baseline.")
-    p_meta_bump.add_argument("target_version", nargs="?", default=None, help="Explicit new version string")
-    p_meta_bump.add_argument("--patch", action="store_true", help="Increment patch component")
-    p_meta_bump.add_argument("--minor", action="store_true", help="Increment minor component")
-    p_meta_bump.add_argument("--major", action="store_true", help="Increment major component")
-    p_meta_bump.add_argument("--rev", action="store_true", help="Increment build/revision digit")
-    p_meta_bump.add_argument("--release", action="store_true", help="Remove -dev suffix")
+    p_meta_fetch = meta_subparsers.add_parser(
+        "fetch-deps",
+        help="Fetch or materialize legacy reference submodules into deps/.",
+    )
+
+    p_meta_fetch.add_argument(
+        "-f", "--force", action="store_true", help="Overwrite existing deps/ files"
+    )
+    p_meta_fetch.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
+
+    p_meta_bump = meta_subparsers.add_parser(
+        "version-bump",
+        help="Advance revision, record changelog, and synchronize bundle baseline.",
+    )
+    p_meta_bump.add_argument(
+        "target_version", nargs="?", default=None, help="Explicit new version string"
+    )
+    p_meta_bump.add_argument(
+        "--patch", action="store_true", help="Increment patch component"
+    )
+    p_meta_bump.add_argument(
+        "--minor", action="store_true", help="Increment minor component"
+    )
+    p_meta_bump.add_argument(
+        "--major", action="store_true", help="Increment major component"
+    )
+    p_meta_bump.add_argument(
+        "--rev", action="store_true", help="Increment build/revision digit"
+    )
+    p_meta_bump.add_argument(
+        "--release", action="store_true", help="Remove -dev suffix"
+    )
     p_meta_bump.add_argument("--dev", action="store_true", help="Ensure -dev suffix")
-    p_meta_bump.add_argument("-m", "--message", default=None, help="Changelog description message")
-    p_meta_bump.add_argument("--no-bundle", action="store_true", help="Skip bundle baseline synchronization")
-    p_meta_bump.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_meta_bump.add_argument(
+        "-m", "--message", default=None, help="Changelog description message"
+    )
+    p_meta_bump.add_argument(
+        "--no-bundle", action="store_true", help="Skip bundle baseline synchronization"
+    )
+    p_meta_bump.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
-    p_meta_lint = meta_subparsers.add_parser("lint", help="Verify repository headers, docstrings, markdown syntax, and dash policy.")
-    p_meta_lint.add_argument("-q", "--quiet", action="store_true", help="Suppress output on success")
-    p_meta_lint.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    p_meta_lint = meta_subparsers.add_parser(
+        "lint",
+        help="Verify repository headers, docstrings, markdown syntax, and dash policy.",
+    )
+    p_meta_lint.add_argument(
+        "repo_root", nargs="?", default=None, help="Target repository root"
+    )
+    p_meta_lint.add_argument(
+        "-q", "--quiet", action="store_true", help="Suppress output on success"
+    )
+    p_meta_lint.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
 
-    meta_subparsers.add_parser("bundle-fixtures", help="[TODO / Milestone 1.6] Package private test fixtures.")
+    meta_subparsers.add_parser(
+        "bundle-fixtures", help="[TODO / Milestone 1.6] Package private test fixtures."
+    )
 
     # Roadmap placeholders
     for pl, h in [
@@ -863,23 +1300,27 @@ def main(argv: Optional[List[str]] = None):
     ]:
         subparsers.add_parser(pl, help=h)
 
-    if not effective_argv:
+    if not remaining:
         parser.print_help(sys.stderr)
         return 0
 
-    if any(a == "--help-all" for a in effective_argv):
-        non_flags = [a for a in effective_argv if not a.startswith("-")]
+    if any(a == "--help-all" for a in remaining):
+        non_flags = [a for a in remaining if not a.startswith("-")]
         if not non_flags:
             safe_page(format_all_help(parser))
             return 0
         elif non_flags[0] == "meta":
-            from dwimsy.meta.__main__ import format_meta_help_all, build_parser as build_meta_p
+            from dwimsy.meta.__main__ import (
+                format_meta_help_all,
+                build_parser as build_meta_p,
+            )
+
             safe_page(format_meta_help_all(build_meta_p()))
             return 0
         else:
-            effective_argv = ["-h" if a == "--help-all" else a for a in effective_argv]
+            remaining = ["-h" if a == "--help-all" else a for a in remaining]
 
-    args = parser.parse_args(effective_argv)
+    args = parser.parse_args(remaining)
 
     if getattr(args, "help_all", False):
         safe_page(format_all_help(parser))
@@ -940,6 +1381,7 @@ def main(argv: Optional[List[str]] = None):
                 out_s.close()
     elif args.command == "tests":
         from dwimsy.tests import list_tests, run_tests
+
         if args.list:
             for tid in list_tests(args.patterns):
                 print(tid)
@@ -960,21 +1402,28 @@ def main(argv: Optional[List[str]] = None):
             topic = args.topic.strip()
             found = False
             for action in parser._actions:
-                if isinstance(action, argparse._SubParsersAction) and topic in action.choices:
+                if (
+                    isinstance(action, argparse._SubParsersAction)
+                    and topic in action.choices
+                ):
                     sub_out = io.StringIO()
                     action.choices[topic].print_help(sub_out)
                     safe_page(sub_out.getvalue())
                     found = True
                     break
             if not found:
-                print(f"Unknown command topic '{topic}'. Run 'dwimsy --help-all' for all topics.", file=sys.stderr)
+                print(
+                    f"Unknown command topic '{topic}'. Run 'dwimsy --help-all' for all topics.",
+                    file=sys.stderr,
+                )
                 return 1
         else:
             safe_page(format_all_help(parser))
         return 0
     elif args.command == "meta":
         from dwimsy.meta import __main__ as meta_main
-        meta_args = [a for a in effective_argv[1:]]
+
+        meta_args = [a for a in remaining[1:]]
         return meta_main.main(meta_args)
     elif args.command in (
         "charset",

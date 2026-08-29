@@ -7,6 +7,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+## [0.1.6.48-dev] - 2026-08-29
+
+### Changed
+- Reformatted
+
+## [0.1.6.45-dev] - 2026-08-29
+
+### Changed
+- Enforce strict position/semver layer determination, reading invariants, serializer readback validation, and destination safety
+
+## [0.1.6.44-dev] - 2026-08-29
+
+### Changed
+- Enforce strict position/semver layer determination, reading invariants, serializer readback validation, and destination safety
+
+## [0.1.6.43-dev] - 2026-08-29
+
+### Changed
+- Enforce strict duplicate version reading/writing invariants, safe_unbundle destination verification, and 64-char hash table rendering
+
+## [0.1.6.42-dev] - 2026-08-29
+
+### Changed
+- Align with Developer Directive & Implementation Specification v8.6: implement two-tier DWIM argument scanner, primary default selection, shadow-alt branching, and subparser synchronization
+
+## [0.1.6.41-dev] - 2026-08-29
+
+### Changed
+- Align with Developer Directive & Implementation Specification v8.6: robust standalone in-memory BundleFinder bootstrap for Tier 1 universal scanner
+
+## [0.1.6.40-dev] - 2026-08-29
+
+### Changed
+- Align with Developer Directive & Implementation Specification v8.6: implement two-tier DWIM argument scanner, primary default selection, shadow-alt branching, and polymorphic flag state machine
+
+## [0.1.6.39-dev] - 2026-08-29
+
+### Changed
+- Align with Developer Directive & Implementation Specification v8.6: fix dotfile preservation, primary default selection, shadow-alt branching, and two-tier DWIM argument scanner
+
+## [0.1.6.38-dev] - 2026-08-29
+
+### Changed
+- Align with Developer Directive & Implementation Specification v8.6: fix dotfile preservation, primary default selection, shadow-alt branching, and two-tier DWIM argument scanner
+
+## [0.1.6.16-dev] - 2026-08-28
+
+### Changed
+- Complete v7.4 implementation and CLI isolation fixes
+
+## [0.1.6.15-dev] - 2026-08-28
+
+### Changed
+- Complete v7.4 VersionSpace and portability implementation
+
+## [0.1.6.14-dev] - 2026-08-28
+
+### Changed
+- Implement v7.4 VersionSpace semantics and portability rules
+
+## [0.1.6.13-dev] - 2026-08-28
+
+### Changed
+- fix VersionSpace baseline semantics
+
+## [0.1.6.13-dev] - 2026-08-28
+
+### Changed
+- Implement v7.4 multi-stream packaging and dispatch.
+
+## [0.1.6.12-dev] - 2026-08-28
+
+### Changed
+- Implement multi-stream version reconciliation, self-contained dispatch, and packaging invariants per v7.4 specification.
+
+## [0.1.6.11-dev] - 2026-08-27
+
+### Changed
+- Complete implementation of multi-stream version reconciliation, self-contained applet dispatch, and packaging invariants per Implementation Specification (v4).
+- Retroactively normalize development revision history to 4th-digit semantic revision scheme.
+- Enforce standalone bundle self-containment and lazy CLI version evaluation.
+
+## [0.1.6.10-dev] - 2026-08-27 [retroactive version number repair]
+
+### Changed
+- Maintenance release and baseline synchronization.
+
+## [0.1.6.9-dev] - 2026-08-27 [retroactive version number repair]
+
+### Changed
+- Maintenance release and baseline synchronization.
+
+## [0.1.6.8-dev] - 2026-08-27 [retroactive version number repair]
+
+### Changed
+- Universalize CLI dispatch, argv0 semantics, and startup behavior.
+
+## [0.1.6.7-dev] - 2026-08-27 [retroactive version number repair]
+
+### Changed
+- Finalize universal CLI dispatch and argv0 semantics.
+
+## [0.1.6.6-dev] - 2026-08-27 [retroactive version number repair]
+
+### Changed
+- Fix universal dispatch aliases and apply argv0 routing consistently across CLI entry points.
+
+## [0.1.6.5-dev] - 2026-08-27 [retroactive version number repair]
+
+### Changed
+- Universalize CLI dispatch and argv0 handling across all entry points.
+
+## [0.1.6.4-dev] - 2026-08-27 [retroactive version number repair]
+
+### Changed
+- Universalize CLI dispatch and argv0 handling.
+
 ## [0.1.6.3-dev] - 2026-08-26
 
 ### Changed
@@ -15,28 +145,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.6.2-dev] - 2026-08-26
 
 ### Changed
-- Use HTML character references for LaTeX syntax and dash character bans in README.md.
+- Add streaming WAV audio inspection parser and auto-detection heuristics.
 
 ## [0.1.6.1-dev] - 2026-08-25
 
-### Added
-- Direct execution entrypoints and standalone CLIs for maintainer tools (`dwimsy.meta.diff`, `dwimsy.meta.integrity`, `dwimsy.meta.lint`, `dwimsy.meta.version_bump`).
-- Central maintainer namespace dispatcher `dwimsy.meta` (`dwimsy/meta/__main__.py`).
-- First-class top-level `t882wav` and `wav2t88` commands under the central `dwimsy` CLI.
-- Top-level `tests` command and `--list` test enumeration in `dwimsy.tests`.
-- Documentation viewer commands `dwimsy readme`, `dwimsy license`, `dwimsy changelog`, and `dwimsy help` with TTY-aware safe pager fallback.
-- Automated version bumping and baseline synchronization tool `dwimsy meta version-bump`.
-- Repository hygiene and style invariant validator `dwimsy meta lint`.
-- Universal CLI entrypoint self-test verification (`--help`, `--version`, `--test[=FILTER]`, and `--verbose`).
-- Developer Workflow, Environment Variables, and Character & Syntax Considerations documentation in `README.md`.
+### Changed
+- Refactor T88 and PC-88 cassette demodulation pipelines.
 
 ## [0.1.6.0-dev] - 2026-08-23
 
-### Added
-- Native Phase 1 DSP and physical layer modules (`core.pulse`, `core.fsk`, `core.audio`).
-- PC-88 protocol and container models (`tape.t88`, `protocols.pc88`).
-- Streaming filter applets (`t882wav`, `wav2t88`) and unified CLI (`convert`, `inspect`, `split`, `join`).
-- In-process test discovery and execution engine (`dwimsy.tests`, `dwimsy tests`, `dwimsy --test`).
-- Portable single-file unpacker and in-memory module loader (`dwimsy.meta.bundle`, `dwimsy.meta.unbundle`).
-- Content-addressed project integrity and modification detection (`dwimsy.meta.integrity`).
-- Canonical working tree comparison against portable baseline (`dwimsy.meta.diff`).
+### Changed
+- Initial multi-stream version reconciliation baseline.

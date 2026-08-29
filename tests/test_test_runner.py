@@ -187,7 +187,9 @@ class TestTestRunner(unittest.TestCase):
                     rc_t = fn(["--test=__no_such_test__"])
                 except SystemExit as e:
                     rc_t = e.code
-            self.assertEqual(rc_t, 0, f"{name} --test=__no_such_test__ failed with code {rc_t}")
+            self.assertEqual(
+                rc_t, 0, f"{name} --test=__no_such_test__ failed with code {rc_t}"
+            )
 
 
 def main(argv=None):

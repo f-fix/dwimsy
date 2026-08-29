@@ -10,6 +10,8 @@ with the empty sentinel before hashing.
 
 from __future__ import annotations
 
+import argparse
+
 import hashlib
 import ast
 import fnmatch
@@ -44,6 +46,7 @@ def _repo_fingerprint(repo: Path, baseline: bool) -> tuple:
             pass
     return (str(repo), False, tuple(mtimes))
 
+
 def get_latest_release_info(root: Optional[Path] = None) -> tuple[str, str]:
     """Retrieve (version, datestamp) for the most recent changelog entry."""
     repo = find_repo_root(root) if root is not None else find_repo_root()
@@ -57,6 +60,7 @@ def get_latest_release_info(root: Optional[Path] = None) -> tuple[str, str]:
     if c_text is None:
         try:
             from dwimsy.meta import unbundle
+
             c_text = unbundle.get_asset_text("CHANGELOG.md")
         except Exception:
             pass
@@ -67,12 +71,51 @@ def get_latest_release_info(root: Optional[Path] = None) -> tuple[str, str]:
     v = _version_values(root).get("__version__", "0.1.6.0-dev")
     return (v, "2026-08-26")
 
+
 _VERSION_FILE = _PACKAGE_ROOT / "_version.py"
-_UNBUNDLE_RE = re.compile(rb'(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?:.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)')
+_UNBUNDLE_RE = re.compile(
+    rb"(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?:.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)"
+)
 _HASH_RE = re.compile(
     rb"(?m)^(?P<prefix>[ \t]*__code_hash__[ \t]*=[ \t]*)"
     rb"(?P<quote>['\"])[^'\"]*(?P=quote)(?P<suffix>[ \t]*(?:#.*)?\r?\n?)$"
 )
+
+
+def is_standalone_bundle() -> bool:
+    """Return True when code is being served by the relocatable bundle bootstrap."""
+    try:
+        mod = sys.modules.get("dwimsy.meta.unbundle")
+        mod_file = str(getattr(mod, "__file__", ""))
+        if "<dwimsy-bundle>" in mod_file:
+            return True
+        from dwimsy.meta import unbundle
+
+        mod_file = str(getattr(unbundle, "__file__", ""))
+        if "<dwimsy-bundle>" in mod_file:
+            return True
+        is_checkout, _ = unbundle.detect_self_location()
+        return not is_checkout
+    except Exception:
+        return False
+
+
+def is_standalone_bundle() -> bool:
+    """Return True when code is being served by the relocatable bundle bootstrap."""
+    try:
+        mod = sys.modules.get("dwimsy.meta.unbundle")
+        mod_file = str(getattr(mod, "__file__", ""))
+        if "<dwimsy-bundle>" in mod_file:
+            return True
+        from dwimsy.meta import unbundle
+
+        mod_file = str(getattr(unbundle, "__file__", ""))
+        if "<dwimsy-bundle>" in mod_file:
+            return True
+        is_checkout, _ = unbundle.detect_self_location()
+        return not is_checkout
+    except Exception:
+        return False
 
 
 def find_repo_root(start: Optional[Path] = None) -> Path:
@@ -88,8 +131,13 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
     test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
     if test_root:
         candidate = Path(test_root).resolve()
-        if (candidate / "dwimsy").is_dir():
+        if (candidate / "dwimsy").is_dir() and (
+            candidate / "dwimsy" / "__init__.py"
+        ).is_file():
             return candidate
+
+    if is_standalone_bundle():
+        return _PACKAGE_ROOT.parent
 
     cur = Path.cwd().resolve()
     while cur != cur.parent:
@@ -130,7 +178,9 @@ def version_file_path(root: Optional[Path] = None) -> Path:
     return _VERSION_FILE
 
 
-def canonical_manifest(root: Optional[Path] = None, baseline: bool = False) -> Tuple[str, ...]:
+def canonical_manifest(
+    root: Optional[Path] = None, baseline: bool = False
+) -> Tuple[str, ...]:
     """Return the canonical portable-project manifest patterns.
 
     The manifest covers native Python code, tests, canonical project metadata,
@@ -154,6 +204,7 @@ def canonical_manifest(root: Optional[Path] = None, baseline: bool = False) -> T
     if gitmodules_text is None:
         try:
             from dwimsy.meta import unbundle
+
             gitmodules_text = unbundle.get_asset_text(".gitmodules")
         except Exception:
             pass
@@ -199,6 +250,7 @@ def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
             files.append(p)
     return tuple(sorted(files, key=lambda p: p.relative_to(repo).as_posix()))
 
+
 def _canonical_bytes(data: bytes, rel_path: str) -> bytes:
     """Return normalized bytes for one source or asset file."""
     data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
@@ -207,7 +259,9 @@ def _canonical_bytes(data: bytes, rel_path: str) -> bytes:
     if rel_path == "dwimsy/meta/unbundle.py":
         match = _UNBUNDLE_RE.search(data)
         if match is None:
-            raise ValueError("dwimsy/meta/unbundle.py does not contain a blztar assignment")
+            raise ValueError(
+                "dwimsy/meta/unbundle.py does not contain a blztar assignment"
+            )
         data = (
             data[: match.start()]
             + match.group("prefix")
@@ -235,7 +289,9 @@ def _canonical_bytes(data: bytes, rel_path: str) -> bytes:
     return data
 
 
-def canonical_assets(root: Optional[Path] = None, baseline: bool = False) -> dict[str, bytes]:
+def canonical_assets(
+    root: Optional[Path] = None, baseline: bool = False
+) -> dict[str, bytes]:
     """Return canonical portable-project assets before content normalization."""
     from dwimsy.meta import unbundle
 
@@ -257,7 +313,10 @@ def canonical_assets(root: Optional[Path] = None, baseline: bool = False) -> dic
                     pattern[:-5] for pattern in patterns if pattern.endswith("/**/*")
                 ]
                 need_bundle = any(
-                    not any(rel == prefix or rel.startswith(prefix + "/") for rel in candidates)
+                    not any(
+                        rel == prefix or rel.startswith(prefix + "/")
+                        for rel in candidates
+                    )
                     for prefix in dep_prefixes
                 )
         if need_bundle:
@@ -272,7 +331,9 @@ def canonical_assets(root: Optional[Path] = None, baseline: bool = False) -> dic
                             if f is not None:
                                 _BUNDLE_ASSET_CACHE[name] = f.read()
             for rel, data in _BUNDLE_ASSET_CACHE.items():
-                if _manifest_matches(rel, patterns) and (baseline or rel not in candidates):
+                if _manifest_matches(rel, patterns) and (
+                    baseline or rel not in candidates
+                ):
                     candidates[rel] = data
     except Exception:
         if baseline:
@@ -299,7 +360,10 @@ def canonical_code_hash(root: Optional[Path] = None, baseline: bool = False) -> 
     _HASH_CACHE[key] = (fp, result)
     return result
 
-def _version_values(root: Optional[Path] = None, baseline: bool = False) -> dict[str, str]:
+
+def _version_values(
+    root: Optional[Path] = None, baseline: bool = False
+) -> dict[str, str]:
     """Read version metadata from disk or the in-memory portable bundle."""
     v_file = version_file_path(root)
     if v_file.is_file() and not baseline:
@@ -318,10 +382,16 @@ def _version_values(root: Optional[Path] = None, baseline: bool = False) -> dict
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1:
             target = node.targets[0]
-            if isinstance(target, ast.Name) and target.id in {"__version__", "__code_hash__"}:
-                if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            if isinstance(target, ast.Name) and target.id in {
+                "__version__",
+                "__code_hash__",
+            }:
+                if isinstance(node.value, ast.Constant) and isinstance(
+                    node.value.value, str
+                ):
                     values[target.id] = node.value.value
     return values
+
 
 def sealed_code_hash(root: Optional[Path] = None, baseline: bool = False) -> str:
     """Return the recorded canonical hash, or ``\"\"`` when unsealed."""
@@ -332,15 +402,26 @@ def sealed_code_hash(root: Optional[Path] = None, baseline: bool = False) -> str
 def is_modified(root: Optional[Path] = None, baseline: bool = False) -> bool:
     """Return whether the current source differs from its sealed hash.
 
-    An empty/unsealed hash is considered modified. That is intentional: an
-    unsealed development tree cannot claim to be a canonical baseline.
+    In standalone bundle mode without explicit root override, returns False (Spec §4.4).
     """
-    current = canonical_code_hash(root, baseline=baseline)
-    sealed = sealed_code_hash(root, baseline=baseline)
-    return not sealed or current != sealed
+    if (
+        root is None
+        and not baseline
+        and (is_standalone_bundle() or "<dwimsy-bundle>" in str(__file__))
+    ):
+        return False
+    repo = find_repo_root(root) if root is not None else find_repo_root()
+    if not ((repo / "dwimsy").is_dir() and (repo / "dwimsy" / "__init__.py").is_file()):
+        return False
+    sealed = sealed_code_hash(repo, baseline=baseline)
+    if not sealed:
+        return True
+    return canonical_code_hash(repo, baseline=baseline) != sealed
 
 
-def modification_hash(root: Optional[Path] = None, length: int = 12, baseline: bool = False) -> str:
+def modification_hash(
+    root: Optional[Path] = None, length: int = 12, baseline: bool = False
+) -> str:
     """Return the short current canonical hash used for ``+mod.`` versions."""
     if length < 1:
         raise ValueError("length must be positive")
@@ -389,7 +470,22 @@ __all__ = [
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI entrypoint for running dwimsy.meta.integrity directly."""
     import argparse
+
     effective = sys.argv[1:] if argv is None else list(argv)
+    from dwimsy.cli.dispatch import early_dispatch
+
+    handled, effective = early_dispatch(
+        effective, ["meta", "integrity"], use_process_argv0=(argv is None)
+    )
+    if handled:
+        return 0
+    from dwimsy.cli.dispatch import early_dispatch
+
+    handled, effective = early_dispatch(
+        effective, ["meta", "integrity"], use_process_argv0=(argv is None)
+    )
+    if handled:
+        return 0
 
     test_arg = None
     for a in effective:
@@ -404,6 +500,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             elif a.startswith("-") and len(a) > 1 and all(c == "v" for c in a[1:]):
                 verbosity = max(verbosity + len(a) - 1, 2)
         from dwimsy.tests import run_tests
+
         pattern = None
         if test_arg.startswith("--test="):
             pattern = [test_arg.split("=", 1)[1]]
@@ -445,11 +542,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Show full help documentation and exit",
     )
     parser.add_argument(
-        "--baseline",
-        action="store_true",
-        help="Inspect the embedded portable baseline instead of working tree on disk",
-    )
-    parser.add_argument(
         "-q",
         "--quiet",
         action="store_true",
@@ -459,14 +551,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.test is not False:
         from dwimsy.tests import run_tests
+
         pattern = [args.test] if isinstance(args.test, str) else ["meta integrity"]
         return run_tests(pattern, verbose=max(args.verbose, 1))
 
-    baseline = args.baseline
-    current = canonical_code_hash(baseline=baseline)
-    sealed = sealed_code_hash(baseline=baseline)
-    modified = is_modified(baseline=baseline)
-    ver_str = version() if not baseline else _version_values(baseline=True).get("__version__", "")
+    current = canonical_code_hash()
+    sealed = sealed_code_hash()
+    modified = is_modified()
+    ver_str = version()
 
     if not args.quiet:
         print(f"Canonical hash : {current}")
@@ -479,3 +571,29 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+class _LazyVersionAction(argparse.Action):
+    """Only evaluates version function if -V or --version is present in CLI arguments."""
+
+    def __init__(
+        self,
+        option_strings,
+        dest=argparse.SUPPRESS,
+        default=argparse.SUPPRESS,
+        help="show program's version number and exit",
+        version_fn=None,
+    ):
+        super().__init__(
+            option_strings=option_strings,
+            dest=dest,
+            default=default,
+            nargs=0,
+            help=help,
+        )
+        self.version_fn = version_fn
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        fn = self.version_fn or version
+        parser._print_message(f"{parser.prog} {fn()}\n", sys.stdout)
+        parser.exit()

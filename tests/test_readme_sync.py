@@ -15,7 +15,13 @@ if str(pkg_root) not in sys.path:
 
 class TestReadmeSync(unittest.TestCase):
     def test_readme_contains_cli_help_sections(self):
-        readme_text = (pkg_root / "README.md").read_text(encoding="utf-8")
+        readme_file = pkg_root / "README.md"
+        if readme_file.is_file():
+            readme_text = readme_file.read_text(encoding="utf-8")
+        else:
+            from dwimsy.meta import unbundle
+
+            readme_text = unbundle.get_asset_text("README.md")
 
         required_snippets = [
             "usage: dwimsy [-h] [-V] [-T] [-v] [--help-all] <command>",

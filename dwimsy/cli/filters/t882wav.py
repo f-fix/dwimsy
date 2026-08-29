@@ -340,6 +340,20 @@ def log_diag(msg: str):
 
 def main(argv: Optional[List[str]] = None):
     effective_argv = sys.argv[1:] if argv is None else list(argv)
+    from dwimsy.cli.dispatch import early_dispatch
+
+    handled, effective_argv = early_dispatch(
+        effective_argv, ["t882wav"], use_process_argv0=(argv is None)
+    )
+    if handled:
+        return 0
+    from dwimsy.cli.dispatch import early_dispatch
+
+    handled, effective_argv = early_dispatch(
+        effective_argv, ["t882wav"], use_process_argv0=(argv is None)
+    )
+    if handled:
+        return 0
     for p in Path(__file__).resolve().parents:
         if (p / "dwimsy").is_dir():
             if str(p) in sys.path:
@@ -363,7 +377,11 @@ def main(argv: Optional[List[str]] = None):
                 verbosity = max(verbosity + len(arg) - 1, 2)
         from dwimsy.tests import run_tests
 
-        pattern = [test_arg.split("=", 1)[1]] if test_arg.startswith("--test=") else ["t882wav"]
+        pattern = (
+            [test_arg.split("=", 1)[1]]
+            if test_arg.startswith("--test=")
+            else ["t882wav"]
+        )
         rc = run_tests(pattern, verbose=verbosity)
         sys.exit(rc)
 
@@ -481,21 +499,26 @@ def main(argv: Optional[List[str]] = None):
         help="Show full help documentation and exit",
     )
 
+    parser.epilog = (
+        (parser.epilog or "")
+        + "\nUniversal options: -a/--argv0, --version=TAG, --list-versions, --include=, --restrict-to=, --prune=, --splice=, --alt[=TAG]."
+    )
     args = parser.parse_args(effective_argv)
 
     if args.test is not False:
         from dwimsy.tests import run_tests
+
         pattern = [args.test] if isinstance(args.test, str) else ["t882wav"]
         rc = run_tests(pattern, verbose=args.verbose)
         sys.exit(rc)
 
     if not args.input or args.input == "-":
-        in_s = sys.stdin.buffer
+        in_s = getattr(sys.stdin, "buffer", sys.stdin)
     else:
         in_s = open(args.input, "rb")
 
     if not args.output or args.output == "-":
-        out_s = sys.stdout.buffer
+        out_s = getattr(sys.stdout, "buffer", sys.stdout)
     else:
         out_s = open(args.output, "wb")
 
@@ -514,10 +537,17 @@ def main(argv: Optional[List[str]] = None):
             quiet=args.quiet,
         )
     finally:
-        if in_s is not sys.stdin.buffer:
+        if (
+            in_s is not getattr(sys.stdin, "buffer", sys.stdin)
+            and in_s is not sys.stdin
+        ):
             in_s.close()
-        if out_s is not sys.stdout.buffer:
+        if (
+            out_s is not getattr(sys.stdout, "buffer", sys.stdout)
+            and out_s is not sys.stdout
+        ):
             out_s.close()
+
 
 if __name__ == "__main__":
     main()
