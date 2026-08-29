@@ -218,6 +218,7 @@ def list_tests(
                     _collect_ids(suite)
             finally:
                 sys.path[:] = orig_sys_path
+                sys.meta_path[:] = original_meta_path
                 if old_test_root is None:
                     os.environ.pop("DWIMSY_TEST_REPO_ROOT", None)
                 else:
@@ -251,17 +252,18 @@ def run_tests(
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
+    original_meta_path = [
+        finder
+        for finder in sys.meta_path
+        if not (
+            hasattr(finder, "b64_string") or "BundleFinder" in type(finder).__name__
+        )
+    ]
+    sys.meta_path[:] = original_meta_path
 
     if disk_tests is not None and any(disk_tests.glob("test_*.py")):
         root = disk_tests.parent
         orig_sys_path = list(sys.path)
-        removed_finders = [
-            f
-            for f in sys.meta_path
-            if hasattr(f, "b64_string") or "BundleFinder" in type(f).__name__
-        ]
-        for f in removed_finders:
-            sys.meta_path.remove(f)
         if str(disk_tests) in sys.path:
             sys.path.remove(str(disk_tests))
         if str(root) in sys.path:
@@ -285,9 +287,7 @@ def run_tests(
             )
         finally:
             sys.path[:] = orig_sys_path
-            for f in removed_finders:
-                if f not in sys.meta_path:
-                    sys.meta_path.insert(0, f)
+            sys.meta_path[:] = original_meta_path
     else:
         with tempfile.TemporaryDirectory(prefix="dwimsy_test_") as tmp:
             tmp_path = Path(tmp)

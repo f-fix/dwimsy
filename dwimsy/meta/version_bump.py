@@ -162,6 +162,25 @@ def update_version_files(
         unbundle_file.write_text(u_text, encoding="utf-8")
 
 
+def _set_layer_version_tag(
+    files: dict[str, bytes], version_tag: str
+) -> dict[str, bytes]:
+    """Return layer files with _version.py carrying the serialized layer tag."""
+    result = dict(files)
+    for path in ("dwimsy/_version.py", "_version.py"):
+        if path in result:
+            text = result[path].decode("utf-8", errors="strict")
+            text = re.sub(
+                r'(__version__\s*=\s*["\'])[^"\']*(["\'])',
+                lambda m: m.group(1) + version_tag + m.group(2),
+                text,
+                count=1,
+            )
+            result[path] = text.encode("utf-8")
+            break
+    return result
+
+
 def sync_bundle_baseline(
     repo_root: Optional[Path] = None, verbose: bool = False, *, release: bool = False
 ) -> Path:
@@ -180,15 +199,17 @@ def sync_bundle_baseline(
     if "dwimsy/_version.py" in new_state:
         delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
     new_tag = integrity._version_values(root).get("__version__", "0.1.6.0-dev")
+    delta = _set_layer_version_tag(delta, new_tag)
     if old_head and (
         old_head.tag.split("+")[0].lower() == new_tag.split("+")[0].lower()
         or "+mod." in old_head.tag.lower()
     ):
-        primary.layers[-1] = versions.Layer(delta, is_delta=True, version_tag=new_tag)
-        primary.mark_mutated()
+        primary.append_layer(
+            versions.Layer(delta, is_delta=True, version_tag=new_tag),
+            allow_replacement=True,
+        )
     elif delta or not old_head:
-        primary.layers.append(versions.Layer(delta, is_delta=True, version_tag=new_tag))
-        primary.mark_mutated()
+        primary.append_layer(versions.Layer(delta, is_delta=True, version_tag=new_tag))
 
     if release:
         primary.seal_open_dev()

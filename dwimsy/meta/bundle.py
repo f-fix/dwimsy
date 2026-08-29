@@ -345,6 +345,25 @@ def get_default_bundle_name(
     return f"dwimsy_{pkg_ver}{clean_tag}.py"
 
 
+def _set_layer_version_tag(
+    files: dict[str, bytes], version_tag: str
+) -> dict[str, bytes]:
+    """Return layer files with _version.py carrying the serialized layer tag."""
+    result = dict(files)
+    for path in ("dwimsy/_version.py", "_version.py"):
+        if path in result:
+            text = result[path].decode("utf-8", errors="strict")
+            text = re.sub(
+                r'(__version__\s*=\s*["\'])[^"\']*(["\'])',
+                lambda m: m.group(1) + version_tag + m.group(2),
+                text,
+                count=1,
+            )
+            result[path] = text.encode("utf-8")
+            break
+    return result
+
+
 def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     """Generate a bundle while preserving the current VersionSpace history."""
     stdout = stdout or sys.stdout
@@ -384,15 +403,16 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     if "dwimsy/_version.py" in new_state:
         delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
     current_tag = integrity.version(root=root)
+    delta = _set_layer_version_tag(delta, current_tag)
     if head and (
         head.tag.split("+")[0].lower() == current_tag.split("+")[0].lower()
         or "+mod." in head.tag.lower()
     ):
-        primary.layers[-1] = Layer(delta, is_delta=True, version_tag=current_tag)
-        primary.mark_mutated()
+        primary.append_layer(
+            Layer(delta, is_delta=True, version_tag=current_tag), allow_replacement=True
+        )
     elif delta or not head:
-        primary.layers.append(Layer(delta, is_delta=True, version_tag=current_tag))
-        primary.mark_mutated()
+        primary.append_layer(Layer(delta, is_delta=True, version_tag=current_tag))
 
     script_text = build_bundle_script(root, with_deps=True, version_space=vspace)
     out_name = getattr(args, "output", None) or vspace.composite_bundle_name(".py")
@@ -568,15 +588,16 @@ def main(argv: Optional[List[str]] = None) -> int:
         new_state = create_tree_state(root, with_deps=True)
         delta = compute_tree_delta(old_state, new_state) if head else new_state
         v_tag = integrity.version(root=root).split("+")[0]
+        delta = _set_layer_version_tag(delta, v_tag)
         if head and (
             head.tag.split("+")[0].lower() == v_tag.split("+")[0].lower()
             or "+mod." in head.tag.lower()
         ):
-            primary.layers[-1] = Layer(delta, is_delta=True, version_tag=v_tag)
-            primary.mark_mutated()
+            primary.append_layer(
+                Layer(delta, is_delta=True, version_tag=v_tag), allow_replacement=True
+            )
         elif delta or not head:
-            primary.layers.append(Layer(delta, is_delta=True, version_tag=v_tag))
-            primary.mark_mutated()
+            primary.append_layer(Layer(delta, is_delta=True, version_tag=v_tag))
     alt_val = (
         (True, args.version_alt)
         if isinstance(args.version_alt, str)

@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.48-dev (2026-08-29)
+Version: 0.1.6.49-dev (2026-08-29)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.48-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.49-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.48-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.48-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.48-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.48-dev.py dwimsy license
-  python3 dwimsy_0.1.6.48-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.49-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.49-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.49-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.49-dev.py dwimsy license
+  python3 dwimsy_0.1.6.49-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.48-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.49-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -4445,7 +4445,7 @@ QkQ7H4WYlOr43VQzVfKdl40/uyF53hhAV9N3PSiqh5eM4nABJNYYh5GpNtaVxr0nkCpcPF4c+GiP
 dlirSVsMDzGQ8wfSyA6uB/LZD2ajWi/HBOae0YI1Wun2CElljw5AHjoVMLemTXdU+pF14xfho3hU
 3oF5KJdiEfne+1Ifmet4lSPI6lk0h86hTxLLNRrra0T6u+S7o1CtXrsHT4IRulk7JY1AxYMIyUVo
 23K2nPjYi+GBTlrf9BaF8orWqf1wDq3YzOBEAPZ3bHlkfDrnzHnPLncrR8ybzuqmO7XJRW1bk11f
-90ddnEEKOioA9Cuc/0Cdx2ciYsgMxvNjmP/SX5Xj3bcnl6Q3O7lrLuyS724pDXoGreEkwVg6cRW+
+90ddn/72P8EA9Cuc/0Cdx2ciYsgMxvNjmP/SX5Xj3bcnl6Q3O7lrLuyS724pDXoGreEkwVg6cRW+
 RDjVTq8mIdyZsFGQHiWFhxgNSKaUzaTlR+prK+6fCpn/H7ByzPYsIA8xDr3mCFAHd0ADc4+k/PSn
 uohd7j1Ptw+x2NAzL2A4Ui6h6eSmP+Zxinn9AMFXLeCn3NJAzV9yIhG+L+ZHiAVkFiIoIVauSu+y
 /R8EAkcQoCIorkDkKMC2s7CAydasr8XYIwTlwHBedqV01qngZ7Hhjz06So6jz4jYYztIzPnWXNzd
@@ -4564,150 +4564,203 @@ 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
-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
-WVo=
+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
+AAAEWVo=
 """
 
 
@@ -4805,8 +4858,10 @@ def iter_tar_layers(raw_tar_bytes: bytes) -> List[Dict[str, bytes]]:
     return layers
 
 
-def materialize_stream0_assets(b64_string: Optional[str] = None) -> Dict[str, bytes]:
-    """Materialize stream 0 assets (Base Snapshot Layer 0 + open dev delta layers)."""
+def materialize_stream0_assets_with_removals(
+    b64_string: Optional[str] = None,
+) -> Tuple[Dict[str, bytes], Set[str]]:
+    """Materialize primary assets and retain the net removal-marker paths."""
     payload = (
         b64_string
         if (b64_string is not None and b64_string.strip())
@@ -4816,20 +4871,20 @@ def materialize_stream0_assets(b64_string: Optional[str] = None) -> Dict[str, by
         base64.b64decode(b"".join(payload.encode("ascii").split())) if payload else b""
     )
     if not raw_bytes:
-        return {}
+        return {}, set()
     decomp = lzma.LZMADecompressor()
     try:
         data = decomp.decompress(raw_bytes)
     except lzma.LZMAError:
-        return {}
+        return {}, set()
     if not data:
-        return {}
-
+        return {}, set()
     layers = iter_tar_layers(data)
     if not layers:
-        return {}
+        return {}, set()
 
     state: Dict[str, bytes] = dict(layers[0])
+    removals: Set[str] = set()
     for lyr in layers[1:]:
         v_data = lyr.get("dwimsy/_version.py") or lyr.get("_version.py")
         code_hash = ""
@@ -4851,8 +4906,16 @@ def materialize_stream0_assets(b64_string: Optional[str] = None) -> Dict[str, by
                     else p.name[4:]
                 )
                 state.pop(real_name, None)
+                removals.add(real_name)
             else:
                 state[fname] = fdata
+                removals.discard(fname)
+    return state, removals
+
+
+def materialize_stream0_assets(b64_string: Optional[str] = None) -> Dict[str, bytes]:
+    """Materialize primary stream assets, applying open delta removal markers."""
+    state, _removals = materialize_stream0_assets_with_removals(b64_string)
     return state
 
 
@@ -4921,7 +4984,7 @@ def safe_unbundle(
     effective_b64 = (
         b64_string if (b64_string and b64_string.strip()) else _get_active_blztar()
     )
-    assets = materialize_stream0_assets(effective_b64)
+    assets, removals = materialize_stream0_assets_with_removals(effective_b64)
 
     from dwimsy.meta.versions import portable_path_error
 
@@ -4944,9 +5007,10 @@ def safe_unbundle(
             for parent_part in dest_file.parents:
                 if parent_part == out_path:
                     break
-                if parent_part.is_file():
+                if parent_part.is_file() or parent_part.is_symlink():
+                    kind = "symlink" if parent_part.is_symlink() else "file"
                     raise RuntimeError(
-                        f"Type collision: directory component '{parent_part.relative_to(out_path)}' exists as a file on disk. Use --force to override."
+                        f"Type collision: directory component '{parent_part.relative_to(out_path)}' exists as a {kind} on disk. Use --force to override."
                     )
 
     # 2. Check existing on-disk modifications and branches (Surviving State Verification, Spec §3.1)
@@ -5009,6 +5073,8 @@ def safe_unbundle(
         else:
             existing_bytes = dest_file.read_bytes() if dest_file.is_file() else b""
             if existing_bytes == content:
+                if not force:
+                    continue
                 action_char = "="
                 annotation = " [IDENTICAL]"
             else:
@@ -5021,16 +5087,34 @@ def safe_unbundle(
 
         if not dry_run:
             dest_file.parent.mkdir(parents=True, exist_ok=True)
-            if dest_file.exists():
-                try:
-                    dest_file.unlink()
-                except OSError:
-                    pass
+            if dest_file.exists() or dest_file.is_symlink():
+                dest_file.unlink()
             dest_file.write_bytes(content)
             if dest_file.suffix == ".py" and content.startswith(b"#!"):
                 try:
                     dest_file.chmod(dest_file.stat().st_mode | 0o111 | 0o755)
                 except (OSError, PermissionError):
+                    pass
+
+    for norm_name in sorted(removals):
+        if norm_name.startswith("<dwimsy-bundle>/"):
+            norm_name = norm_name[len("<dwimsy-bundle>/") :]
+        if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+            continue
+        dest_file = out_path / norm_name
+        if not dest_file.exists() and not dest_file.is_symlink():
+            continue
+        file_size = dest_file.stat().st_size if dest_file.is_file() else 0
+        manifest_lines.append(
+            f"[-] [F] {file_size:>8} B  {now_ts}  {norm_name} [REMOVED]"
+        )
+        if not dry_run:
+            if dest_file.is_file() or dest_file.is_symlink():
+                dest_file.unlink()
+            elif dest_file.is_dir():
+                try:
+                    dest_file.rmdir()
+                except OSError:
                     pass
 
     if not dry_run:
@@ -5043,161 +5127,14 @@ def safe_unbundle(
                 target_unbundle.chmod(0o755)
             except OSError:
                 pass
-        except Exception:
-            pass
-
-    if not quiet and manifest_lines:
-        for line in manifest_lines:
-            print(line, file=stdout)
-
-    if dry_run:
-        print(
-            f"repeat command without --dry-run to commit changes to {output_dir}",
-            file=stdout,
-        )
-    else:
-        print(f"Successfully extracted to {output_dir}", file=stdout)
-
-
-def safe_unbundle(
-    b64_string: Optional[str] = None,
-    output_dir: str | Path = ".",
-    with_deps: bool = False,
-    force: bool = False,
-    dry_run: bool = False,
-    quiet: bool = False,
-    stdout=None,
-    stderr=None,
-) -> None:
-    """Smart destination verification and delta unpacking engine adhering to Spec §2.1, §3, §3.1."""
-    stdout = stdout or sys.stdout
-    stderr = stderr or sys.stderr
-    out_path = Path(output_dir).resolve()
-
-    effective_b64 = (
-        b64_string if (b64_string and b64_string.strip()) else _get_active_blztar()
-    )
-    assets = materialize_stream0_assets(effective_b64)
-
-    from dwimsy.meta.versions import portable_path_error
-
-    invalid_paths = [(name, portable_path_error(name)) for name in assets]
-    invalid_paths = [(name, err) for name, err in invalid_paths if err]
-    if invalid_paths:
-        details = "\n".join(err for _name, err in invalid_paths)
-        raise ValueError("Cannot extract non-portable paths:\n" + details)
-
-    # 1. Type Collision Guard (Spec §3.1)
-    if out_path.exists() and not force:
-        for norm_name in assets:
-            if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
-                continue
-            dest_file = out_path / norm_name
-            if dest_file.is_dir():
-                raise RuntimeError(
-                    f"Type collision: target file '{norm_name}' exists as a directory on disk. Use --force to override."
-                )
-            for parent_part in dest_file.parents:
-                if parent_part == out_path:
-                    break
-                if parent_part.is_file():
-                    raise RuntimeError(
-                        f"Type collision: directory component '{parent_part.relative_to(out_path)}' exists as a file on disk. Use --force to override."
-                    )
-
-    # 2. Check existing on-disk modifications and branches (Surviving State Verification, Spec §3.1)
-    if out_path.is_dir() and any(out_path.iterdir()) and not force:
-        disk_files: Dict[str, bytes] = {}
-        for p in out_path.rglob("*"):
-            if p.is_file():
-                rel = p.relative_to(out_path).as_posix()
-                if "__pycache__" not in rel and not rel.endswith(".pyc"):
-                    try:
-                        disk_files[rel] = p.read_bytes()
-                    except OSError:
-                        pass
-
-        has_clobber = False
-        for d_name, d_bytes in disk_files.items():
-            if not with_deps and (d_name == "deps" or d_name.startswith("deps/")):
-                continue
-            if d_name in assets:
-                if assets[d_name] != d_bytes:
-                    has_clobber = True
-                    break
-            elif (out_path / "dwimsy").is_dir():
-                has_clobber = True
-                break
-
-        if has_clobber:
-            msg = (
-                f"error: unbundling to '{output_dir}' would overwrite modified on-disk state.\n"
-                f"To protect uncommitted work, specify one of the following flags:\n"
-                f"  --version-include-primary={output_dir}  (preserve local modifications in primary stream)\n"
-                f"  --version-include-alt={output_dir}      (preserve alternate branches)\n"
-                f"  --version-include={output_dir}          (preserve both modifications and branches)\n"
-                f"Or use --force / -f to forcefully overwrite destination."
-            )
-            raise RuntimeError(msg)
-
-    # 3. Compute manifest actions and perform extraction
-    manifest_lines: List[str] = []
-    import datetime
-
-    now_ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    if not dry_run:
-        out_path.mkdir(parents=True, exist_ok=True)
-
-    for norm_name, content in sorted(assets.items()):
-        if norm_name.startswith("<dwimsy-bundle>/"):
-            norm_name = norm_name[len("<dwimsy-bundle>/") :]
-        if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
-            continue
-
-        dest_file = out_path / norm_name
-        file_size = len(content)
-        size_str = f"{file_size:>8} B"
-
-        if not dest_file.exists():
-            action_char = "+"
-            annotation = ""
-        else:
-            existing_bytes = dest_file.read_bytes() if dest_file.is_file() else b""
-            if existing_bytes == content:
-                action_char = "="
-                annotation = " [IDENTICAL]"
-            else:
-                action_char = "~"
-                annotation = " [REPLACED]" if force else " [UPDATED]"
-
-        manifest_lines.append(
-            f"[{action_char}] [F] {size_str}  {now_ts}  {norm_name}{annotation}"
-        )
-
-        if not dry_run:
-            dest_file.parent.mkdir(parents=True, exist_ok=True)
-            if dest_file.exists():
-                try:
-                    dest_file.unlink()
-                except OSError:
-                    pass
-            dest_file.write_bytes(content)
-            if dest_file.suffix == ".py" and content.startswith(b"#!"):
-                try:
-                    dest_file.chmod(dest_file.stat().st_mode | 0o111 | 0o755)
-                except (OSError, PermissionError):
-                    pass
-
-    if not dry_run:
-        target_unbundle = out_path / "dwimsy" / "meta" / "unbundle.py"
-        target_unbundle.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            template = elide_blztar_bytes(Path(__file__).read_bytes())
-            target_unbundle.write_bytes(inject_blztar_bytes(template, effective_b64))
             try:
-                target_unbundle.chmod(0o755)
-            except OSError:
+                with _open_bundle_tar(effective_b64) as source_tar:
+                    try:
+                        member = source_tar.getmember("dwimsy/meta/unbundle.py")
+                    except KeyError:
+                        member = source_tar.getmember("./dwimsy/meta/unbundle.py")
+                    os.utime(target_unbundle, (member.mtime, member.mtime))
+            except (KeyError, OSError, tarfile.TarError):
                 pass
         except Exception:
             pass
@@ -5229,6 +5166,14 @@ def extract_b64_lzma_tar(
         force=True,
         quiet=True,
     )
+    target_unbundle = Path(output_dir).resolve() / "dwimsy" / "meta" / "unbundle.py"
+    if target_unbundle.is_file():
+        try:
+            with _open_bundle_tar(b64_string) as source_tar:
+                member = source_tar.getmember("dwimsy/meta/unbundle.py")
+                os.utime(target_unbundle, (member.mtime, member.mtime))
+        except (KeyError, OSError, tarfile.TarError):
+            pass
 
 
 def extract_deps(output_dir: str | Path, b64_string: Optional[str] = None) -> List[str]:
@@ -5503,9 +5448,11 @@ def parse_early_pipeline_flags(
     )
     argv0_overridden = False
 
-    active_selection = vspace.resolve_version_ref("primary")
+    active_selection = vspace.resolve_selection("primary")
     effective_version_str = (
-        active_selection[2].tag if active_selection else get_bundle_version()
+        active_selection.first.version.tag
+        if active_selection and active_selection.first
+        else get_bundle_version()
     )
 
     operations: List[Tuple[str, Any]] = []
@@ -5614,18 +5561,14 @@ def parse_early_pipeline_flags(
         if opt_key == "--version-alt":
             branch_tag = opt_val if has_val else None
             if branch_tag is None or branch_tag.lower() == "selected":
-                if active_selection is not None:
-                    st, oi, vr = active_selection
-                    old_state = st.materialize_layer_state(oi)
-                    vspace.branch_alt(vr.tag)
-                else:
-                    vspace.branch_alt("primary")
+                vspace.branch_selection(active_selection)
             else:
-                vspace.branch_alt(branch_tag)
-            active_selection = vspace.resolve_version_ref("primary")
-            effective_version_str = (
-                active_selection[2].tag if active_selection else get_bundle_version()
-            )
+                selection = vspace.resolve_selection(branch_tag)
+                if not selection:
+                    raise ValueError(
+                        f"Version selector '{branch_tag}' could not be resolved."
+                    )
+                vspace.branch_selection(selection)
             operations.append(("alt", branch_tag))
             i += 1
             continue
@@ -5636,15 +5579,15 @@ def parse_early_pipeline_flags(
             if val.lower() == "selected":
                 pass
             else:
-                active_selection = vspace.resolve_version_ref(val)
-                if active_selection is None and val.lower() not in (
-                    "baseline",
-                    "primary",
-                    "unbundled",
-                ):
+                active_selection = vspace.resolve_selection(val)
+                if not active_selection and val.lower() != "unbundled":
                     raise ValueError(f"Version selector '{val}' could not be resolved.")
-            if active_selection is not None:
-                effective_version_str = active_selection[2].tag
+            if active_selection and active_selection.first:
+                effective_version_str = (
+                    active_selection.first.version.tag
+                    if not active_selection.is_multi
+                    else "alt"
+                )
             else:
                 effective_version_str = val
             operations.append(("version", val))
@@ -5929,7 +5872,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
     raw_b64 = _get_active_blztar()
     vspace = VersionSpace.from_blztar(raw_b64)
 
-    selected = None
+    selected = vspace.resolve_selection("primary")
     for op, value in pipeline["operations"]:
         if op == "argv0":
             continue
@@ -5949,41 +5892,19 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
         elif op == "splice":
             vspace.splice(value)
         elif op == "alt":
-            # Bare --version-alt means branch from the version selected so far.
-            branch_tag = value
-            if branch_tag is None:
-                branch_tag = "selected"
-            if branch_tag.lower() == "selected":
-                if selected is None:
-                    selected = vspace.resolve_version_ref("primary")
-                if selected is not None:
-                    st, oi, vr = selected
-                    old_state = st.materialize_layer_state(oi)
-                    vspace.branch_alt(vr.tag)
-                    if is_checkout and repo_root:
-                        disk_state = _tree_state_for_bundle(repo_root)
-                        from dwimsy.meta.versions import compute_tree_delta, Layer
-
-                        delta = compute_tree_delta(old_state, disk_state)
-                        if delta:
-                            vspace.streams[0].layers.append(
-                                Layer(delta, is_delta=True, version_tag=vr.tag)
-                            )
-                            vspace.streams[0].mark_mutated()
-                else:
-                    vspace.branch_alt(None)
+            if value is None or value.lower() == "selected":
+                vspace.branch_selection(selected)
             else:
-                vspace.branch_alt(branch_tag)
+                branch_selection = vspace.resolve_selection(value)
+                if not branch_selection:
+                    raise ValueError(
+                        f"Version selector '{value}' could not be resolved."
+                    )
+                vspace.branch_selection(branch_selection)
         elif op == "version":
-            if value.lower() == "selected":
-                selected = selected
-            else:
-                selected = vspace.resolve_version_ref(value)
-                if selected is None and value.lower() not in (
-                    "baseline",
-                    "primary",
-                    "unbundled",
-                ):
+            if value.lower() != "selected":
+                selected = vspace.resolve_selection(value)
+                if not selected and value.lower() != "unbundled":
                     raise ValueError(
                         f"Version selector '{value}' could not be resolved."
                     )
@@ -6051,10 +5972,27 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
 
     effective_blztar = vspace.to_blztar()
     ver_sel = None
-    if selected is not None:
-        ver_sel = selected[2].tag
+    if selected and selected.first:
+        if selected.is_multi:
+            raise ValueError(
+                "The active selection contains multiple alternate streams and cannot be used as a single execution target."
+            )
+        ver_sel = selected.first.version.tag
 
-    if ver_sel is None or ver_sel.lower() in ("baseline", "primary"):
+    version_selector = pipeline.get("version")
+    if (
+        ver_sel is None
+        or (
+            isinstance(version_selector, str)
+            and version_selector.lower() in ("baseline", "primary")
+        )
+        or (
+            version_selector is None
+            and selected
+            and selected.first
+            and selected.first.stream is vspace.streams[0]
+        )
+    ):
         this_mod = sys.modules.get(__name__)
         sys.modules["dwimsy.meta.unbundle"] = this_mod
         bundle_finder = BundleFinder(

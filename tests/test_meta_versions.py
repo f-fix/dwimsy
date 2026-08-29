@@ -358,3 +358,117 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+
+class TestSelectionSets(unittest.TestCase):
+    def _space(self):
+        primary = Stream(
+            0,
+            "primary",
+            [
+                Layer(
+                    {
+                        "dwimsy/_version.py": b'__version__ = "0.1.6.10-dev"\n__code_hash__ = ""\n',
+                        "p": b"p",
+                    },
+                    is_delta=False,
+                )
+            ],
+        )
+        alt1 = Stream(
+            1,
+            "alt1",
+            [
+                Layer(
+                    {
+                        "dwimsy/_version.py": b'__version__ = "0.1.6.11-dev"\n__code_hash__ = ""\n',
+                        "a1": b"1",
+                    },
+                    is_delta=False,
+                )
+            ],
+        )
+        alt2 = Stream(
+            2,
+            "alt2",
+            [
+                Layer(
+                    {
+                        "dwimsy/_version.py": b'__version__ = "0.1.6.12-dev"\n__code_hash__ = ""\n',
+                        "a2": b"2",
+                    },
+                    is_delta=False,
+                )
+            ],
+        )
+        return VersionSpace([primary, alt1, alt2])
+
+    def test_bare_alt_resolves_all_alternate_heads(self):
+        space = self._space()
+        selection = space.resolve_selection("alt")
+        self.assertTrue(selection.is_multi)
+        self.assertEqual([item.stream.name for item in selection], ["alt1", "alt2"])
+        self.assertEqual(
+            [item.version.tag for item in selection], ["0.1.6.11-dev", "0.1.6.12-dev"]
+        )
+
+    def test_multi_selection_alt_creates_shadow_streams_without_touching_primary(self):
+        space = self._space()
+        primary_tag = space.streams[0].get_head_version().tag
+        selection = space.resolve_selection("alt")
+        space.branch_selection(selection)
+        self.assertEqual(space.streams[0].get_head_version().tag, primary_tag)
+        self.assertEqual(len(space.streams), 5)
+        self.assertEqual(
+            [s.name for s in space.streams], ["primary", "alt1", "alt2", "alt3", "alt4"]
+        )
+        self.assertEqual(space.streams[3].get_head_version().tag, "0.1.6.11-dev")
+        self.assertEqual(space.streams[4].get_head_version().tag, "0.1.6.12-dev")
+        self.assertEqual(
+            space.streams[3].materialize_layer_state(0),
+            space.streams[1].materialize_layer_state(0),
+        )
+
+    def test_baseline_excludes_terminal_mod_overlay(self):
+        space = self._space()
+        primary = space.streams[0]
+        primary.append_layer(
+            Layer(
+                {
+                    "dwimsy/_version.py": b'__version__ = "0.1.6.10+mod.abc"\n__code_hash__ = ""\n',
+                    "p": b"modified",
+                },
+                is_delta=True,
+                version_tag="0.1.6.10+mod.abc",
+            )
+        )
+        primary_sel = space.resolve_selection("primary")
+        baseline_sel = space.resolve_selection("baseline")
+        self.assertEqual(primary_sel.first.version.tag, "0.1.6.10+mod.abc")
+        self.assertEqual(baseline_sel.first.version.tag, "0.1.6.10-dev")
+
+    def test_mod_replacement_only_allows_same_base_or_forward_progress(self):
+        space = self._space()
+        primary = space.streams[0]
+        primary.append_layer(
+            Layer(
+                {
+                    "dwimsy/_version.py": b'__version__ = "0.1.6.10+mod.abc"\n__code_hash__ = ""\n'
+                },
+                is_delta=True,
+                version_tag="0.1.6.10+mod.abc",
+            )
+        )
+        with self.assertRaises(ValueError):
+            primary.append_layer(
+                Layer({}, is_delta=True, version_tag="0.1.6.9"), allow_replacement=True
+            )
+        primary.append_layer(
+            Layer({}, is_delta=True, version_tag="0.1.6.10+mod.def"),
+            allow_replacement=True,
+        )
+        self.assertEqual(primary.layers[-1].version_tag, "0.1.6.10+mod.def")
+        primary.append_layer(
+            Layer({}, is_delta=True, version_tag="0.1.6.11-dev"), allow_replacement=True
+        )
+        self.assertEqual(primary.layers[-1].version_tag, "0.1.6.11-dev")

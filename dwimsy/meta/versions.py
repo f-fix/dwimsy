@@ -13,6 +13,7 @@ import sys
 import tarfile
 import unicodedata
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -137,14 +138,19 @@ def validate_version_tag(tag: str) -> None:
 
 
 def parse_semver(tag: str) -> Tuple[int, int, int, int, bool, str]:
-    """Parse a version tag into a sortable semver tuple: (major, minor, patch, rev, is_release, pre_suffix)."""
+    """Parse a version tag into a sortable semver tuple.
+
+    DWIMSY permits local ``+mod.<hash>`` tags.  Their ordering semantics are
+    those of their base version, so build metadata is ignored for ordering.
+    """
     t = tag
     if "_" in t:
-        parts = t.split("_")
-        t = parts[-1]
+        t = t.split("_")[-1]
 
     m = re.match(
-        r"^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z._+-]+))?$", t
+        r"^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:\.(\d+))?"
+        r"(?:-([0-9A-Za-z._+-]+))?(?:\+([0-9A-Za-z._+-]+))?$",
+        t,
     )
     if m:
         major = int(m.group(1) or 0)
@@ -152,8 +158,8 @@ def parse_semver(tag: str) -> Tuple[int, int, int, int, bool, str]:
         patch = int(m.group(3) or 0)
         rev = int(m.group(4) or 0)
         suffix = m.group(5) or ""
-        is_release = suffix == ""
-        return (major, minor, patch, rev, is_release, suffix)
+        build = m.group(6) or ""
+        return (major, minor, patch, rev, suffix == "", suffix or build)
     return (0, 0, 0, 0, False, tag)
 
 
@@ -626,9 +632,14 @@ class Stream:
         head = self.layers[-1]
         base_head = head.version_tag.split("+")[0].lower()
         base_new = layer.version_tag.split("+")[0].lower()
-        if allow_replacement and (
-            base_head == base_new or "+mod." in head.version_tag.lower()
-        ):
+        if allow_replacement and "+mod." in head.version_tag.lower():
+            head_base_semver = parse_semver(base_head)
+            new_base_semver = parse_semver(base_new)
+            if base_head == base_new or new_base_semver > head_base_semver:
+                self.layers[-1] = layer
+                self.mark_mutated()
+                return
+        elif allow_replacement and base_head == base_new:
             self.layers[-1] = layer
             self.mark_mutated()
             return
@@ -1054,6 +1065,56 @@ def parse_tar_layers_from_bytes(
     return layers
 
 
+@dataclass(frozen=True)
+class Selection:
+    """One immutable position-bound version selection."""
+
+    stream: Stream
+    ordinal: int
+    version: VersionRef
+
+    @property
+    def stream_index(self) -> int:
+        return self.stream.index
+
+
+@dataclass(frozen=True)
+class SelectionSet:
+    """Immutable one-or-more selection references bound at one argv position."""
+
+    items: Tuple[Selection, ...]
+
+    def __bool__(self) -> bool:
+        return bool(self.items)
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    def __iter__(self):
+        return iter(self.items)
+
+    def __getitem__(self, index):
+        return self.items[index]
+
+    @property
+    def is_multi(self) -> bool:
+        return len(self.items) > 1
+
+    @property
+    def first(self) -> Optional[Selection]:
+        return self.items[0] if self.items else None
+
+    @classmethod
+    def empty(cls) -> "SelectionSet":
+        return cls(())
+
+    @classmethod
+    def single(
+        cls, stream: Stream, ordinal: int, version: VersionRef
+    ) -> "SelectionSet":
+        return cls((Selection(stream, ordinal, version),))
+
+
 class VersionSpace:
     """The collection of all streams and their version history."""
 
@@ -1116,13 +1177,13 @@ class VersionSpace:
                 raise RuntimeError(
                     f"VersionSpace.to_blztar readback failed for stream '{s_orig.name}': expected {len(s_orig.layers)} layers, got {len(s_rb.layers)}."
                 )
-            for l_orig, l_rb in zip(s_orig.layers, s_rb.layers):
-                if l_orig.version_tag.split("+")[0] != l_rb.version_tag.split("+")[0]:
+            for ordinal, (l_orig, l_rb) in enumerate(zip(s_orig.layers, s_rb.layers)):
+                if l_orig.version_tag != l_rb.version_tag:
                     raise RuntimeError(
                         f"VersionSpace.to_blztar readback failed for stream '{s_orig.name}': tag mismatch '{l_orig.version_tag}' vs '{l_rb.version_tag}'."
                     )
-                if compute_raw_tar_hash(l_orig.files) != compute_raw_tar_hash(
-                    l_rb.files
+                if s_orig.compute_content_hash(ordinal) != s_rb.compute_content_hash(
+                    ordinal
                 ):
                     raise RuntimeError(
                         f"VersionSpace.to_blztar readback failed for stream '{s_orig.name}': content hash mismatch in layer '{l_orig.version_tag}'."
@@ -1143,10 +1204,10 @@ class VersionSpace:
             all_refs.extend(s.get_versions())
         return all_refs
 
-    def resolve_version_ref(
+    def resolve_selection(
         self, selector: str, unbundled_dir: Optional[Path] = None
-    ) -> Optional[Tuple[Stream, int, VersionRef]]:
-        """Resolve a single-version selector string to (Stream, layer_idx, VersionRef)."""
+    ) -> SelectionSet:
+        """Resolve a selector to an immutable SelectionSet at this position."""
         sel = selector.strip()
         sel_lower = sel.lower()
 
@@ -1156,53 +1217,58 @@ class VersionSpace:
             and not re.match(r"^alt\d+_sealed$", sel_lower)
         ):
             raise ValueError(f"Invalid single-version selector '{selector}'.")
-
         if sel_lower == "*_sealed":
             raise ValueError(
                 "'*_sealed' is a filter set selector, not valid as a single-version selector."
             )
-
         if sel_lower == "unbundled":
-            return None
+            return SelectionSet.empty()
 
         if sel_lower == "baseline":
-            # Baseline is the newest version actually represented by the
-            # prepared VersionSpace, never the physical Layer 0 and never
-            # an unbundled working-tree version.
             p_stream = self.streams[0]
             refs = p_stream.get_versions()
+            refs = [
+                v
+                for v in refs
+                if not v.tag.lower().split("+", 1)[-1].startswith("mod.")
+            ]
             if not refs:
-                return None
+                return SelectionSet.empty()
             v = max(refs, key=lambda ref: (parse_semver(ref.tag), ref.ordinal))
-            return (p_stream, v.ordinal, v)
+            return SelectionSet.single(p_stream, v.ordinal, v)
+
         if sel_lower == "primary":
             p_stream = self.streams[0]
             head = p_stream.get_head_version()
-            if head:
-                return (p_stream, head.ordinal, head)
-            return None
+            return (
+                SelectionSet.single(p_stream, head.ordinal, head)
+                if head
+                else SelectionSet.empty()
+            )
 
         if sel_lower in ("sealed", "primary_sealed"):
             p_stream = self.streams[0]
             for v in reversed(p_stream.get_versions()):
                 if v.sealed:
-                    return (p_stream, v.ordinal, v)
-            return None
+                    return SelectionSet.single(p_stream, v.ordinal, v)
+            return SelectionSet.empty()
 
         if sel_lower == "alt":
-            if len(self.streams) > 1:
-                alt1 = self.streams[1]
-                head = alt1.get_head_version()
+            items = []
+            for s in self.streams[1:]:
+                head = s.get_head_version()
                 if head:
-                    return (alt1, head.ordinal, head)
-            return None
+                    items.append(Selection(s, head.ordinal, head))
+            return SelectionSet(tuple(items))
 
         if sel_lower == "alt_sealed":
+            items = []
             for s in self.streams[1:]:
                 for v in reversed(s.get_versions()):
                     if v.sealed:
-                        return (s, v.ordinal, v)
-            return None
+                        items.append(Selection(s, v.ordinal, v))
+                        break
+            return SelectionSet(tuple(items))
 
         m_alt_sealed = re.match(r"^alt(\d+)_sealed$", sel_lower)
         if m_alt_sealed:
@@ -1211,8 +1277,8 @@ class VersionSpace:
                 s = self.streams[idx]
                 for v in reversed(s.get_versions()):
                     if v.sealed:
-                        return (s, v.ordinal, v)
-            return None
+                        return SelectionSet.single(s, v.ordinal, v)
+            return SelectionSet.empty()
 
         m_alt = re.match(r"^alt(\d+)$", sel_lower)
         if m_alt:
@@ -1221,16 +1287,16 @@ class VersionSpace:
                 s = self.streams[idx]
                 head = s.get_head_version()
                 if head:
-                    return (s, head.ordinal, head)
-            return None
+                    return SelectionSet.single(s, head.ordinal, head)
+            return SelectionSet.empty()
 
         if sel_lower.startswith("primary_"):
             bare = sel[8:]
             p_stream = self.streams[0]
             for v in p_stream.get_versions():
                 if v.tag.lower() == bare.lower():
-                    return (p_stream, v.ordinal, v)
-            return None
+                    return SelectionSet.single(p_stream, v.ordinal, v)
+            return SelectionSet.empty()
 
         m_alt_tag = re.match(r"^alt(\d+)_(.+)$", sel, re.IGNORECASE)
         if m_alt_tag:
@@ -1240,14 +1306,20 @@ class VersionSpace:
                 s = self.streams[idx]
                 for v in s.get_versions():
                     if v.tag.lower() == bare.lower():
-                        return (s, v.ordinal, v)
-            return None
+                        return SelectionSet.single(s, v.ordinal, v)
+            return SelectionSet.empty()
 
         for s in self.streams:
             for v in s.get_versions():
                 if v.tag.lower() == sel_lower:
-                    return (s, v.ordinal, v)
-        return None
+                    return SelectionSet.single(s, v.ordinal, v)
+        return SelectionSet.empty()
+
+    def resolve_version_ref(self, selector: str, unbundled_dir: Optional[Path] = None):
+        """Compatibility wrapper for legacy single-version callers."""
+        selection = self.resolve_selection(selector, unbundled_dir=unbundled_dir)
+        item = selection.first
+        return (item.stream, item.ordinal, item.version) if item else None
 
     def match_versions(self, pattern: str) -> List[Tuple[Stream, int, VersionRef]]:
         """Match versions across streams according to filter pattern / selector taxonomy."""
@@ -1518,18 +1590,48 @@ class VersionSpace:
         self.streams = new_streams
         self.renumber_streams()
 
+    def branch_selection(self, selection: SelectionSet) -> None:
+        """Branch from an immutable SelectionSet using the v8.6 single/multi rules."""
+        if not selection:
+            self.branch_alt(None)
+            return
+        if selection.is_multi:
+            for item in selection.items:
+                state = item.stream.materialize_layer_state(item.ordinal)
+                shadow = Stream(
+                    len(self.streams),
+                    f"alt{len(self.streams)}",
+                    [
+                        Layer(
+                            state,
+                            is_delta=False,
+                            version_tag=item.version.tag,
+                            code_hash=None,
+                        )
+                    ],
+                    source=item.stream.source,
+                )
+                self.streams.append(shadow)
+            self.renumber_streams()
+            return
+        item = selection.first
+        self.branch_alt(item.version.tag if item else None)
+
     def branch_alt(self, tag: Optional[str] = None) -> None:
-        """Create a new Stream 0 branching from tag or head, shifting old streams to altN_."""
+        """Create a new primary stream branching from one selected version."""
         target_state: Dict[str, bytes] = {}
         target_tag = tag or "0.1.6.0-dev"
 
         if tag:
-            res = self.resolve_version_ref(tag)
-            if res is None:
+            selection = self.resolve_selection(tag)
+            if not selection:
                 raise ValueError(f"Cannot branch --alt from unknown version '{tag}'")
-            st, ord_idx, v_ref = res
-            target_state = st.materialize_layer_state(ord_idx)
-            target_tag = v_ref.tag
+            if selection.is_multi:
+                self.branch_selection(selection)
+                return
+            item = selection.first
+            target_state = item.stream.materialize_layer_state(item.ordinal)
+            target_tag = item.version.tag
         else:
             p_stream = self.streams[0]
             head = p_stream.get_head_version()
@@ -1539,13 +1641,11 @@ class VersionSpace:
 
         new_base = Layer(target_state, is_delta=False, version_tag=target_tag)
         new_primary = Stream(0, "primary", [new_base], source=".")
-
         shifted_streams = [new_primary]
         for s in self.streams:
             s_copy = s.copy()
             s_copy.mark_mutated()
             shifted_streams.append(s_copy)
-
         self.streams = shifted_streams
         self.renumber_streams()
 
@@ -1653,7 +1753,7 @@ class VersionSpace:
     def format_list_versions(
         self,
         on_disk_root: Optional[Path] = None,
-        selected: Optional[Tuple[Stream, int, VersionRef]] = None,
+        selected: Optional[SelectionSet] = None,
     ) -> str:
         """Format the output of --list-versions according to the complete specification."""
         all_refs = self.get_all_versions()
@@ -1664,7 +1764,7 @@ class VersionSpace:
         # head; checkout mode keeps unbundled state as the separately displayed
         # current working state.
         if selected is None and on_disk_root is None:
-            selected = self.resolve_version_ref("primary")
+            selected = self.resolve_selection("primary")
 
         hash_to_tags: Dict[str, List[str]] = {}
         for ref in all_refs:
@@ -1740,12 +1840,12 @@ class VersionSpace:
                         kw_tokens.append("=~alt_sealed")
 
                 if selected is not None:
-                    sel_stream, sel_ord, _sel_ref = selected
-                    if sel_stream is s:
-                        if v.ordinal == sel_ord:
-                            kw_tokens.append("=selected")
-                        elif parse_semver(v.tag) < parse_semver(_sel_ref.tag):
-                            kw_tokens.append("=~selected")
+                    for item in selected:
+                        if item.stream is s:
+                            if v.ordinal == item.ordinal:
+                                kw_tokens.append("=selected")
+                            elif parse_semver(v.tag) < parse_semver(item.version.tag):
+                                kw_tokens.append("=~selected")
 
                 peer_list = [
                     t

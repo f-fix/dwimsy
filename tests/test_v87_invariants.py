@@ -288,3 +288,20 @@ class TestV87ScannerAndUnbundle(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_safe_unbundle_omits_identical_files_without_force(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            (tmpdir / "README.md").write_bytes(unbundle.get_asset("README.md"))
+            buf = io.StringIO()
+            safe_unbundle(output_dir=tmpdir, force=False, stdout=buf)
+            self.assertNotIn("[IDENTICAL]", buf.getvalue())
+
+    def test_safe_unbundle_rejects_intermediate_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            tmpdir = Path(tmp)
+            outside_dir = Path(outside)
+            (tmpdir / "dwimsy").symlink_to(outside_dir, target_is_directory=True)
+            with self.assertRaises(RuntimeError) as ctx:
+                safe_unbundle(output_dir=tmpdir, force=False)
+            self.assertIn("symlink", str(ctx.exception))
