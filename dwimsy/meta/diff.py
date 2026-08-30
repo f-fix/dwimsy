@@ -25,47 +25,61 @@ def render_diff(
     v2_sel: Optional[str] = None,
 ) -> str:
     """Return a version-labeled unified diff between versions or working tree."""
-    repo = integrity.find_repo_root(root)
+    cwd = Path.cwd().resolve()
+    if root is not None:
+        repo = Path(root).resolve()
+    elif (cwd / "dwimsy" / "__init__.py").is_file():
+        repo = cwd
+    else:
+        repo = integrity.find_repo_root(None)
+
     raw_b64 = unbundle._get_active_blztar()
     vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
 
-    v1_tag = "baseline"
-    v2_tag = "unbundled"
+    target1 = v1_sel or "baseline"
+    target2 = v2_sel or "unbundled"
 
-    if v1_sel is None and v2_sel is None:
-        baseline_assets = integrity.canonical_assets(repo, baseline=True)
-        unbundled_assets = integrity.canonical_assets(repo, baseline=False)
-        v1_tag = f"dwimsy_{integrity._version_values(repo, baseline=True).get('__version__', '0.1.6.0')}"
-        v2_tag = f"dwimsy_{integrity.version(root=repo)}"
-        old_assets = baseline_assets
-        new_assets = unbundled_assets
-    else:
-        target1 = v1_sel or "baseline"
-        target2 = v2_sel or "unbundled"
-
-        if target1 == "unbundled":
-            old_assets = integrity.canonical_assets(repo, baseline=False)
-            v1_tag = f"dwimsy_{integrity.version(root=repo)}"
+    def _resolve_target(target: str) -> Tuple[Dict[str, bytes], str]:
+        if target == "unbundled":
+            is_checkout = bool(
+                repo
+                and (repo / "dwimsy").is_dir()
+                and (repo / "dwimsy" / "__init__.py").is_file()
+            )
+            if not is_checkout or (
+                integrity.is_standalone_bundle() and "<dwimsy-bundle>" in str(repo)
+            ):
+                raise ValueError(
+                    "Version selector 'unbundled' could not be resolved: current working directory is not inside a dwimsy checkout.\n"
+                    "To compare an unbundled directory with the bundle version, use universal flags:\n"
+                    "  --version-include-primary=. --version=alt\n"
+                    "or specify explicit versions to compare (e.g. 'dwimsy meta diff [VER1] [VER2]')."
+                )
+            assets = integrity.canonical_assets(repo, baseline=False)
+            tag = f"dwimsy_{integrity.version(root=repo)}"
+            return assets, tag
+        elif target == "baseline":
+            b_ref = vspace.resolve_version_ref("baseline")
+            if b_ref is not None:
+                s_b, ord_b, ref_b = b_ref
+                assets = s_b.materialize_layer_state(ord_b)
+                tag = f"dwimsy_{ref_b.tag}"
+            else:
+                assets = integrity.canonical_assets(repo, baseline=True)
+                tag = f"dwimsy_{integrity._version_values(repo, baseline=True).get('__version__', '0.1.6.0')}"
+            return assets, tag
         else:
-            res1 = vspace.resolve_version_ref(target1)
-            if res1 is None:
-                raise ValueError(f"Version selector '{target1}' could not be resolved.")
-            s1, ord1, ref1 = res1
-            old_assets = s1.materialize_layer_state(ord1)
-            stream_prefix = f"alt{s1.index}_" if s1.index > 0 else ""
-            v1_tag = f"dwimsy_{stream_prefix}{ref1.tag}"
+            res = vspace.resolve_version_ref(target)
+            if res is None:
+                raise ValueError(f"Version selector '{target}' could not be resolved.")
+            s, ord_idx, ref = res
+            assets = s.materialize_layer_state(ord_idx)
+            stream_prefix = f"alt{s.index}_" if s.index > 0 else ""
+            tag = f"dwimsy_{stream_prefix}{ref.tag}"
+            return assets, tag
 
-        if target2 == "unbundled":
-            new_assets = integrity.canonical_assets(repo, baseline=False)
-            v2_tag = f"dwimsy_{integrity.version(root=repo)}"
-        else:
-            res2 = vspace.resolve_version_ref(target2)
-            if res2 is None:
-                raise ValueError(f"Version selector '{target2}' could not be resolved.")
-            s2, ord2, ref2 = res2
-            new_assets = s2.materialize_layer_state(ord2)
-            stream_prefix = f"alt{s2.index}_" if s2.index > 0 else ""
-            v2_tag = f"dwimsy_{stream_prefix}{ref2.tag}"
+    old_assets, v1_tag = _resolve_target(target1)
+    new_assets, v2_tag = _resolve_target(target2)
 
     lines: List[str] = []
     all_files = sorted(set(old_assets) | set(new_assets))
@@ -135,13 +149,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     if handled:
         return 0
-    from dwimsy.cli.dispatch import early_dispatch
-
-    handled, effective = early_dispatch(
-        effective, ["meta", "diff"], use_process_argv0=(argv is None)
-    )
-    if handled:
-        return 0
 
     test_arg = None
     for a in effective:
@@ -157,11 +164,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 verbosity = max(verbosity + len(a) - 1, 2)
         from dwimsy.tests import run_tests
 
-        pattern = None
-        if test_arg.startswith("--test="):
-            pattern = [test_arg.split("=", 1)[1]]
-        else:
-            pattern = ["meta diff"]
+        pattern = (
+            [test_arg.split("=", 1)[1]]
+            if test_arg.startswith("--test=")
+            else ["meta diff"]
+        )
         return run_tests(pattern, verbose=verbosity)
 
     if any(a == "--help-all" for a in effective):
@@ -199,6 +206,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Show full help documentation and exit",
     )
+    parser.add_argument("-r", "--root", default=None, help="Target repository root")
     parser.add_argument(
         "versions",
         nargs="*",
@@ -216,9 +224,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     v1 = args.versions[0] if len(args.versions) > 0 else None
     v2 = args.versions[1] if len(args.versions) > 1 else None
 
-    diff_text = render_diff(v1_sel=v1, v2_sel=v2)
-    sys.stdout.write(diff_text)
-    return 0
+    try:
+        diff_text = render_diff(root=getattr(args, "root", None), v1_sel=v1, v2_sel=v2)
+        sys.stdout.write(diff_text)
+        return 0
+    except (ValueError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

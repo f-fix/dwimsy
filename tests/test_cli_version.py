@@ -91,6 +91,60 @@ class TestCLIVersion(unittest.TestCase):
                 f"{mod_name} --version output '{out}' missing expected '{expected_v}'",
             )
 
+    def test_cli_version_default_short_hash_and_timestamp(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf), redirect_stderr(buf):
+            try:
+                dwimsy_cli_main(["--version"])
+            except SystemExit as e:
+                pass
+        out = buf.getvalue().strip()
+        self.assertRegex(
+            out, r"^dwimsy \S+ \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z [0-9a-f]{12}\)$"
+        )
+
+    def test_cli_version_verbose_full_hash(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf), redirect_stderr(buf):
+            try:
+                dwimsy_cli_main(["--version", "--verbose"])
+            except SystemExit as e:
+                pass
+        out = buf.getvalue().strip()
+        self.assertRegex(
+            out, r"^dwimsy \S+ \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z [0-9a-f]{64}\)$"
+        )
+
+    @unittest.skipIf(
+        os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+        "Excluded during bundle build verification",
+    )
+    def test_cli_version_clean_unbundled_has_no_mod_suffix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            unbundle_mod.safe_unbundle(output_dir=tmpdir, force=True, quiet=True)
+            self.assertFalse(integrity_mod.is_modified(root=tmpdir))
+            ver_str = integrity_mod.version(root=tmpdir)
+            self.assertNotIn("+mod.", ver_str)
+
+    @unittest.skipIf(
+        os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+        "Excluded during bundle build verification",
+    )
+    def test_cli_version_modified_has_mod_suffix_and_matching_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            unbundle_mod.safe_unbundle(output_dir=tmpdir, force=True, quiet=True)
+            (tmpdir / "dwimsy" / "_version.py").write_text(
+                '__version__ = "0.1.6.58-dev"\n__code_hash__ = ""\n# mod\n'
+            )
+            self.assertTrue(integrity_mod.is_modified(root=tmpdir))
+            ver_str = integrity_mod.version(root=tmpdir)
+            self.assertIn("+mod.", ver_str)
+            mod_suffix = ver_str.split("+mod.")[1]
+            banner = integrity_mod.version_banner(root=tmpdir, verbose=False)
+            self.assertIn(mod_suffix, banner)
+
 
 def main(argv=None):
     effective = sys.argv[1:] if argv is None else list(argv)

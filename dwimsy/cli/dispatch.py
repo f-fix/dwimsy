@@ -46,14 +46,16 @@ def early_dispatch(
         print(VERSION_SPACE_HELP)
         return True, remaining
 
-    if pipeline.get("early_exit") == "version-list":
+    if pipeline.get("early_exit") == "version-list" or pipeline.get("list_versions"):
         from dwimsy.meta.unbundle import detect_self_location
 
         is_chk, r_root = detect_self_location(argv0)
         output = pipeline["version_list_snapshot"] or pipeline[
             "vspace"
         ].format_list_versions(
-            on_disk_root=r_root if is_chk else None, selected=pipeline["selected_ref"]
+            on_disk_root=r_root if is_chk else None,
+            selected=pipeline["selected_ref"],
+            verbose=pipeline.get("version_list_verbose", False),
         )
         print(output)
         return True, remaining

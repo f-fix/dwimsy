@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import tarfile
 import tempfile
 import unittest
@@ -380,6 +381,27 @@ class TestVersionBumpChangelogFormatting(unittest.TestCase):
                 integrity.modification_hash = orig_mod_hash
             self.assertEqual(result, "0.1.6.50-dev+mod.newhash123456")
             self.assertEqual(result.count("+mod."), 1)
+
+    def test_version_list_verbose_shows_full_hash_regardless_of_flag_order(self):
+        """Verify --version-list picks up --verbose as a global detail toggle,
+        not a position-bound pipeline flag: both `--version-list --verbose`
+        and `--verbose --version-list` must show the full 64-char hash."""
+        pipeline_a, _ = parse_early_pipeline_flags(["--version-list", "--verbose"])
+        pipeline_b, _ = parse_early_pipeline_flags(["--verbose", "--version-list"])
+        for pipeline in (pipeline_a, pipeline_b):
+            snapshot = pipeline["version_list_snapshot"]
+            self.assertIsNotNone(snapshot)
+            hashes = re.findall(r"\b[0-9a-f]{64}\b", snapshot)
+            self.assertTrue(hashes, f"expected a full 64-char hash in: {snapshot!r}")
+
+    def test_version_list_default_shows_short_hash(self):
+        """Verify --version-list without --verbose shows the 12-char short
+        hash by default (matches the +mod.<short_hash> convention)."""
+        pipeline, _ = parse_early_pipeline_flags(["--version-list"])
+        snapshot = pipeline["version_list_snapshot"]
+        self.assertIsNotNone(snapshot)
+        self.assertFalse(re.findall(r"\b[0-9a-f]{64}\b", snapshot))
+        self.assertTrue(re.findall(r"\b[0-9a-f]{12}\b", snapshot))
 
 
 if __name__ == "__main__":

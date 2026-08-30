@@ -305,13 +305,12 @@ def canonical_assets(
             global _BUNDLE_ASSET_CACHE
             if _BUNDLE_ASSET_CACHE is None:
                 _BUNDLE_ASSET_CACHE = {}
-                with unbundle._open_bundle_tar() as tar:
-                    for m in tar.getmembers():
-                        if m.isfile():
-                            name = m.name[2:] if m.name.startswith("./") else m.name
-                            f = tar.extractfile(m)
-                            if f is not None:
-                                _BUNDLE_ASSET_CACHE[name] = f.read()
+                raw_assets = unbundle.materialize_stream0_assets()
+                for name, data in raw_assets.items():
+                    norm = name[2:] if name.startswith("./") else name
+                    if norm.startswith("<dwimsy-bundle>/"):
+                        norm = norm[len("<dwimsy-bundle>/") :]
+                    _BUNDLE_ASSET_CACHE[norm] = data
             for rel, data in _BUNDLE_ASSET_CACHE.items():
                 if _manifest_matches(rel, patterns) and (
                     baseline or rel not in candidates
@@ -382,7 +381,7 @@ def sealed_code_hash(root: Optional[Path] = None, baseline: bool = False) -> str
 
 
 def is_modified(root: Optional[Path] = None, baseline: bool = False) -> bool:
-    """Return whether the current source differs from its sealed hash.
+    """Return whether the current source differs from its sealed hash or baseline payload.
 
     In standalone bundle mode without explicit root override, returns False (Spec §4.4).
     """
@@ -411,7 +410,12 @@ def is_modified(root: Optional[Path] = None, baseline: bool = False) -> bool:
         return False
     sealed = sealed_code_hash(repo, baseline=baseline)
     if not sealed:
-        return True
+        try:
+            return canonical_code_hash(repo, baseline=False) != canonical_code_hash(
+                repo, baseline=True
+            )
+        except Exception:
+            return True
     return canonical_code_hash(repo, baseline=baseline) != sealed
 
 
@@ -450,6 +454,52 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
     return base_version
 
 
+def version_banner(
+    prog: str = "dwimsy",
+    root: Optional[Path] = None,
+    verbose: bool = False,
+    version_tag: Optional[str] = None,
+    timestamp: Optional[str] = None,
+    content_hash: Optional[str] = None,
+) -> str:
+    """Format standard --version output with version, UTC timestamp, and content hash."""
+    repo = find_repo_root(root) if root is not None else find_repo_root()
+    v_tag = version_tag or version(root=repo)
+    c_hash = content_hash or canonical_code_hash(repo, baseline=False)
+
+    if timestamp is None:
+        try:
+            from dwimsy.meta import unbundle, versions
+
+            raw_b64 = unbundle._get_active_blztar()
+            if raw_b64:
+                vs = versions.VersionSpace.from_blztar(raw_b64)
+                res = vs.resolve_version_ref(v_tag.split("+")[0])
+                if res is not None:
+                    s_t, ord_t, _ = res
+                    timestamp = vs.get_layer_timestamp(s_t.layers[ord_t])
+        except Exception:
+            pass
+    if timestamp is None:
+        try:
+            files = source_files(repo)
+            max_mt = max((f.stat().st_mtime for f in files if f.exists()), default=0)
+            if max_mt > 0:
+                import datetime
+
+                timestamp = datetime.datetime.fromtimestamp(
+                    max_mt, tz=datetime.timezone.utc
+                ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            pass
+    if timestamp is None:
+        _, dt_str = get_latest_release_info(repo)
+        timestamp = f"{dt_str}T00:00:00Z"
+
+    h_str = c_hash if verbose else c_hash[:12]
+    return f"{prog} {v_tag} ({timestamp} {h_str})"
+
+
 __all__ = [
     "canonical_assets",
     "canonical_code_hash",
@@ -463,6 +513,7 @@ __all__ = [
     "sealed_code_hash",
     "source_files",
     "version",
+    "version_banner",
 ]
 
 
@@ -593,6 +644,9 @@ class _LazyVersionAction(argparse.Action):
         self.version_fn = version_fn
 
     def __call__(self, parser, namespace, values, option_string=None):
-        fn = self.version_fn or version
-        parser._print_message(f"{parser.prog} {fn()}\n", sys.stdout)
+        prog = getattr(parser, "prog", "dwimsy")
+        verbose = getattr(namespace, "verbose", 0)
+        is_verbose = verbose > 0 if isinstance(verbose, int) else bool(verbose)
+        msg = version_banner(prog=prog, verbose=is_verbose)
+        parser._print_message(f"{msg}\n", sys.stdout)
         parser.exit()

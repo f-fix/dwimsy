@@ -141,6 +141,10 @@ class IntegrityTests(unittest.TestCase):
         self.assertEqual(len(current), 64)
         self.assertEqual(current, integrity.canonical_code_hash(baseline=True))
 
+    @unittest.skipIf(
+        os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+        "Excluded during bundle build verification",
+    )
     def test_unsealed_tree_is_modified(self):
         self.assertEqual(integrity.sealed_code_hash(), "")
         if integrity.is_standalone_bundle() or "<dwimsy-bundle>" in str(
@@ -148,8 +152,17 @@ class IntegrityTests(unittest.TestCase):
         ):
             self.assertFalse(integrity.is_modified())
             return
-        self.assertTrue(integrity.is_modified())
-        self.assertIn("+mod.", integrity.version())
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            unbundle.safe_unbundle(output_dir=tmpdir, force=True, quiet=True)
+            self.assertFalse(integrity.is_modified(root=tmpdir))
+            self.assertNotIn("+mod.", integrity.version(root=tmpdir))
+
+            (tmpdir / "dwimsy" / "_version.py").write_text(
+                '__version__ = "0.1.6.58-dev"\n__code_hash__ = ""\n# local modification\n'
+            )
+            self.assertTrue(integrity.is_modified(root=tmpdir))
+            self.assertIn("+mod.", integrity.version(root=tmpdir))
 
     def test_non_deps_python_shebang_and_docstring_conventions(self):
         repo = integrity.find_repo_root()

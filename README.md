@@ -1,7 +1,7 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation
 
-**Version: 0.1.6.54-dev** (Milestone 1.6 [IN PROGRESS], 2026-08-29)
+**Version: 0.1.6.61-dev** (Milestone 1.6 [IN PROGRESS], 2026-08-30)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
@@ -10,7 +10,7 @@ grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 
 > [!IMPORTANT]
 > **DEVELOPMENT STATUS: PHASE 1 & MILESTONE 1.5 COMPLETE; MILESTONE 1.6 IN PROGRESS.**
-> Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`), streaming filters (`cli.filters.t882wav` and `cli.filters.wav2t88`), the unified CLI (`dwimsy convert`, `inspect`, `split`, `join`, `t882wav`, `wav2t88`), documentation viewers (`dwimsy readme`, `dwimsy license`, `dwimsy changelog`, `dwimsy help`), test runner (`dwimsy tests`), and native PC-88 container/protocol modules (`tape.t88`, `protocols.pc88`) are implemented in pure Python standard library. **Milestone 1.6** is establishing the developer infrastructure, packaging, testing, and integrity architecture. The current CLI registers implemented tools and labeled roadmap placeholders: `dwimsy test` remains an unmapped placeholder; `dwimsy meta bundle`, `unbundle`, `diff`, `integrity`, `fetch-deps`, `version-bump`, and `lint` are implemented; `bundle-fixtures` remains a Milestone 1.6 placeholder.
+> Native core libraries for Phase 1 (`core.pulse`, `core.fsk`, and `core.audio`), streaming filters (`cli.filters.t882wav` and `cli.filters.wav2t88`), the unified CLI (`dwimsy convert`, `inspect`, `split`, `join`, `t882wav`, `wav2t88`), documentation viewers (`dwimsy readme`, `dwimsy license`, `dwimsy changelog`, `dwimsy help`), test runner (`dwimsy tests`), and native PC-88 container/protocol modules (`tape.t88`, `protocols.pc88`) are implemented in pure Python standard library. **Milestone 1.6** is establishing the developer infrastructure, packaging, testing, and integrity architecture. The current CLI registers implemented tools and labeled roadmap placeholders: `dwimsy tests`, `dwimsy readme`, `dwimsy license`, `dwimsy changelog`, `dwimsy help`, `dwimsy meta bundle`, `unbundle`, `diff`, `integrity`, `fetch-deps`, `version-bump`, and `lint` are implemented; `bundle-fixtures` remains a Milestone 1.6 placeholder.
 
 ### For now, see:
 
@@ -124,7 +124,7 @@ It is designed to grow incrementally, adding support for new computer platforms,
 
 *   **Phase 0 Consolidated into Phase 1**: Rather than maintaining temporary wrapper classes around monolithic legacy scripts, the PC-88 demodulation and synthesis pipeline was decomposed directly into clean native modules (`core.pulse`, `core.fsk`, `core.audio`) in pure Python standard library.
 *   **Milestone 1.5 for Full PC-88 Parity**: Milestone 1 proved the core streaming vertical slice (audio capture ↔ FSK pulses ↔ container stream). Milestone 1.5 brought native parity for container-level operations (`dwimsy.tape.t88`, `dwimsy.protocols.pc88`, `split`, `join`, `.t88` ↔ `.cmt`, and structural inspection).
-*   **Milestone 1.6 for State-Machine Hardening & Final Submodule Ejection**: Hardens the PC-88 reference implementation with true grammar-based state-machine parsing, full MON checksum validation, fault-tolerant "emit & tag" (`fsck` model) error recovery, WAV `data` chunk boundary clamping, T88 truncation detection, and unified CLI testing (`dwimsy test`), enabling the clean, permanent ejection of `deps/pc88_tape_tools`.
+*   **Milestone 1.6 for State-Machine Hardening & Final Submodule Ejection**: Hardens the PC-88 reference implementation with true grammar-based state-machine parsing, full MON checksum validation, fault-tolerant "emit & tag" (`fsck` model) error recovery, WAV `data` chunk boundary clamping, T88 truncation detection, and unified CLI testing (`dwimsy tests`), enabling the clean, permanent ejection of `deps/pc88_tape_tools`.
 *   **Fault-Tolerant "Emit & Tag" Model (`fsck` Model)**: In the interests of archival integrity and field usability, corrupted or truncated streams do not crash with unhandled exceptions, nor are errors silently swallowed. The engine reports diagnostics to `stderr`/manifest with exact byte offsets, emits the salvaged payload with an explicit `[truncated]` / `[corrupt]` qualifier and `observed-truncated` epistemic tag, and falls back to raw binary (`.bin`/`.raw`) when high-level structure breaks down.
 *   **Dual-Track Parsing (State Machine vs. Resync Fallback)**: The primary parse path is a strict, deterministic state machine. When an unrecognized sequence or corrupted checksum is encountered, the parser drops into a clearly signaled *Resynchronization Mode* that scans forward for known pilot carriers or sync preambles, isolating the intervening unparsed bytes as a `[corrupt_gap]` block.
 *   **Staged Submodule Ejections Across Phases 1 & 2**: Rather than waiting for a monolithic Phase 2 completion, submodules are ejected in fine-grained milestones: `pc88_tape_tools` (Milestone 1.6), `wav2cas` (Milestone 2.1), `fat8_d88_tool` & `bin2fds` (Milestone 2.3), and `nontama_to_bload` (Milestone 2.4).
@@ -166,7 +166,7 @@ python3 -m dwimsy.tests       # or python3 -m dwimsy --test
 
 # Pass custom private fixture path via CLI:
 python3 -m dwimsy.tests -v     # or python3 -m dwimsy --test
-dwimsy-test -v -f ./tests/fixtures/
+dwimsy-tests -v -f ./tests/fixtures/
 
 # Scoped testing for specific subsystems:
 python3 -m dwimsy.tests fsk -v
@@ -205,26 +205,26 @@ git submodule update --init --recursive
 ### Standalone Bundle Basics
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.54-dev (2026-08-29)
+Version: 0.1.6.61-dev (2026-08-30)
 
-`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.54-dev.py`).
+`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.61-dev.py`).
 
 To use the embedded dwimsy CLI directly from the bundle:
 ```bash
-python3 dwimsy_0.1.6.54-dev.py dwimsy --help
-python3 dwimsy_0.1.6.54-dev.py dwimsy --version
-python3 dwimsy_0.1.6.54-dev.py dwimsy readme
-python3 dwimsy_0.1.6.54-dev.py dwimsy license
-python3 dwimsy_0.1.6.54-dev.py dwimsy changelog
+python3 dwimsy_0.1.6.61-dev.py dwimsy --help
+python3 dwimsy_0.1.6.61-dev.py dwimsy --version
+python3 dwimsy_0.1.6.61-dev.py dwimsy readme
+python3 dwimsy_0.1.6.61-dev.py dwimsy license
+python3 dwimsy_0.1.6.61-dev.py dwimsy changelog
 ```
 
 To extract the repository tree to disk:
 ```bash
-python3 dwimsy_0.1.6.54-dev.py meta unbundle /path/to/target --deps
+python3 dwimsy_0.1.6.61-dev.py meta unbundle /path/to/target --deps
 ```
 
 
-`dwimsy` is currently invoked from a checkout as `python3 -m dwimsy <command> ...`. **The package is not yet packaged for installation**: there is currently no `pyproject.toml`/`setup.py` console-script entry point, so `pip install -e .` and the bare `dwimsy` command are future Milestone 1.6 work. The currently implemented primary commands are exactly four: `convert`, `inspect`, `split`, and `join`. Two standalone filter applets are also implemented: `t882wav` and `wav2t88`. The `test`, `help`, `readme`, `changelog`, `license`, and `meta` commands described later in this section are **planned Milestone 1.6 interfaces and are not currently available**. The current CLI does implement `--help-all`; use `python3 -m dwimsy --help`, `python3 -m dwimsy --help-all`, or `python3 -m dwimsy <command> --help` from the repository environment.
+`dwimsy` is currently invoked from a checkout as `python3 -m dwimsy <command> ...`. **The package is not yet packaged for installation**: there is currently no `pyproject.toml`/`setup.py` console-script entry point, so `pip install -e .` and the bare `dwimsy` command are future Milestone 1.6 work. The currently implemented primary commands are exactly four: `convert`, `inspect`, `split`, and `join`. Two standalone filter applets are also implemented: `t882wav` and `wav2t88`. The `tests`, `help`, `readme`, `changelog`, `license`, and `meta` commands are now fully implemented and available in Milestone 1.6. The current CLI does implement `--help-all`; use `python3 -m dwimsy --help`, `python3 -m dwimsy --help-all`, or `python3 -m dwimsy <command> --help` from the repository environment.
 
 `python3 -m dwimsy` is the recommended form when the repository is the current directory (or the checkout has otherwise been added to `PYTHONPATH`/installed). It does **not** work from an arbitrary directory in the current un-packaged checkout. `dwimsy/__main__.py` also makes the package directory itself directly executable - `python3 path/to/dwimsy <command> ...`, pointing at the `dwimsy/` directory rather than a file - which does work from elsewhere on disk:
 
@@ -625,15 +625,21 @@ options:
   * `dwimsy meta bundle --baseline`: Reconstructs the baseline standalone unpacker from the embedded baseline `blztar` payload and its canonical, blztar-elided `unbundle.py` template.
 
 ```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.54-dev.py
+# Bundle live working tree -> generates dwimsy_0.1.6.61-dev.py
 dwimsy meta bundle
 
 # Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.54-dev.py
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.61-dev.py
 ```
 
 ##### `dwimsy meta unbundle`
 Extracts a portable bundle to a normal source tree. The `unbundle.py` written to disk is reconstituted from the canonical blztar-elided template stored inside the bundle, with the bundle payload substituted back in. Its timestamp is preserved from that canonical template.
+
+Safe unbundling features:
+* **Safe In-Place Upgrades**: Unbundling into an existing clean checkout of an older release in `VersionSpace` performs an in-place version upgrade without requiring `--force`.
+* **Rollback Command**: When unbundling changes the on-disk version, a notice prints the exact command to revert to the previous version (`python3 dwimsy/meta/unbundle.py --version=<prev_version> <target_directory>`).
+* **Overwrite Protection**: Refuses without `--force` if `dwimsy/meta/unbundle.py` would be overwritten and the incoming bundle payload does not contain the previous on-disk version in its history.
+* **Extraction Banner**: On completion, reports the extracted version banner (`Successfully extracted dwimsy <version> (<timestamp> <hash>) to <target_directory>`).
 
 ```bash
 # Extract the bundle to a directory
@@ -641,13 +647,27 @@ dwimsy meta unbundle ./restored
 
 # Include the frozen reference dependencies
 dwimsy meta unbundle ./restored --deps
+
+# Revert an upgraded checkout back to a previous version
+python3 dwimsy/meta/unbundle.py --version=0.1.6.56-dev .
 ```
 
 ##### `dwimsy meta diff`
-Shows the canonical project diff between the current working tree and the embedded baseline. The comparison elides the generated `blztar` payload in `unbundle.py`, writes the unified diff to stdout, and does not create a bundle file.
+Shows the canonical project diff between the current working tree and the embedded baseline, or between two specified version targets. The comparison elides the generated `blztar` payload in `unbundle.py`, writes the unified diff to stdout, and does not create a bundle file.
+
+* **Inside a Checkout**: Running `dwimsy meta diff` without arguments compares the bundle's baseline against the unbundled on-disk working tree.
+* **Outside a Checkout**: Running without arguments raises a version resolution error because `unbundled` is undefined outside checkouts. To compare an unbundled directory with the bundle version from anywhere, use `--version-include-primary=. --version=alt` or specify explicit version tags.
+* **Hermetic Multi-Version Diffs**: Running `dwimsy meta diff [VER1] [VER2]` compares any two versions or streams from `VersionSpace` hermetically without requiring an on-disk checkout.
 
 ```bash
+# Diff working tree against embedded baseline (from inside a checkout)
 dwimsy meta diff
+
+# Diff two historical versions hermetically
+dwimsy meta diff 0.1.6.55-dev 0.1.6.56-dev
+
+# Compare on-disk checkout against bundle baseline from an external directory
+python3 dwimsy_0.1.6.61-dev.py --version-include-primary=. dwimsy meta diff baseline alt
 ```
 
 ##### `dwimsy meta integrity`
@@ -868,14 +888,14 @@ To ensure cross-platform terminal compatibility, clean diff tracking, and seamle
 | **`meta.bundle`**    | Single-file unpacker generator, baseline reconstruction, `blztar` storage & diff support | `[x] DONE` | Milestone 1.6 |
 | **`meta.unbundle`**  | Portable bundle extractor, canonical self reconstruction and in-memory asset provider | `[x] DONE` | Milestone 1.6 |
 | **`meta.bundle_fixtures`**| Content-addressed test fixture packager (`dwimsy meta bundle-fixtures`) | `[ ] TODO` | Milestone 1.6 |
-| **`meta.version_bump`**| `dwimsy meta version-bump` (advances revision, seals code-hash, updates `CHANGELOG.md`) | `[ ] TODO` | Milestone 1.6 |
+| **`meta.version_bump`**| `dwimsy meta version-bump` (advances revision, seals code-hash, updates `CHANGELOG.md`) | `[x] DONE` | Milestone 1.6 |
 | **`meta.diff`**     | Canonical working-tree vs embedded-baseline diff | `[x] DONE` | Milestone 1.6 |
 | **`meta.fetch_deps`**| `dwimsy meta fetch-deps` (materializes `.gitmodules` dependencies in non-git checkouts) | `[x] DONE` | Milestone 1.6 |
-| **`cli.changelog`**  | `dwimsy changelog` (interactive revision history viewer reading `CHANGELOG.md`) | `[ ] TODO` | Milestone 1.6 |
-| **`cli.doc_viewers`**| `dwimsy readme` & `dwimsy license` (on-disk precedence with `blztar` fallback) | `[ ] TODO` | Milestone 1.6 |
-| **`cli.help`**       | `dwimsy help [verb\|topic]` (interactive pydoc technical manual viewer) | `[ ] TODO` | Milestone 1.6 |
+| **`cli.changelog`**  | `dwimsy changelog` (interactive revision history viewer reading `CHANGELOG.md`) | `[x] DONE` | Milestone 1.6 |
+| **`cli.doc_viewers`**| `dwimsy readme` & `dwimsy license` (on-disk precedence with `blztar` fallback) | `[x] DONE` | Milestone 1.6 |
+| **`cli.help`**       | `dwimsy help [verb\|topic]` (interactive pydoc technical manual viewer) | `[x] DONE` | Milestone 1.6 |
 | **`tests.fixtures`** | Content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) | `[x] DONE` | Milestone 1.6 |
-| **`tests.runner`**   | `dwimsy test` CLI test suite runner with `--fixtures` and subsystem filtering | `[ ] TODO` | Milestone 1.6 |
+| **`tests.runner`**   | `dwimsy tests` CLI test suite runner with keyword and subsystem filtering | `[x] DONE` | Milestone 1.6 |
 | **`packaging`**      | Standard `pyproject.toml` with clean console script entry points | `[ ] TODO` | Milestone 1.6 |
 | **`protocols.pc88` (hardened)**| Strict grammar state machine, full MON address/payload checksums, and `[truncated]` emission | `[ ] TODO` | Milestone 1.7 |
 | **`tape.t88` (hardened)**| Strict T88 block length verification and canonical 24-byte signature checking | `[ ] TODO` | Milestone 1.7 |
@@ -1360,14 +1380,14 @@ To provide clean, immediate usability in emulators while maintaining complete ar
 │ dwimsy split              │ Multi-file tape splitting         │ [x] COMPLETE (PC-88 T88/CMT)  │
 │ dwimsy join               │ Multi-file tape concatenation     │ [x] COMPLETE (PC-88 T88/CMT)  │
 │ dwimsy t882wav / wav2t88  │ Direct PC-88 streaming filters    │ [x] COMPLETE (Milestone 1)    │
-│ dwimsy test               │ Test suite runner (--fixtures)    │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy help               │ Pydoc technical manual viewer     │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy readme / license   │ Documentation / License viewers   │ [ ] IN PROGRESS (M1.6)        │
-│ dwimsy changelog          │ Revision history viewer           │ [ ] IN PROGRESS (M1.6)        │
+│ dwimsy tests              │ Test suite runner                 │ [x] COMPLETE (M1.6)          │
+│ dwimsy help               │ Pydoc technical manual viewer     │ [x] COMPLETE (M1.6)          │
+│ dwimsy readme / license   │ Documentation / License viewers   │ [x] COMPLETE (M1.6)          │
+│ dwimsy changelog          │ Revision history viewer           │ [x] COMPLETE (M1.6)          │
 │ dwimsy meta bundle        │ Self-packaging portable unpacker  │ [x] COMPLETE (M1.6)          │
 │ dwimsy meta unbundle      │ Portable bundle extractor         │ [x] COMPLETE (M1.6)          │
 │ dwimsy meta bundle-fixtures│ Test fixture archive packager    │ [ ] TODO (M1.6)              │
-│ dwimsy meta version-bump  │ Version advance & code-hash seal  │ [ ] TODO (M1.6)              │
+│ dwimsy meta version-bump  │ Version advance & code-hash seal  │ [x] COMPLETE (M1.6)          │
 │ dwimsy meta fetch-deps    │ Non-git submodule materializer    │ [x] COMPLETE (M1.6)          │
 │ dwimsy meta integrity     │ Portable-project integrity checker│ [x] COMPLETE (M1.6)          │
 │ dwimsy wav2cas / cas2wav  │ MSX FSK streaming filters         │ [ ] TODO (Milestone 2.1)      │
@@ -1409,7 +1429,7 @@ dwimsy join part1.t88 part2.cmt -o prepared.t88 --bauds 1200,600
 # Registered placeholder commands remain visible in `--help`; they report their planned milestone until implemented.
 
 # Run unit and integration tests (via -T until the `test` placeholder is implemented)
-dwimsy test
+dwimsy tests
 python3 -m dwimsy.tests -v     # or python3 -m dwimsy --test
 python3 -m dwimsy.tests fsk -v
 
@@ -1796,15 +1816,15 @@ Tasks:
 1. `[x] DONE` **`dwimsy.meta.integrity`**: Canonical portable-project hashing, including tests, project metadata, lazy `.gitmodules` dependency globs, and `unbundle.py` with its `blztar` payload elided. Supports runtime modification detection and `--baseline` checks.
 2. `[x] DONE` **`dwimsy.meta.bundle` (`dwimsy meta bundle`)**: Self-packaging unpacker generation, embedded `blztar`, baseline reconstruction, canonical `unbundle.py` template handling, and `--diff` support.
 3. `[ ] TODO` **Single-Source Asset Resolution Hierarchy**: Maintain `README.md`, `LICENSE`, `CHANGELOG.md`, and `.gitmodules` as canonical on-disk files. Resolve text with local working tree precedence (when not a system package), falling back to in-memory `blztar` decompression when running as an installed system package.
-4. `[ ] TODO` **`dwimsy meta version-bump` & `CHANGELOG.md`**: Build the atomic `dwimsy meta version-bump` command to increment revision, generate new code-hash, update build dates, prepend entries to `CHANGELOG.md`, and seal `dwimsy/meta/bundle.py`.
-5. `[ ] TODO` **`dwimsy changelog`**: Implement `dwimsy changelog` to parse and display revision history from `CHANGELOG.md` (or `blztar` fallback).
-6. `[ ] TODO` **`dwimsy readme` & `dwimsy license`**: Implement CLI documentation viewers with `pydoc.pager` interactive TTY viewing and plain streaming for pipes/files.
-7. `[ ] TODO` **`dwimsy help`**: Implement `dwimsy help [verb|topic]` to display interactive pydoc technical manuals for CLI verbs and core subsystems.
+4. `[x] DONE` **`dwimsy meta version-bump` & `CHANGELOG.md`**: Built the atomic `dwimsy meta version-bump` command to increment revision, generate new code-hash, update build dates, prepend entries to `CHANGELOG.md`, and seal `dwimsy/meta/bundle.py`.
+5. `[x] DONE` **`dwimsy changelog`**: Implemented `dwimsy changelog` to parse and display revision history from `CHANGELOG.md` (or `blztar` fallback).
+6. `[x] DONE` **`dwimsy readme` & `dwimsy license`**: Implemented CLI documentation viewers with `pydoc.pager` interactive TTY viewing and plain streaming for pipes/files.
+7. `[x] DONE` **`dwimsy help`**: Implemented `dwimsy help [verb|topic]` to display interactive pydoc technical manuals for CLI verbs and core subsystems.
 8. `[x] DONE` **`dwimsy meta fetch-deps`**: Parse `.gitmodules` from disk or `blztar` and materialize frozen reference submodules in non-git checkouts.
 9. `[ ] TODO` **`dwimsy meta bundle-fixtures`**: Implement `dwimsy meta bundle-fixtures` to package local private fixture subsets into self-extracting unpackers targeting `tests/fixtures/`.
 10. `[x] DONE` **`dwimsy.tests.fixtures`**: Implement content-addressed fixture registry (`FixtureSpec`) and discovery pool (`FixturePool`) indexing by SHA-1 hash rather than non-semantic filenames.
-11. `[x] DONE` **Test runner infrastructure**: Central in-process test runner with target filtering and scoped `dwimsy <verb> --test` execution. The top-level `dwimsy test` verb remains a labeled placeholder. Subprocess tests are explicitly skipped during portable bundle verification because child interpreters cannot inherit the in-memory bundle importer; unbundle first to run them.
-12. `[ ] TODO` **Packaging & Shebangs**: Add `pyproject.toml` with console script entry points (`dwimsy`, `dwimsy-t882wav`, `dwimsy-wav2t88`, `dwimsy-test`), and ensure all CLI-executable scripts start with `#!/usr/bin/env python3`.
+11. `[x] DONE` **Test runner infrastructure**: Central in-process test runner with target filtering, listing (`--list`), and scoped `dwimsy <verb> --test` execution via `dwimsy tests`. Subprocess tests are explicitly skipped during portable bundle verification because child interpreters cannot inherit the in-memory bundle importer; unbundle first to run them.
+12. `[ ] TODO` **Packaging & Shebangs**: Add `pyproject.toml` with console script entry points (`dwimsy`, `dwimsy-t882wav`, `dwimsy-wav2t88`, `dwimsy-tests`), and ensure all CLI-executable scripts start with `#!/usr/bin/env python3`.
 
 ### Phase 1.7: PC-88 State-Machine Parser, Checksums & Submodule Ejection `[ ] TODO`
 
@@ -1978,7 +1998,7 @@ C64 CRT     .crt        43 36 34 20 43 41 52 54 52 49 44 47 45 20 20 20 ("C64 CA
   * `[ ] PLANNED`: Add `dwimsy meta bundle` (with `--baseline` export) and `dwimsy meta bundle-fixtures` portable unpacker generators
   * `[ ] PLANNED`: Add `dwimsy meta version-bump`, `dwimsy changelog`, `dwimsy help`, `dwimsy meta fetch-deps`, and `dwimsy meta integrity`
   * `[ ] PLANNED`: Maintain `README.md` and `CHANGELOG.md` as canonical markdown sources of truth with in-memory `blztar` fallback
-  * `[ ] PLANNED`: Unified `dwimsy test` CLI runner with scoped subsystem filtering
+  * `[x] COMPLETE`: Unified `dwimsy tests` CLI runner with scoped subsystem filtering
 
 ### [0.1.5.0] - 2026-08-23 (Milestone 1.5 Baseline) `[x] COMPLETE`
 * **Summary**: Milestone 1 & 1.5: Native PC-88 DSP vertical slice and container/protocol parity
@@ -2034,7 +2054,11 @@ Multi-stream bundles delimit stream versions using comma `,` with uniform `,altN
 - Two independent grep-friendly stateless annotation tokens:
   1. Named-selector membership: `=keyword` (exact head) / `=~keyword` (in match set).
   2. Peer content-equivalence: `=primary_TAG` / `=altN_TAG` (fully-qualified, symmetric).
-- Provenance column (Column 3) is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.54-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
+- Column Layout: `[stream] <version>  <timestamp>  <hash>  [<annotations>]  [<provenance>]`.
+- Timestamps: ISO 8601 UTC timestamps (`YYYY-MM-DDTHH:MM:SSZ`) derived from layer metadata.
+- Hashes: 12-character short hashes by default for easy visual correlation with `--version` and `+mod.<short_hash>` tails. Specifying `--verbose` (`dwimsy --version-list --verbose`) expands hashes to full 64-character SHA-256 strings.
+- Single Shared Entry: When an on-disk checkout is content-identical to the baseline, the redundant top `[unbundled]` row is omitted, and the primary baseline row includes `=unbundled` in its annotations (`[=baseline, =primary, =unbundled, =selected]`).
+- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.61-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
 
 ### Execution Model & The Three Paths
 - Path A: Default in-memory virtual mount via `BundleFinder` (zero disk writes).

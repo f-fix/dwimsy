@@ -128,6 +128,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_diff.add_argument("-r", "--root", default=None, help="Target repository root")
     p_diff.add_argument(
+        "versions",
+        nargs="*",
+        default=[],
+        help="Optional version tags or selectors to compare (e.g. [VER1] [VER2])",
+    )
+    p_diff.add_argument(
         "--help-all", action="store_true", help="Show full help documentation and exit"
     )
 
@@ -314,6 +320,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             return 1
         try:
+            target_v = getattr(args, "version", None)
             unbundle.safe_unbundle(
                 b64_string=unbundle._get_active_blztar(),
                 output_dir=args.target_directory,
@@ -321,6 +328,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                 force=getattr(args, "force", False),
                 dry_run=getattr(args, "dry_run", False),
                 quiet=getattr(args, "quiet", False),
+                target_version=target_v,
+                verbose=getattr(args, "verbose", 0) > 0,
             )
             return 0
         except RuntimeError as e:
@@ -328,10 +337,24 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
     elif args.meta_command == "diff":
         root_path = Path(args.root).resolve() if getattr(args, "root", None) else None
-        out = diff.render_diff(root_path)
-        if out:
-            sys.stdout.write(out)
-        return 0
+        v1 = (
+            args.versions[0]
+            if getattr(args, "versions", None) and len(args.versions) > 0
+            else None
+        )
+        v2 = (
+            args.versions[1]
+            if getattr(args, "versions", None) and len(args.versions) > 1
+            else None
+        )
+        try:
+            out = diff.render_diff(root=root_path, v1_sel=v1, v2_sel=v2)
+            if out:
+                sys.stdout.write(out)
+            return 0
+        except (ValueError, RuntimeError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
     elif args.meta_command == "integrity":
         current = integrity.canonical_code_hash()
         sealed = integrity.sealed_code_hash()

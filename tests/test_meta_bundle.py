@@ -262,7 +262,7 @@ class TestMetaBundle(unittest.TestCase):
             self.assertTrue((out_dir / "README.md").is_file())
             self.assertTrue((out_dir / "dwimsy" / "__init__.py").is_file())
             self.assertTrue((out_dir / "dwimsy" / "meta" / "unbundle.py").is_file())
-            self.assertIn("Successfully extracted to", buf.getvalue())
+            self.assertIn("Successfully extracted", buf.getvalue())
 
     def test_unbundle_is_unbundle_invocation_pattern(self):
         self.assertTrue(unbundle.is_unbundle_invocation("unbundle"))
@@ -321,6 +321,73 @@ dwimsy/ignored_file.py
             self.assertNotIn("./dwimsy/test.tmp", names)
             self.assertNotIn("./ignored_dir/file.txt", names)
             self.assertNotIn("./dwimsy/ignored_file.py", names)
+
+    def test_safe_unbundle_upgrade_known_version_prints_rollback_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target_dir = Path(tmp)
+            raw_b64 = unbundle._get_active_blztar()
+            from dwimsy.meta import versions
+
+            vspace = versions.VersionSpace.from_blztar(raw_b64)
+
+            # Setup an older known layer (ordinal 0)
+            st0 = vspace.streams[0].materialize_layer_state(0)
+            v0_tag = vspace.streams[0].get_versions()[0].tag
+            for name, content in st0.items():
+                p = target_dir / name
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(content)
+
+            buf = io.StringIO()
+            # Unbundle head version into target_dir without force
+            unbundle.safe_unbundle(output_dir=target_dir, force=False, stdout=buf)
+            out_str = buf.getvalue()
+            self.assertIn("Successfully extracted", out_str)
+            self.assertIn(f"To return to previous version '{v0_tag}', run:", out_str)
+
+    def test_safe_unbundle_refuses_overwrite_unbundle_when_previous_version_missing(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            target_dir = Path(tmp)
+            (target_dir / "dwimsy").mkdir(parents=True, exist_ok=True)
+            (target_dir / "dwimsy" / "meta").mkdir(parents=True, exist_ok=True)
+            (target_dir / "dwimsy" / "meta" / "unbundle.py").write_text(
+                "# old unbundle\n"
+            )
+            (target_dir / "dwimsy" / "_version.py").write_text(
+                '__version__ = "0.0.0.1-missing"\n'
+            )
+
+            # Without force, it must refuse
+            with self.assertRaises(RuntimeError) as ctx:
+                unbundle.safe_unbundle(output_dir=target_dir, force=False)
+            self.assertTrue(
+                "modified on-disk state" in str(ctx.exception)
+                or "does not contain previous on-disk version" in str(ctx.exception)
+            )
+
+            # With force, it must succeed
+            buf = io.StringIO()
+            unbundle.safe_unbundle(output_dir=target_dir, force=True, stdout=buf)
+            self.assertIn("Successfully extracted", buf.getvalue())
+
+    def test_version_list_shares_single_entry_when_unbundled_identical_to_baseline(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            unbundle.safe_unbundle(output_dir=tmpdir, force=True, quiet=True)
+            raw_b64 = unbundle._get_active_blztar()
+            from dwimsy.meta import versions
+
+            vspace = versions.VersionSpace.from_blztar(raw_b64)
+            out = vspace.format_list_versions(on_disk_root=tmpdir)
+            # When identical, there should be no standalone '[unbundled]' line
+            self.assertFalse(
+                any(line.strip().startswith("[unbundled]") for line in out.splitlines())
+            )
+            self.assertIn("=unbundled", out)
 
 
 def main(argv=None):

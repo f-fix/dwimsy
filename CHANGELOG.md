@@ -5,6 +5,41 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.61-dev] - 2026-08-30
+
+### Changed
+- Reformatted
+
+## [0.1.6.60-dev] - 2026-08-30
+
+### Changed
+- Allow bare -v to modify --version-list verbosity, support --version-list=full/short, and add CLI flag tests
+
+## [0.1.6.59-dev] - 2026-08-30
+
+### Changed
+- Fix --version-list --verbose order-independence for full hash display; wire dispatch.py verbose pass-through
+
+## [0.1.6.58-dev] - 2026-08-30
+
+### Changed
+- test bump
+
+## [0.1.6.57-dev] - 2026-08-30
+
+### Changed
+- Refuse unbundled diff outside checkouts, support 12-char hashes, UTC timestamps, rollback restoration, and documentation updates
+
+## [0.1.6.56-dev] - 2026-08-30
+
+### Changed
+- Share single version-space entry and eliminate mod suffix when unbundled matches baseline, support safe unbundle upgrades and unbundle.py overwrite protection
+
+## [0.1.6.55-dev] - 2026-08-30
+
+### Changed
+- Synchronize README.md status matrix and update test command references to tests
+
 ## [0.1.6.54-dev] - 2026-08-29
 
 ### Changed

@@ -1688,19 +1688,56 @@ class VersionSpace:
             extension = f".{extension}"
         return f"{base_name}{extension}"
 
+    def get_layer_timestamp(
+        self, layer: Layer, default_time: Optional[str] = None
+    ) -> str:
+        """Derive ISO 8601 UTC timestamp for a layer from TAR mtime or CHANGELOG.md."""
+        import datetime
+
+        if getattr(layer, "tar_bytes", None):
+            try:
+                import tarfile, io
+
+                with tarfile.open(
+                    fileobj=io.BytesIO(layer.tar_bytes), mode="r:"
+                ) as tar:
+                    mtimes = [
+                        m.mtime for m in tar if m.mtime > 0 and m.mtime != 1700000000
+                    ]
+                    if mtimes:
+                        return datetime.datetime.fromtimestamp(
+                            max(mtimes), tz=datetime.timezone.utc
+                        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:
+                pass
+        c_data = layer.files.get("CHANGELOG.md")
+        if c_data:
+            try:
+                c_text = c_data.decode("utf-8", errors="ignore")
+                tag_escaped = re.escape(layer.version_tag or "")
+                m = re.search(
+                    rf"## \[{tag_escaped}\] - (\d{{4}}-\d{{2}}-\d{{2}})", c_text
+                )
+                if not m:
+                    m = re.search(
+                        r"## \[([^\]]+)\] - (\d{{4}}-\d{{2}}-\d{{2}})", c_text
+                    )
+                if m:
+                    dt = m.group(1 if not m.group(2) else 2)
+                    return f"{dt}T00:00:00Z"
+            except Exception:
+                pass
+        return default_time or "2026-08-30T00:00:00Z"
+
     def format_list_versions(
         self,
         on_disk_root: Optional[Path] = None,
         selected: Optional[SelectionSet] = None,
+        verbose: bool = False,
     ) -> str:
         """Format the output of --list-versions according to the complete specification."""
         all_refs = self.get_all_versions()
 
-        # `baseline` means the newest version represented by this VersionSpace,
-        # not the physical Layer 0 and never the unbundled working tree.
-        # With no explicit selection, standalone bundles select that prepared
-        # head; checkout mode keeps unbundled state as the separately displayed
-        # current working state.
         if selected is None and on_disk_root is None:
             selected = self.resolve_selection("primary")
 
@@ -1722,20 +1759,49 @@ class VersionSpace:
             unbundled_tag = integrity.version(root=on_disk_root)
             hash_to_tags.setdefault(unbundled_hash, []).append("unbundled")
 
-        if unbundled_tag is not None and unbundled_hash is not None:
+        baseline_ref = self.resolve_version_ref("baseline")
+        baseline_stream = baseline_ref[0] if baseline_ref is not None else None
+        baseline_ordinal = baseline_ref[1] if baseline_ref is not None else None
+        baseline_hash = (
+            baseline_ref[2].content_hash if baseline_ref is not None else None
+        )
+
+        unbundled_is_baseline = bool(
+            unbundled_hash is not None
+            and baseline_hash is not None
+            and unbundled_hash == baseline_hash
+        )
+
+        if (
+            unbundled_tag is not None
+            and unbundled_hash is not None
+            and not unbundled_is_baseline
+        ):
             peers = [
                 t for t in hash_to_tags.get(unbundled_hash, []) if t != "unbundled"
             ]
             peer_toks = [f"={t}" for t in peers]
             ann_tokens = ["=unbundled"] + peer_toks
             ann_str = f"[{', '.join(ann_tokens)}]" if ann_tokens else ""
-            lines.append(
-                f"  [unbundled] {unbundled_tag:<24} {unbundled_hash}  {ann_str:<32} [=unbundled: .]"
-            )
+            unb_ts = "2026-08-30T00:00:00Z"
+            if on_disk_root is not None:
+                try:
+                    files = integrity.source_files(on_disk_root)
+                    max_mt = max(
+                        (f.stat().st_mtime for f in files if f.exists()), default=0
+                    )
+                    if max_mt > 0:
+                        import datetime
 
-        baseline_ref = self.resolve_version_ref("baseline")
-        baseline_stream = baseline_ref[0] if baseline_ref is not None else None
-        baseline_ordinal = baseline_ref[1] if baseline_ref is not None else None
+                        unb_ts = datetime.datetime.fromtimestamp(
+                            max_mt, tz=datetime.timezone.utc
+                        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+                except Exception:
+                    pass
+            unb_h_str = unbundled_hash if verbose else unbundled_hash[:12]
+            lines.append(
+                f"  [unbundled] {unbundled_tag:<20} {unb_ts}  {unb_h_str}  {ann_str:<34} [=unbundled: .]"
+            )
 
         for s in self.streams:
             versions = sorted(
@@ -1749,11 +1815,18 @@ class VersionSpace:
             )
 
             for v in versions:
+                lyr = s.layers[v.ordinal]
                 kw_tokens = []
                 if s.index == 0:
                     if baseline_stream is s and v.ordinal == baseline_ordinal:
                         kw_tokens.append("=baseline")
-                    if head_ver and v.ordinal == head_ver.ordinal:
+                        if head_ver and v.ordinal == head_ver.ordinal:
+                            kw_tokens.append("=primary")
+                            if unbundled_is_baseline:
+                                kw_tokens.append("=unbundled")
+                        elif unbundled_is_baseline:
+                            kw_tokens.append("=unbundled")
+                    elif head_ver and v.ordinal == head_ver.ordinal:
                         kw_tokens.append("=primary")
                     else:
                         kw_tokens.append("=~primary")
@@ -1790,7 +1863,7 @@ class VersionSpace:
                     for t in hash_to_tags.get(v.content_hash, [])
                     if t != v.qualified_tag and t != "unbundled"
                 ]
-                if unbundled_hash == v.content_hash:
+                if unbundled_hash == v.content_hash and not unbundled_is_baseline:
                     peer_list.append("unbundled")
                 peer_toks = [f"={t}" for t in peer_list]
 
@@ -1808,8 +1881,10 @@ class VersionSpace:
                 role_name = "primary" if s.index == 0 else s.name
                 prov_str = f"[{role_status}{role_name}: {v.source}]"
 
+                ts = self.get_layer_timestamp(lyr)
+                h_str = v.content_hash if verbose else v.content_hash[:12]
                 lines.append(
-                    f"  {display_tag:<32} {v.content_hash}  {ann_str:<36} {prov_str}"
+                    f"  {display_tag:<24} {ts}  {h_str}  {ann_str:<34} {prov_str}"
                 )
 
         return "\n".join(lines)

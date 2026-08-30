@@ -173,8 +173,11 @@ class _LazyVersionAction(argparse.Action):
         self.version_fn = version_fn
 
     def __call__(self, parser, namespace, values, option_string=None):
-        fn = self.version_fn or get_version
-        parser._print_message(f"{parser.prog} {fn()}\n", sys.stdout)
+        prog = getattr(parser, "prog", "dwimsy")
+        verbose = getattr(namespace, "verbose", 0)
+        is_verbose = verbose > 0 if isinstance(verbose, int) else bool(verbose)
+        msg = version_banner(prog=prog, verbose=is_verbose)
+        parser._print_message(f"{msg}\n", sys.stdout)
         parser.exit()
 
 
@@ -576,9 +579,7 @@ def main(
     argv0_effective = pipeline["argv0"] or initial_argv0
 
     if pipeline.get("print_version", False):
-        snapshot = (
-            pipeline["effective_version"] if pipeline.get("version") else get_version()
-        )
+        is_verbose = pipeline.get("explicit_verbose_count", 0) > 0
         target_cmd = unbundle.resolve_argv0_command(argv0_effective)
         if target_cmd:
             prog = (
@@ -588,7 +589,10 @@ def main(
             )
         else:
             prog = "dwimsy"
-        print(f"{prog} {snapshot}")
+        from dwimsy.meta.integrity import version_banner
+
+        banner = version_banner(prog=prog, verbose=is_verbose)
+        print(banner)
         return 0
 
     if pipeline.get("early_exit") == "version-help":
@@ -600,7 +604,9 @@ def main(
         output = pipeline["version_list_snapshot"] or pipeline[
             "vspace"
         ].format_list_versions(
-            on_disk_root=r_root if is_chk else None, selected=pipeline["selected_ref"]
+            on_disk_root=r_root if is_chk else None,
+            selected=pipeline["selected_ref"],
+            verbose=pipeline.get("explicit_verbose_count", 0) > 0,
         )
         print(output)
         return 0
@@ -1210,6 +1216,12 @@ def main(
     )
     p_meta_diff.add_argument(
         "-r", "--root", default=None, help="Target repository root"
+    )
+    p_meta_diff.add_argument(
+        "versions",
+        nargs="*",
+        default=[],
+        help="Optional version tags or selectors to compare (e.g. [VER1] [VER2])",
     )
     p_meta_diff.add_argument(
         "--help-all", action="store_true", help="Show full help documentation and exit"

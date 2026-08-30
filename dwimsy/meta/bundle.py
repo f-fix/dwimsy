@@ -33,7 +33,6 @@ from dwimsy.meta.versions import (
     portable_path_error,
 )
 
-
 _BLZTAR_RE = re.compile(
     rb"(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?P<data>.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)"
 )
