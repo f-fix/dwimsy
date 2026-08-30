@@ -28,8 +28,8 @@ class TestMetaBundleDualFormat(unittest.TestCase):
                 os.chdir(tmp)
                 (Path(tmp) / "dwimsy").mkdir()
                 (Path(tmp) / "dwimsy" / "__init__.py").write_bytes(b"")
-                (Path(tmp) / "dwimsy" / "_version.py").write_text(
-                    '__version__ = "0.1.6.3-dev"\n__code_hash__ = ""\n'
+                (Path(tmp) / "dwimsy" / "_version.py").write_bytes(
+                    (pkg_root / "dwimsy" / "_version.py").read_bytes()
                 )
                 (Path(tmp) / "dwimsy" / "meta").mkdir()
                 (Path(tmp) / "dwimsy" / "meta" / "__init__.py").write_bytes(b"")

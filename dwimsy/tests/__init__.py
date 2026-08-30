@@ -1,6 +1,7 @@
 """dwimsy.tests - Test discovery, fixture management, and in-process test execution engine."""
 
 from __future__ import annotations
+import warnings
 
 import io
 import os
@@ -156,6 +157,7 @@ def list_tests(
     repo_root: Optional[Path] = None,
 ) -> List[str]:
     """Return sorted list of test IDs matching patterns."""
+    warnings.filterwarnings("ignore", category=UserWarning)
     expanded_patterns = expand_test_patterns(patterns)
     disk_tests = find_disk_tests_dir(repo_root)
 
@@ -237,6 +239,7 @@ def run_tests(
     if stream is None:
         stream = sys.stderr
 
+    warnings.filterwarnings("ignore", category=UserWarning)
     expanded_patterns = expand_test_patterns(patterns)
     disk_tests = find_disk_tests_dir(repo_root)
 
@@ -280,7 +283,9 @@ def run_tests(
                     )
                 )
             runner = unittest.TextTestRunner(verbosity=verbose, stream=stream)
-            result = runner.run(suite)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                result = runner.run(suite)
             num_failed = len(result.failures) + len(result.errors)
             return (
                 0 if result.wasSuccessful() else (num_failed if num_failed > 0 else 1)

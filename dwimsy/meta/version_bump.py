@@ -29,7 +29,7 @@ def parse_and_bump_version(
     dev: bool = False,
 ) -> str:
     """Derive next version string based on current and increment rules."""
-    m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-zA-Z0-9_.-]+))?$", current)
+    m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-zA-Z0-9_.+-]+))?$", current)
     if not m:
         raise ValueError(f"Cannot parse version string: {current}")
     major = int(m.group(1))
@@ -96,16 +96,19 @@ def update_version_files(
         header = f"## [{new_version}] - {today_str}"
         if header not in c_text:
             msg_entry = (
-                f"- {message}\n"
+                f"- {message}"
                 if message
-                else "- Maintenance release and baseline synchronization.\n"
+                else "- Maintenance release and baseline synchronization."
             )
-            entry = f"\n{header}\n\n### Changed\n{msg_entry}\n"
+            entry = f"{header}\n\n### Changed\n{msg_entry}"
             match = re.search(r"(## \[[^\]]+\] - \d{4}-\d{2}-\d{2})", c_text)
             if match:
-                c_text = c_text[: match.start()] + entry + c_text[match.start() :]
+                prefix = c_text[: match.start()].rstrip() + "\n\n"
+                suffix = c_text[match.start() :].lstrip()
+                c_text = prefix + entry + "\n\n" + suffix
             else:
-                c_text += entry
+                c_text = c_text.rstrip() + "\n\n" + entry + "\n"
+            c_text = re.sub(r"\n{3,}", "\n\n", c_text).rstrip() + "\n"
             changelog_file.write_text(c_text, encoding="utf-8")
 
     # 3. Update README.md

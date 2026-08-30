@@ -75,29 +75,41 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
     """Return the deterministic portable file tree used by bundle creation."""
     result: dict[str, bytes] = {}
     invalid_paths: list[tuple[str, str]] = []
-    for p in repo_root.rglob("*"):
-        rel = p.relative_to(repo_root)
-        parts = rel.parts
-        if any(part in (".git", "__pycache__", ".pytest_cache") for part in parts):
-            continue
-        if not with_deps and parts and parts[0] == "deps":
-            continue
-        if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
-            continue
-        if p.name == "restore_dwimsy.py" or (
-            p.name.startswith("dwimsy_") and p.suffix in (".py", ".pyz")
-        ):
-            continue
-        if p.is_file():
-            name = rel.as_posix()
-            err = portable_path_error(name)
-            if err:
-                invalid_paths.append((name, err))
+    if (repo_root / "dwimsy").is_dir():
+        for p in repo_root.rglob("*"):
+            rel = p.relative_to(repo_root)
+            parts = rel.parts
+            if any(part in (".git", "__pycache__", ".pytest_cache") for part in parts):
                 continue
-            data = p.read_bytes()
-            if name == "dwimsy/meta/unbundle.py":
-                data = elide_blztar_bytes(data)
-            result[name] = data
+            if not with_deps and parts and parts[0] == "deps":
+                continue
+            if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
+                continue
+            if p.name == "restore_dwimsy.py" or (
+                p.name.startswith("dwimsy_") and p.suffix in (".py", ".pyz")
+            ):
+                continue
+            if p.is_file():
+                name = rel.as_posix()
+                err = portable_path_error(name)
+                if err:
+                    invalid_paths.append((name, err))
+                    continue
+                data = p.read_bytes()
+                if name == "dwimsy/meta/unbundle.py":
+                    data = elide_blztar_bytes(data)
+                result[name] = data
+    else:
+        embedded_assets = unbundle.materialize_stream0_assets()
+        for k, v in embedded_assets.items():
+            clean_k = (
+                k[len("<dwimsy-bundle>/") :] if k.startswith("<dwimsy-bundle>/") else k
+            )
+            if not with_deps and (clean_k == "deps" or clean_k.startswith("deps/")):
+                continue
+            if clean_k == "dwimsy/meta/unbundle.py":
+                v = elide_blztar_bytes(v)
+            result[clean_k] = v
     if with_deps and not any(k.startswith("deps/") for k in result):
         embedded_assets = unbundle.materialize_stream0_assets()
         for k, v in embedded_assets.items():
@@ -397,17 +409,28 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
     primary = vspace.streams[0]
     head = primary.get_head_version()
-    old_state = primary.materialize_layer_state(head.ordinal) if head else {}
+    current_tag = integrity.version(root=root)
+    # §1.6.1: Only subsequent overlay layers (ordinal >= 1) may be replaced in place.
+    # Layer 0 is unconditionally the complete base snapshot (is_delta=False) and must not
+    # be overwritten by a partial delta.
+    is_replace = bool(
+        head
+        and head.ordinal > 0
+        and (
+            head.tag.split("+")[0].lower() == current_tag.split("+")[0].lower()
+            or "+mod." in head.tag.lower()
+        )
+    )
+    if is_replace and head and head.ordinal > 0:
+        old_state = primary.materialize_layer_state(head.ordinal - 1)
+    else:
+        old_state = primary.materialize_layer_state(head.ordinal) if head else {}
     new_state = create_tree_state(root, with_deps=True)
     delta = compute_tree_delta(old_state, new_state) if head else dict(new_state)
     if "dwimsy/_version.py" in new_state:
         delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
-    current_tag = integrity.version(root=root)
     delta = _set_layer_version_tag(delta, current_tag)
-    if head and (
-        head.tag.split("+")[0].lower() == current_tag.split("+")[0].lower()
-        or "+mod." in head.tag.lower()
-    ):
+    if is_replace:
         primary.append_layer(
             Layer(delta, is_delta=True, version_tag=current_tag), allow_replacement=True
         )
@@ -417,34 +440,28 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     script_text = build_bundle_script(root, with_deps=True, version_space=vspace)
     out_name = getattr(args, "output", None) or vspace.composite_bundle_name(".py")
 
-    # Verify the generated bundle in an isolated extraction before publishing it.
+    # Verify the generated bundle in an isolated subprocess before publishing it.
     with tempfile.TemporaryDirectory(prefix="dwimsy_bundle_") as tmp:
         tmpdir = Path(tmp)
         stage = tmpdir / "bundle.py"
         stage.write_text(script_text, encoding="utf-8")
-        unpacked = tmpdir / "unpacked"
-        extract_b64_lzma_tar(
-            vspace.to_blztar(), unpacked, self_path=stage, with_deps=False
-        )
-        from dwimsy.tests import run_tests
+        stage.chmod(0o755)
 
-        test_buf = io.StringIO()
-        old_env = os.environ.get("DWIMSY_BUNDLE_BUILD")
-        os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
-        try:
-            rc = run_tests(
-                patterns=None,
-                verbose=(getattr(args, "verbose", 0) or 0),
-                stream=test_buf,
-                repo_root=unpacked,
-            )
-        finally:
-            if old_env is None:
-                os.environ.pop("DWIMSY_BUNDLE_BUILD", None)
-            else:
-                os.environ["DWIMSY_BUNDLE_BUILD"] = old_env
-        if getattr(args, "verbose", 0) and test_buf.getvalue():
-            stderr.write(test_buf.getvalue())
+        sub_env = dict(os.environ)
+        sub_env.pop("DWIMSY_TEST_REPO_ROOT", None)
+        sub_env["DWIMSY_BUNDLE_BUILD"] = "1"
+        proc = subprocess.run(
+            [sys.executable, str(stage), "dwimsy", "-T", "meta integrity"],
+            capture_output=True,
+            text=True,
+            env=sub_env,
+        )
+        rc = proc.returncode
+        if getattr(args, "verbose", 0) and (proc.stdout or proc.stderr):
+            if proc.stdout:
+                stderr.write(proc.stdout)
+            if proc.stderr:
+                stderr.write(proc.stderr)
             stderr.flush()
         if rc != 0:
             failed = Path(out_name).with_name(
@@ -454,18 +471,22 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
             )
             failed.write_text(script_text, encoding="utf-8")
             failed.chmod(0o755)
-            if test_buf.getvalue():
-                stderr.write(test_buf.getvalue())
+            if proc.stderr:
+                stderr.write(proc.stderr)
             return 1
 
     if out_name == "-":
         stdout.write(script_text)
         return 0
     out_path = Path(out_name).resolve()
+    is_default_out = not getattr(args, "output", None)
     if out_path.suffix == ".py":
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(script_text, encoding="utf-8")
         out_path.chmod(0o755)
+        if is_default_out:
+            pyz_out = out_path.with_suffix(".pyz")
+            write_pyz_bundle(script_text, pyz_out)
     elif out_path.suffix == ".pyz":
         write_pyz_bundle(script_text, out_path)
     else:
@@ -576,23 +597,36 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--version-alt", nargs="?", const=True, default=False)
     args = parser.parse_args(effective)
 
-    root = integrity.find_repo_root()
-    if integrity.is_standalone_bundle() or "<dwimsy-bundle>" in str(__file__):
-        root = Path.cwd()
+    cwd = Path.cwd().resolve()
+    if (cwd / "dwimsy" / "__init__.py").is_file():
+        root = cwd
+    else:
+        root = integrity.find_repo_root()
+        if integrity.is_standalone_bundle() or "<dwimsy-bundle>" in str(__file__):
+            root = Path.cwd()
     raw_b64 = unbundle._get_active_blztar()
     vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
     if vspace.streams and root.exists():
         primary = vspace.streams[0]
         head = primary.get_head_version()
-        old_state = primary.materialize_layer_state(head.ordinal) if head else {}
+        v_tag = integrity.version(root=root).split("+")[0]
+        is_replace = bool(
+            head
+            and (
+                head.tag.split("+")[0].lower() == v_tag.split("+")[0].lower()
+                or "+mod." in head.tag.lower()
+            )
+        )
+        if is_replace and head and head.ordinal > 0:
+            old_state = primary.materialize_layer_state(head.ordinal - 1)
+        else:
+            old_state = primary.materialize_layer_state(head.ordinal) if head else {}
         new_state = create_tree_state(root, with_deps=True)
         delta = compute_tree_delta(old_state, new_state) if head else new_state
-        v_tag = integrity.version(root=root).split("+")[0]
+        if "dwimsy/_version.py" in new_state:
+            delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
         delta = _set_layer_version_tag(delta, v_tag)
-        if head and (
-            head.tag.split("+")[0].lower() == v_tag.split("+")[0].lower()
-            or "+mod." in head.tag.lower()
-        ):
+        if is_replace:
             primary.append_layer(
                 Layer(delta, is_delta=True, version_tag=v_tag), allow_replacement=True
             )

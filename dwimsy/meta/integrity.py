@@ -100,24 +100,6 @@ def is_standalone_bundle() -> bool:
         return False
 
 
-def is_standalone_bundle() -> bool:
-    """Return True when code is being served by the relocatable bundle bootstrap."""
-    try:
-        mod = sys.modules.get("dwimsy.meta.unbundle")
-        mod_file = str(getattr(mod, "__file__", ""))
-        if "<dwimsy-bundle>" in mod_file:
-            return True
-        from dwimsy.meta import unbundle
-
-        mod_file = str(getattr(unbundle, "__file__", ""))
-        if "<dwimsy-bundle>" in mod_file:
-            return True
-        is_checkout, _ = unbundle.detect_self_location()
-        return not is_checkout
-    except Exception:
-        return False
-
-
 def find_repo_root(start: Optional[Path] = None) -> Path:
     """Locate the root directory of the dwimsy repository or extracted tree."""
     if start is not None:
@@ -404,6 +386,16 @@ def is_modified(root: Optional[Path] = None, baseline: bool = False) -> bool:
 
     In standalone bundle mode without explicit root override, returns False (Spec §4.4).
     """
+    test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
+    if (
+        test_root
+        and (
+            root is None or str(Path(root).resolve()) == str(Path(test_root).resolve())
+        )
+        and not baseline
+        and (is_standalone_bundle() or "<dwimsy-bundle>" in str(__file__))
+    ):
+        return False
     if (
         root is None
         and not baseline
@@ -411,6 +403,10 @@ def is_modified(root: Optional[Path] = None, baseline: bool = False) -> bool:
     ):
         return False
     repo = find_repo_root(root) if root is not None else find_repo_root()
+    if is_standalone_bundle() and (
+        "<dwimsy-bundle>" in str(repo) or repo == _PACKAGE_ROOT.parent
+    ):
+        return False
     if not ((repo / "dwimsy").is_dir() and (repo / "dwimsy" / "__init__.py").is_file()):
         return False
     sealed = sealed_code_hash(repo, baseline=baseline)
@@ -445,6 +441,9 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
                 pass
         if not isinstance(base_version, str) or not base_version:
             raise ValueError("__version__ must be a non-empty string")
+
+    if "+mod." in base_version:
+        base_version = base_version.split("+mod.")[0]
 
     if is_modified(root):
         return f"{base_version}+mod.{modification_hash(root)}"

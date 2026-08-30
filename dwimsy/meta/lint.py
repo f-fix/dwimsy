@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import sys
 import unicodedata
@@ -222,6 +223,8 @@ def lint_markdown(repo_root: Optional[Path] = None) -> List[str]:
 
         if "\u2014" in text or "\u2013" in text:
             errors.append(f"{rel}: contains forbidden Unicode em/en dashes")
+        if "\n\n\n\n" in text:
+            errors.append(f"{rel}: contains more than three consecutive newlines")
 
         lines = text.splitlines()
         for idx, line in enumerate(lines, start=1):
@@ -233,10 +236,80 @@ def lint_markdown(repo_root: Optional[Path] = None) -> List[str]:
     return errors
 
 
+def lint_duplicates(repo_root: Optional[Path] = None) -> List[str]:
+    """Verify that non-deps Python files do not contain duplicate function, async function, class, or method definitions."""
+    root = integrity.find_repo_root(repo_root)
+    py_files = sorted(
+        [
+            p
+            for p in root.rglob("*.py")
+            if not (
+                p.as_posix().startswith("deps/")
+                or "/deps/" in p.as_posix()
+                or "<dwimsy-bundle>/deps/" in p.as_posix()
+            )
+            and not (
+                p.name.startswith("dwimsy_")
+                and (p.name.endswith(".py") or p.name.endswith(".pyz"))
+            )
+        ]
+    )
+    errors: List[str] = []
+
+    class _DuplicateVisitor(ast.NodeVisitor):
+        def __init__(self, rel_path: str):
+            self.rel_path = rel_path
+            self.scopes = [{}]
+            self.dups: List[str] = []
+
+        def _check_and_register(self, name: str, lineno: int, kind: str):
+            current_scope = self.scopes[-1]
+            if name in current_scope:
+                prev_lineno = current_scope[name]
+                self.dups.append(
+                    f"{self.rel_path}:{lineno}: duplicate {kind} '{name}' (previously defined on line {prev_lineno})"
+                )
+            else:
+                current_scope[name] = lineno
+
+        def visit_FunctionDef(self, node: ast.FunctionDef):
+            self._check_and_register(node.name, node.lineno, "function/method")
+            self.scopes.append({})
+            self.generic_visit(node)
+            self.scopes.pop()
+
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+            self._check_and_register(node.name, node.lineno, "async function/method")
+            self.scopes.append({})
+            self.generic_visit(node)
+            self.scopes.pop()
+
+        def visit_ClassDef(self, node: ast.ClassDef):
+            self._check_and_register(node.name, node.lineno, "class")
+            self.scopes.append({})
+            self.generic_visit(node)
+            self.scopes.pop()
+
+    for p in py_files:
+        rel = p.relative_to(root).as_posix()
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8"), filename=rel)
+            visitor = _DuplicateVisitor(rel)
+            visitor.visit(tree)
+            errors.extend(visitor.dups)
+        except Exception as exc:
+            errors.append(f"{rel}: failed to parse AST: {exc}")
+
+    return errors
+
+
 def run_all_lints(repo_root: Optional[Path] = None) -> List[str]:
     """Run all repository lint checks and return combined list of errors."""
     return (
-        lint_headers(repo_root) + lint_markdown(repo_root) + lint_filenames(repo_root)
+        lint_headers(repo_root)
+        + lint_markdown(repo_root)
+        + lint_filenames(repo_root)
+        + lint_duplicates(repo_root)
     )
 
 

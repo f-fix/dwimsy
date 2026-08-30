@@ -110,40 +110,6 @@ def render_diff(
             old_lines = _sub_version_summary(old_lines)
             new_lines = _sub_version_summary(new_lines)
 
-        if name.endswith("unbundle.py"):
-
-            def _sub_version_summary(data_lines):
-                text = "".join(data_lines)
-                m = re.search(r'blztar = """([\s\S]*?)"""', text)
-                if m and m.group(1).strip():
-                    summary = vspace.format_list_versions(
-                        on_disk_root=repo if repo else None
-                    )
-                    ph = f'blztar = """\n<- actual omitted base64 lzma tar sequence(s) would start here\n\n$VERSION_SUMMARY\n{summary}\n\nactual omitted base64 lzma tar sequence(s) would end here ->\n"""'
-                    text = text[: m.start()] + ph + text[m.end() :]
-                    return text.splitlines(True)
-                return data_lines
-
-            old_lines = _sub_version_summary(old_lines)
-            new_lines = _sub_version_summary(new_lines)
-
-        if name.endswith("unbundle.py"):
-
-            def _sub_version_summary(data_lines):
-                text = "".join(data_lines)
-                m = re.search(r'blztar = """([\s\S]*?)"""', text)
-                if m and m.group(1).strip():
-                    summary = vspace.format_list_versions(
-                        on_disk_root=repo if repo else None
-                    )
-                    ph = f'blztar = """\n<- actual omitted base64 lzma tar sequence(s) would start here\n\n$VERSION_SUMMARY\n{summary}\n\nactual omitted base64 lzma tar sequence(s) would end here ->\n"""'
-                    text = text[: m.start()] + ph + text[m.end() :]
-                    return text.splitlines(True)
-                return data_lines
-
-            old_lines = _sub_version_summary(old_lines)
-            new_lines = _sub_version_summary(new_lines)
-
         diff = list(
             difflib.unified_diff(
                 old_lines,

@@ -138,12 +138,16 @@ class TestMetaBundle(unittest.TestCase):
             self.assertTrue(out_bundle.is_file())
             self.assertTrue(os.access(str(out_bundle), os.X_OK))
 
+            clean_env = dict(os.environ)
+            clean_env.pop("DWIMSY_TEST_REPO_ROOT", None)
+
             # Test default unpacking (no deps)
             dest_unpack = tmp_path / "unpacked_dest"
             res = subprocess.run(
                 [sys.executable, str(out_bundle), "meta", "unbundle", str(dest_unpack)],
                 capture_output=True,
                 text=True,
+                env=clean_env,
             )
             self.assertEqual(res.returncode, 0)
             self.assertTrue((dest_unpack / "README.md").is_file())
@@ -163,6 +167,7 @@ class TestMetaBundle(unittest.TestCase):
                 ],
                 capture_output=True,
                 text=True,
+                env=clean_env,
             )
             self.assertEqual(res_d.returncode, 0)
             self.assertTrue(

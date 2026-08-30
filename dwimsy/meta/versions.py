@@ -163,39 +163,30 @@ def parse_semver(tag: str) -> Tuple[int, int, int, int, bool, str]:
     return (0, 0, 0, 0, False, tag)
 
 
+_B64_BLOCK_RE = re.compile(rb"[A-Za-z0-9+/]+={1,2}|[A-Za-z0-9+/]+")
+
+
 def decode_multiblock_base64(b64_text: str | bytes) -> bytes:
     """Decode standard and multi-block Base64 strings with optional padding boundaries."""
     if isinstance(b64_text, str):
-        b64_text = b64_text.encode("ascii", errors="ignore")
-    raw = b"".join(b64_text.split())
+        raw = b"".join(b64_text.encode("ascii", errors="ignore").split())
+    else:
+        raw = b"".join(b64_text.split())
     if not raw:
         return b""
-
-    blocks = []
-    current = bytearray()
-    i = 0
-    n = len(raw)
-    while i < n:
-        char = raw[i : i + 1]
-        current.extend(char)
-        if char == b"=":
-            if i + 1 < n and raw[i + 1 : i + 2] == b"=":
-                current.extend(b"=")
-                i += 1
-            blocks.append(bytes(current))
-            current = bytearray()
-        i += 1
-    if current:
-        blocks.append(bytes(current))
-
-    decoded_chunks = []
-    for blk in blocks:
-        if blk:
-            try:
-                decoded_chunks.append(base64.b64decode(blk))
-            except Exception:
-                pass
-    return b"".join(decoded_chunks)
+    if b"=" not in raw or (raw.endswith(b"=") and b"=" not in raw[:-2]):
+        try:
+            return base64.b64decode(raw)
+        except Exception:
+            pass
+    chunks = []
+    for m in _B64_BLOCK_RE.finditer(raw):
+        blk = m.group(0)
+        try:
+            chunks.append(base64.b64decode(blk))
+        except Exception:
+            pass
+    return b"".join(chunks)
 
 
 def encode_multiblock_base64(data: bytes) -> str:
@@ -584,27 +575,30 @@ class Stream:
             maj, mino, pat, rev, is_rel, suffix = sem
 
             if maj not in major_set and len(major_set) >= _RETAIN_MAJOR_RELEASES:
-                print(
+                warnings.warn(
                     f"[NOTICE] Pruning historical release '{lyr.version_tag}' from primary stream: exceeds major retention limit (max {_RETAIN_MAJOR_RELEASES} major)",
-                    file=sys.stderr,
+                    UserWarning,
+                    stacklevel=2,
                 )
                 self.mark_mutated()
                 continue
 
             m_count = minor_counts.get(maj, 0)
             if m_count >= _RETAIN_MINOR_RELEASES and (maj, mino) not in point_counts:
-                print(
+                warnings.warn(
                     f"[NOTICE] Pruning historical release '{lyr.version_tag}' from primary stream: exceeds minor retention limit (max {_RETAIN_MINOR_RELEASES} minor)",
-                    file=sys.stderr,
+                    UserWarning,
+                    stacklevel=2,
                 )
                 self.mark_mutated()
                 continue
 
             p_count = point_counts.get((maj, mino), 0)
             if p_count >= _RETAIN_POINT_RELEASES:
-                print(
+                warnings.warn(
                     f"[NOTICE] Pruning historical release '{lyr.version_tag}' from primary stream: exceeds point retention limit (max {_RETAIN_POINT_RELEASES} point)",
-                    file=sys.stderr,
+                    UserWarning,
+                    stacklevel=2,
                 )
                 self.mark_mutated()
                 continue
@@ -778,64 +772,6 @@ def compute_raw_tar_hash(files: Dict[str, bytes]) -> str:
     return digest.hexdigest()
 
 
-def compute_raw_tar_hash(files: Dict[str, bytes]) -> str:
-    """Compute canonical hash of files dictionary for +mod tag derivation."""
-    digest = hashlib.sha256()
-    for name in sorted(files.keys()):
-        data = files[name]
-        data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-        if data and not data.endswith(b"\n"):
-            data = data + b"\n"
-        if name.endswith("_version.py"):
-            match = re.search(
-                rb"(?m)^(?P<prefix>[ \t]*__code_hash__[ \t]*=[ \t]*)(?P<quote>[\'\"])[^\'\"]*(?P=quote)(?P<suffix>[ \t]*(?:#.*)?\r?\n?)$",
-                data,
-            )
-            if match:
-                data = (
-                    data[: match.start()]
-                    + match.group("prefix")
-                    + match.group("quote")
-                    + match.group("quote")
-                    + match.group("suffix")
-                    + data[match.end() :]
-                )
-        digest.update(name.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(data)
-        digest.update(b"\0")
-    return digest.hexdigest()
-
-
-def compute_raw_tar_hash(files: Dict[str, bytes]) -> str:
-    """Compute canonical hash of files dictionary for +mod tag derivation."""
-    digest = hashlib.sha256()
-    for name in sorted(files.keys()):
-        data = files[name]
-        data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-        if data and not data.endswith(b"\n"):
-            data = data + b"\n"
-        if name.endswith("_version.py"):
-            match = re.search(
-                rb"(?m)^(?P<prefix>[ \t]*__code_hash__[ \t]*=[ \t]*)(?P<quote>[\'\"])[^\'\"]*(?P=quote)(?P<suffix>[ \t]*(?:#.*)?\r?\n?)$",
-                data,
-            )
-            if match:
-                data = (
-                    data[: match.start()]
-                    + match.group("prefix")
-                    + match.group("quote")
-                    + match.group("quote")
-                    + match.group("suffix")
-                    + data[match.end() :]
-                )
-        digest.update(name.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(data)
-        digest.update(b"\0")
-    return digest.hexdigest()
-
-
 def parse_tar_layers_from_bytes(
     raw_tar_bytes: bytes, stream_name: str = "primary"
 ) -> List[Layer]:
@@ -960,8 +896,7 @@ def parse_tar_layers_from_bytes(
                                 f"Primary stream tip sequence constraint violation at layer {l_idx}: {reason}"
                             )
                         else:
-                            warn_msg = f"alternate stream '{stream_name}' invalidated: {reason}"
-                            print(f"warning: {warn_msg}", file=sys.stderr)
+                            warn_msg = f"warning: alternate stream '{stream_name}' invalidated: {reason}"
                             warnings.warn(warn_msg, UserWarning, stacklevel=2)
                             return []
 
@@ -973,8 +908,7 @@ def parse_tar_layers_from_bytes(
                                 f"Primary stream tip sequence constraint violation at layer {l_idx}: {reason}"
                             )
                         else:
-                            warn_msg = f"alternate stream '{stream_name}' invalidated: {reason}"
-                            print(f"warning: {warn_msg}", file=sys.stderr)
+                            warn_msg = f"warning: alternate stream '{stream_name}' invalidated: {reason}"
                             warnings.warn(warn_msg, UserWarning, stacklevel=2)
                             return []
 
@@ -986,8 +920,7 @@ def parse_tar_layers_from_bytes(
                                 f"Primary stream tip sequence constraint violation at layer {l_idx}: {reason}"
                             )
                         else:
-                            warn_msg = f"alternate stream '{stream_name}' invalidated: {reason}"
-                            print(f"warning: {warn_msg}", file=sys.stderr)
+                            warn_msg = f"warning: alternate stream '{stream_name}' invalidated: {reason}"
                             warnings.warn(warn_msg, UserWarning, stacklevel=2)
                             return []
 
@@ -1005,17 +938,19 @@ def parse_tar_layers_from_bytes(
 
                     # Invariant 4: Only sealed entries are allowed after tip sequence
                     if not sealed:
-                        print(
+                        warnings.warn(
                             f"warning: stream '{stream_name}' unsealed release '{tag_str}' encountered in sealed release area; truncating stream (§1.1.1)",
-                            file=sys.stderr,
+                            UserWarning,
+                            stacklevel=2,
                         )
                         break
 
                     # Invariant 5: Sealed releases MUST be complete snapshots (no .wh. removal markers allowed!)
                     if has_wh:
-                        print(
+                        warnings.warn(
                             f"warning: stream '{stream_name}' sealed release at layer {l_idx} contains removal markers; truncating stream (§1.1.1)",
-                            file=sys.stderr,
+                            UserWarning,
+                            stacklevel=2,
                         )
                         break
 
@@ -1024,9 +959,10 @@ def parse_tar_layers_from_bytes(
                         last_sealed_semver is not None
                         and curr_semver >= last_sealed_semver
                     ):
-                        print(
+                        warnings.warn(
                             f"warning: stream '{stream_name}' sealed release '{tag_str}' is not strictly decreasing; truncating stream (§1.1.1)",
-                            file=sys.stderr,
+                            UserWarning,
+                            stacklevel=2,
                         )
                         break
 
@@ -1042,9 +978,10 @@ def parse_tar_layers_from_bytes(
                     layers.append(lyr)
                     continue
                 else:
-                    print(
+                    warnings.warn(
                         f"warning: stream '{stream_name}' encountered invalid semver sequence at '{tag_str}'; truncating stream",
-                        file=sys.stderr,
+                        UserWarning,
+                        stacklevel=2,
                     )
                     break
 
@@ -1056,9 +993,10 @@ def parse_tar_layers_from_bytes(
                     f"Failed to parse base development layer in primary stream: {e}"
                 ) from e
             else:
-                print(
+                warnings.warn(
                     f"warning: one or more no-longer-readable old versions were ejected from --version history; tar parsing failed while reading an older sealed release: {e}",
-                    file=sys.stderr,
+                    UserWarning,
+                    stacklevel=2,
                 )
                 break
 

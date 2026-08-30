@@ -20,6 +20,9 @@ from dwimsy.meta.versions import (
     parse_tar_layers_from_bytes,
 )
 from dwimsy.meta.unbundle import parse_early_pipeline_flags, safe_unbundle
+from dwimsy.meta import integrity
+from dwimsy.meta.version_bump import parse_and_bump_version
+from dwimsy.meta import unbundle, version_bump
 
 
 def _make_tar_bytes(files: dict[str, bytes]) -> bytes:
@@ -285,10 +288,6 @@ class TestV87ScannerAndUnbundle(unittest.TestCase):
             self.assertIn("--version-include-alt=", msg)
             self.assertIn("--version-include=", msg)
 
-
-if __name__ == "__main__":
-    unittest.main()
-
     def test_safe_unbundle_omits_identical_files_without_force(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
@@ -305,3 +304,83 @@ if __name__ == "__main__":
             with self.assertRaises(RuntimeError) as ctx:
                 safe_unbundle(output_dir=tmpdir, force=False)
             self.assertIn("symlink", str(ctx.exception))
+
+
+class TestVersionBumpChangelogFormatting(unittest.TestCase):
+    """Tests for successive version bump changelog formatting and newline invariants."""
+
+    def test_successive_version_bumps_never_exceed_two_consecutive_newlines(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp)
+            (tmp_root / "dwimsy").mkdir(parents=True, exist_ok=True)
+            (tmp_root / "dwimsy" / "_version.py").write_text(
+                '__version__ = "0.1.6.40-dev"\n__code_hash__ = ""\n'
+            )
+            (tmp_root / "README.md").write_text(
+                "# Test\n**Version: 0.1.6.40-dev** (2026-08-29)\n"
+            )
+            (tmp_root / "CHANGELOG.md").write_text(
+                "# Changelog\n\nAll notable changes.\n\n## [0.1.6.40-dev] - 2026-08-29\n\n### Changed\n- Initial baseline.\n"
+            )
+
+            # Perform 3 successive version bumps
+            version_bump.bump_version(
+                version_str="0.1.6.41-dev",
+                repo_root=tmp_root,
+                message="First bump",
+                no_bundle=True,
+            )
+            version_bump.bump_version(
+                version_str="0.1.6.42-dev",
+                repo_root=tmp_root,
+                message="Second bump",
+                no_bundle=True,
+            )
+            version_bump.bump_version(
+                version_str="0.1.6.43-dev",
+                repo_root=tmp_root,
+                message="Third bump",
+                no_bundle=True,
+            )
+
+            c_text = (tmp_root / "CHANGELOG.md").read_text(encoding="utf-8")
+            self.assertNotIn(
+                "\n\n\n", c_text, "Found 3 or more consecutive newlines in CHANGELOG.md"
+            )
+            self.assertIn("## [0.1.6.43-dev]", c_text)
+            self.assertIn("## [0.1.6.42-dev]", c_text)
+            self.assertIn("## [0.1.6.41-dev]", c_text)
+            self.assertIn("## [0.1.6.40-dev]", c_text)
+
+    def test_rev_bump_parses_live_mod_suffixed_version(self):
+        """Verify --rev can advance past a live +mod.<hash> terminal snapshot (§1.6.1)."""
+        self.assertEqual(
+            parse_and_bump_version("0.1.6.50-dev+mod.daf3d6f53a96", part="rev"),
+            "0.1.6.51-dev",
+        )
+
+    def test_mod_suffix_replaces_rather_than_stacks(self):
+        """Verify integrity.version() replaces an existing +mod.<hash> suffix
+        rather than stacking a second one on repeated modification cycles
+        (§1.6.1: 'X+mod.a' -> 'X+mod.b', never 'X+mod.a+mod.b')."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp)
+            (tmp_root / "dwimsy").mkdir()
+            (tmp_root / "dwimsy" / "_version.py").write_text(
+                '__version__ = "0.1.6.50-dev+mod.daf3d6f53a96"\n__code_hash__ = ""\n'
+            )
+            orig_is_modified = integrity.is_modified
+            orig_mod_hash = integrity.modification_hash
+            integrity.is_modified = lambda root=None: True
+            integrity.modification_hash = lambda root=None: "newhash123456"
+            try:
+                result = integrity.version(root=tmp_root)
+            finally:
+                integrity.is_modified = orig_is_modified
+                integrity.modification_hash = orig_mod_hash
+            self.assertEqual(result, "0.1.6.50-dev+mod.newhash123456")
+            self.assertEqual(result.count("+mod."), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

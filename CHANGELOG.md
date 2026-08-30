@@ -5,21 +5,20 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.52-dev] - 2026-08-29
 
+### Changed
+- Reformatted
 
+## [0.1.6.51-dev] - 2026-08-30
 
+### Changed
+- Enforce stream invariants, fix root resolution, changelog formatting, and version bump parsing
 
+## [0.1.6.50-dev] - 2026-08-30
 
-
-
-
-
-
-
-
-
-
-
+### Changed
+- Enforce stream invariants, C base64 decoding, safe unbundle guards, and changelog boundary formatting
 
 ## [0.1.6.49-dev] - 2026-08-29
 

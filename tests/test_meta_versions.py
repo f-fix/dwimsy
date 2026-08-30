@@ -7,6 +7,7 @@ import lzma
 import os
 import sys
 import unittest
+import warnings
 from contextlib import redirect_stderr
 from pathlib import Path
 
@@ -105,7 +106,9 @@ class TestMetaVersions(unittest.TestCase):
 
         c = lzma.compress(stream_bytes)
         b64 = encode_multiblock_base64(c)
-        vspace = VersionSpace.from_blztar(b64)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            vspace = VersionSpace.from_blztar(b64)
         self.assertEqual(len(vspace.streams[0].layers), 1)
 
     def test_unreadable_sealed_layers_can_truncate_multiple_streams(self):
@@ -118,7 +121,9 @@ class TestMetaVersions(unittest.TestCase):
         c2 = lzma.compress(good_tar + corrupt_tar)
 
         b64 = encode_multiblock_base64(c1 + c2)
-        vspace = VersionSpace.from_blztar(b64)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            vspace = VersionSpace.from_blztar(b64)
         self.assertEqual(len(vspace.streams), 2)
         self.assertEqual(len(vspace.streams[0].layers), 1)
         self.assertEqual(len(vspace.streams[1].layers), 1)
@@ -137,7 +142,9 @@ class TestMetaVersions(unittest.TestCase):
         c2 = lzma.compress(l_alt.get_tar_bytes())
 
         b64 = encode_multiblock_base64(c1 + c2)
-        vspace = VersionSpace.from_blztar(b64)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            vspace = VersionSpace.from_blztar(b64)
         self.assertEqual(len(vspace.streams), 2)
         self.assertEqual(vspace.streams[1].layers[0].version_tag, "0.2.0.0")
 
@@ -187,7 +194,9 @@ class TestMetaVersions(unittest.TestCase):
             ),
         ]
         s_prim = Stream(0, "primary", layers_p)
-        s_prim.apply_retention()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            s_prim.apply_retention()
         self.assertEqual(len(s_prim.layers), 4)
 
         s_alt = Stream(
@@ -336,12 +345,14 @@ class TestMetaVersions(unittest.TestCase):
         lyr0 = Layer(f0, is_delta=False, version_tag="0.1.6.0-dev")
         lyr1 = Layer(f1, is_delta=True, version_tag="0.1.6.0-dev")
         tar_bytes = lyr0.get_tar_bytes() + lyr1.get_tar_bytes()
-        err_buf = io.StringIO()
-        with redirect_stderr(err_buf):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always", UserWarning)
             parsed = versions.parse_tar_layers_from_bytes(tar_bytes, stream_name="alt1")
         self.assertEqual(len(parsed), 0)
-        self.assertIn(
-            "warning: alternate stream 'alt1' invalidated", err_buf.getvalue()
+        self.assertTrue(
+            any(
+                "alternate stream 'alt1' invalidated" in str(item.message) for item in w
+            )
         )
 
 
