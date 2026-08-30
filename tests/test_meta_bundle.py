@@ -292,12 +292,14 @@ class TestMetaBundle(unittest.TestCase):
             (root / "dwimsy" / "main.py").write_text("")
             (root / "dwimsy" / "meta").mkdir()
             (root / "dwimsy" / "meta" / "unbundle.py").write_text('blztar = """\n"""\n')
-            (root / ".gitignore").write_text("""
+            (root / ".gitignore").write_text(
+                """
 __pycache__/
 *.tmp
 ignored_dir/
 dwimsy/ignored_file.py
-""")
+"""
+            )
             (root / "dwimsy" / "test.tmp").write_text("temp data")
             (root / "ignored_dir").mkdir()
             (root / "ignored_dir" / "file.txt").write_text("ignored")
@@ -312,6 +314,7 @@ dwimsy/ignored_file.py
 
             tar_bytes = bundle.create_tar_archive(root, with_deps=False)
             import tarfile, io
+
             with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r") as tar:
                 names = [m.name for m in tar.getmembers()]
             self.assertIn("./dwimsy/__init__.py", names)

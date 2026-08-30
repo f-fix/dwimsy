@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.53-dev (2026-08-30)
+Version: 0.1.6.54-dev (2026-08-29)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.53-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.54-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.53-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.53-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.53-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.53-dev.py dwimsy license
-  python3 dwimsy_0.1.6.53-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.54-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.54-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.54-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.54-dev.py dwimsy license
+  python3 dwimsy_0.1.6.54-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.53-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.54-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -3335,7 +3335,7 @@ v/iIwtZbMZ5JoS0DfypoLcgFGkZZrg7KKfvI9Jc97h7c8DCtlO/sMIULFjC7/phPmCnhhQGrlSzx
 zjCHBWFvkbG6WfT2w/PF2ZBEKz1QuLnbaYIlUOVVndfqYqcrjVUNe+bJggDpX9XQGX1k73Ws+oAj
 3A0Q4R+wz3Q/ytXLGvgBRjIiZ8EseZiZsGgrBDEgYOOV3kIdoCD6t+pVDpmx3HuWyxQlIpHqf4Bk
 H/H4fzC0CDZ1AxuZX8HDMqDVGvnC5CVXmkS+kmiU+963h45ksxWgAZmfu7Dic4wN8hiu50tYUrFd
-RnD0kV33r6y02PYKamIE7ck54S8VwOiwlrXP4gkA59SJMGKIQNg/AaqLjAVcar9rKerRvB69dGKJ
+RnD0kV33r6y02PYKamIE7ck54S8VwOiwmp3P4r0A59SJMGKIQNg/AaqLjAVcar9rKerRvB69dGKJ
 T3J5nro0lrSZmOw6roS+eBWc5jsBgF5L/Gd3enaB33y1lvOiXiJWo2FS3f/2eyR4+r9Qrmmhzqcl
 kasMh2b1aYQJx8MrdyHGuTgkkKDtK4NpDUoEy+mvGojRcKojogagUueDI2AY/z1Iolu+907d78Vf
 okALHkK0zizD4yEx6kdYf5GM5Zv1NQ8PPcAMeCAMSXIZJ87bG/l1xIPVEPtcaLCtuE52wrtjCV6h
@@ -4350,8 +4350,11 @@ qkq1wbklEvW3F8Ag4tbz3uZ6uOjFgn53pet/IxXl57a8qU9PxNTfGjt95HIP2qZlLuRaLxiBipdQ
 6WGJ84Y4Gc54+OigrrVp20rOMwce4ALwuftSA9okbU9umlClGIcF+7zYn4RbUNKbyZhpHxldMIG0
 zSyx0gPieNipX5I4j1MSO+gNf7f1HPGpJ7ZilNdT9C1e37YPmPT5speYcr6X0FeWw6VzgDTCJZbn
 yz5f19+aZ8wcDc5Bs6LDLC6zmmgx2b3R/Shd8PaBoZpWJR9KLtxOP6VCeiZ02eI8VLUUHdpD2u7E
-aRpDIQ2x6v3A+bN1IzzAG+5Iaqnv6crrG9Mt57EtkeKHoHfF+0KXAAAAAJCa9cvtVo9SAAG25A6A
-4J4BAAAAYC87AxQXOzADAAAAAARZWg==
+aRpDIQ2x6v3A+bN1IzzAG+5Iaqnv6crrG9Mt57EtkeKHoHdeuNJgy3HQ4ADb+l5dvsb+3jJtVHtz
+JjfVux8cpPCFew5YcN2y99xda8v6UNBCuQ2mUzKB8HxKr+iEXDk/foLw4KN8tWsfGynAbe+/O1I4
+USkPPkteG9ePNlrbz9Pa7VTuETRIBoiFCp7y9XlnZb+i93PCMDcTjlk+91HN9hr/7FNh7vXFhUPw
+fUL0Hmwe1sTapH0PgU7SmOpdve2RtkvTthinFQSRtbiNybYgI7laOC6mrAwdXf/MagAAAN6fF8OM
+qyKTAAHq5Q6AsK4BAAAAlO3HGhQXOzADAAAAAARZWg==
 """
 
 
