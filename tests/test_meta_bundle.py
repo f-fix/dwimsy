@@ -284,6 +284,41 @@ class TestMetaBundle(unittest.TestCase):
         )
         self.assertEqual(h1, integrity.canonical_code_hash())
 
+    def test_bundle_ignores_matching_gitignore_entries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "dwimsy").mkdir()
+            (root / "dwimsy" / "__init__.py").write_text("")
+            (root / "dwimsy" / "main.py").write_text("")
+            (root / "dwimsy" / "meta").mkdir()
+            (root / "dwimsy" / "meta" / "unbundle.py").write_text('blztar = """\n"""\n')
+            (root / ".gitignore").write_text("""
+__pycache__/
+*.tmp
+ignored_dir/
+dwimsy/ignored_file.py
+""")
+            (root / "dwimsy" / "test.tmp").write_text("temp data")
+            (root / "ignored_dir").mkdir()
+            (root / "ignored_dir" / "file.txt").write_text("ignored")
+            (root / "dwimsy" / "ignored_file.py").write_text("# ignored")
+
+            state = bundle.create_tree_state(root, with_deps=False)
+            self.assertIn("dwimsy/__init__.py", state)
+            self.assertIn("dwimsy/main.py", state)
+            self.assertNotIn("dwimsy/test.tmp", state)
+            self.assertNotIn("ignored_dir/file.txt", state)
+            self.assertNotIn("dwimsy/ignored_file.py", state)
+
+            tar_bytes = bundle.create_tar_archive(root, with_deps=False)
+            import tarfile, io
+            with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r") as tar:
+                names = [m.name for m in tar.getmembers()]
+            self.assertIn("./dwimsy/__init__.py", names)
+            self.assertNotIn("./dwimsy/test.tmp", names)
+            self.assertNotIn("./ignored_dir/file.txt", names)
+            self.assertNotIn("./dwimsy/ignored_file.py", names)
+
 
 def main(argv=None):
     import sys

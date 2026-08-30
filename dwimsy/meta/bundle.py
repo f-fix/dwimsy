@@ -71,10 +71,193 @@ def find_repo_root(start: Optional[Path] = None) -> Path:
     return integrity.find_repo_root(start)
 
 
+class GitIgnoreRule:
+    def __init__(
+        self,
+        is_negation: bool,
+        directory_only: bool,
+        exact_regex: re.Pattern,
+        prefix_regex: re.Pattern,
+    ):
+        self.is_negation = is_negation
+        self.directory_only = directory_only
+        self.exact_regex = exact_regex
+        self.prefix_regex = prefix_regex
+
+
+class GitIgnoreMatcher:
+    """Evaluates relative paths against repo .gitignore rules."""
+
+    def __init__(self, repo_root: Optional[Path] = None):
+        if repo_root is None:
+            self.repo_root = integrity.find_repo_root()
+        else:
+            self.repo_root = Path(repo_root).resolve()
+        self.rules: List[GitIgnoreRule] = []
+        self._load_rules()
+
+    def _load_rules(self) -> None:
+        if not self.repo_root.is_dir():
+            try:
+                text = unbundle.get_asset_text(".gitignore")
+                self._parse_gitignore_text(text, "")
+            except Exception:
+                pass
+            return
+
+        gitignore_files: List[Path] = []
+        for p in self.repo_root.rglob(".gitignore"):
+            if ".git" in p.parts:
+                continue
+            gitignore_files.append(p)
+
+        gitignore_files.sort(key=lambda p: len(p.parts))
+
+        if not gitignore_files:
+            try:
+                text = unbundle.get_asset_text(".gitignore")
+                self._parse_gitignore_text(text, "")
+            except Exception:
+                pass
+            return
+
+        for gf in gitignore_files:
+            try:
+                rel_dir = gf.parent.relative_to(self.repo_root).as_posix()
+                if rel_dir == ".":
+                    rel_dir = ""
+                text = gf.read_text(encoding="utf-8", errors="replace")
+                self._parse_gitignore_text(text, rel_dir)
+            except Exception:
+                pass
+
+    def _parse_gitignore_text(self, text: str, base_dir_rel: str) -> None:
+        for raw_line in text.splitlines():
+            line = raw_line.rstrip("\r\n")
+            if not line or line.startswith("#"):
+                continue
+
+            is_negation = False
+            if line.startswith("!"):
+                is_negation = True
+                line = line[1:]
+
+            if line.startswith(r"\#") or line.startswith(r"\!"):
+                line = line[1:]
+
+            line = re.sub(r"(?<!\\)(?:\\\\)*\s+$", "", line)
+            line = line.replace(r"\ ", " ")
+            if not line:
+                continue
+
+            directory_only = False
+            if line.endswith("/"):
+                directory_only = True
+                line = line[:-1]
+
+            anchored = line.startswith("/")
+            has_slash = "/" in line.lstrip("/")
+            line = line.lstrip("/")
+
+            i = 0
+            n = len(line)
+            res: List[str] = []
+            while i < n:
+                c = line[i]
+                if c == "*":
+                    if i + 1 < n and line[i + 1] == "*":
+                        if i + 2 < n and line[i + 2] == "/":
+                            res.append(r"(?:.+/)?")
+                            i += 3
+                        elif i > 0 and line[i - 1] == "/":
+                            res.append(r"(?:/.*)?")
+                            i += 2
+                        else:
+                            res.append(r".*")
+                            i += 2
+                    else:
+                        res.append(r"[^/]*")
+                        i += 1
+                elif c == "?":
+                    res.append(r"[^/]")
+                    i += 1
+                elif c == "[":
+                    j = i + 1
+                    if j < n and line[j] in ("!", "^"):
+                        j += 1
+                    if j < n and line[j] == "]":
+                        j += 1
+                    while j < n and line[j] != "]":
+                        j += 1
+                    if j < n:
+                        class_content = line[i + 1 : j]
+                        if class_content.startswith("!"):
+                            class_content = "^" + class_content[1:]
+                        res.append(f"[{class_content}]")
+                        i = j + 1
+                    else:
+                        res.append(r"\[")
+                        i += 1
+                else:
+                    res.append(re.escape(c))
+                    i += 1
+
+            pattern_re = "".join(res)
+            base_prefix = re.escape(base_dir_rel.strip("/"))
+            if base_prefix:
+                base_prefix += "/"
+
+            if anchored or has_slash:
+                exact_re = f"^{base_prefix}{pattern_re}$"
+                prefix_re = f"^{base_prefix}{pattern_re}/.*$"
+            else:
+                exact_re = f"^{base_prefix}(?:.+/)?{pattern_re}$"
+                prefix_re = f"^{base_prefix}(?:.+/)?{pattern_re}/.*$"
+
+            try:
+                compiled_exact = re.compile(exact_re)
+                compiled_prefix = re.compile(prefix_re)
+                self.rules.append(
+                    GitIgnoreRule(
+                        is_negation=is_negation,
+                        directory_only=directory_only,
+                        exact_regex=compiled_exact,
+                        prefix_regex=compiled_prefix,
+                    )
+                )
+            except re.error:
+                pass
+
+    def matches(self, rel_path: str | Path, is_dir: bool = False) -> bool:
+        posix_path = Path(rel_path).as_posix().strip("/")
+        if not posix_path:
+            return False
+
+        matched = False
+        for rule in self.rules:
+            if is_dir:
+                if rule.exact_regex.match(posix_path) or rule.prefix_regex.match(
+                    posix_path + "/"
+                ):
+                    matched = not rule.is_negation
+            else:
+                if rule.directory_only:
+                    if rule.prefix_regex.match(posix_path):
+                        matched = not rule.is_negation
+                else:
+                    if rule.exact_regex.match(posix_path) or rule.prefix_regex.match(
+                        posix_path
+                    ):
+                        matched = not rule.is_negation
+
+        return matched
+
+
 def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, bytes]:
     """Return the deterministic portable file tree used by bundle creation."""
     result: dict[str, bytes] = {}
     invalid_paths: list[tuple[str, str]] = []
+    gitignore = GitIgnoreMatcher(repo_root)
     if (repo_root / "dwimsy").is_dir():
         for p in repo_root.rglob("*"):
             rel = p.relative_to(repo_root)
@@ -82,6 +265,8 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
             if any(part in (".git", "__pycache__", ".pytest_cache") for part in parts):
                 continue
             if not with_deps and parts and parts[0] == "deps":
+                continue
+            if gitignore.matches(rel.as_posix(), is_dir=p.is_dir()):
                 continue
             if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
                 continue
@@ -106,6 +291,8 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
                 k[len("<dwimsy-bundle>/") :] if k.startswith("<dwimsy-bundle>/") else k
             )
             if not with_deps and (clean_k == "deps" or clean_k.startswith("deps/")):
+                continue
+            if gitignore.matches(clean_k, is_dir=False):
                 continue
             if clean_k == "dwimsy/meta/unbundle.py":
                 v = elide_blztar_bytes(v)
@@ -159,6 +346,7 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
 def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
     """Create a deterministic in-memory TAR byte stream of the repository tree."""
     buf = io.BytesIO()
+    gitignore = GitIgnoreMatcher(repo_root)
     with tarfile.open(fileobj=buf, mode="w") as tar:
         disk_entries = {}
         for p in repo_root.rglob("*"):
@@ -168,6 +356,8 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
             if any(part in (".git", "__pycache__", ".pytest_cache") for part in parts):
                 continue
             if not with_deps and parts and parts[0] == "deps":
+                continue
+            if gitignore.matches(rel.as_posix(), is_dir=p.is_dir()):
                 continue
             if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
                 continue

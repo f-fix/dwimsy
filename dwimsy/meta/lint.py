@@ -17,6 +17,7 @@ for p in Path(__file__).resolve().parents:
         break
 
 from dwimsy.meta import integrity, versions
+from dwimsy.meta.bundle import GitIgnoreMatcher
 
 _UNBUNDLE_RE = re.compile(
     rb"(?ms)^[ \t]*blztar[ \t]*=[ \t]*\"\"\"(?:.*?)\"\"\"[ \t]*(?:#.*)?$"
@@ -162,13 +163,16 @@ def lint_filenames(repo_root: Optional[Path] = None) -> List[str]:
     root = integrity.find_repo_root(repo_root)
     errors: List[str] = []
     seen_keys: dict[str, Path] = {}
+    gitignore = GitIgnoreMatcher(root)
 
     for p in sorted(root.rglob("*")):
-        if "__pycache__" in p.parts:
+        if ".git" in p.parts or "__pycache__" in p.parts:
             continue
         rel = p.relative_to(root)
         rel_posix = rel.as_posix()
         if rel_posix.startswith("deps/") or rel_posix == "deps":
+            continue
+        if gitignore.matches(rel_posix, is_dir=p.is_dir()):
             continue
 
         key = versions.collision_key(rel_posix)
