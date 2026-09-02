@@ -485,33 +485,50 @@ class TestSelectionSets(unittest.TestCase):
         )
         self.assertEqual(primary.layers[-1].version_tag, "0.1.6.11-dev")
 
+
 class TestSetValuedSemanticSelectors(unittest.TestCase):
     def _space(self):
         def layer(tag, value, sealed=False):
             return Layer(
-                {"dwimsy/_version.py": f'__version__ = "{tag}"\n__code_hash__ = ""\n'.encode(), "x": value.encode()},
+                {
+                    "dwimsy/_version.py": f'__version__ = "{tag}"\n__code_hash__ = ""\n'.encode(),
+                    "x": value.encode(),
+                },
                 is_delta=False,
                 version_tag=tag,
             )
-        return VersionSpace([
-            Stream(0, "primary", [
-                layer("0.1.6.1-dev", "a"),
-                layer("0.1.6.2-dev", "b"),
-                layer("0.1.6.2-dev+mod.abc", "c"),
-                layer("0.1.6.3", "d"),
-            ]),
-            Stream(1, "alt1", [layer("0.1.6.2-dev", "e")]),
-        ])
+
+        return VersionSpace(
+            [
+                Stream(
+                    0,
+                    "primary",
+                    [
+                        layer("0.1.6.1-dev", "a"),
+                        layer("0.1.6.2-dev", "b"),
+                        layer("0.1.6.2-dev+mod.abc", "c"),
+                        layer("0.1.6.3", "d"),
+                    ],
+                ),
+                Stream(1, "alt1", [layer("0.1.6.2-dev", "e")]),
+            ]
+        )
 
     def test_abbreviated_stable_selector_is_set_valued_and_excludes_dev_mod(self):
         sel = self._space().resolve_selection("0.1.6")
-        self.assertEqual([(x.stream.name, x.version.tag) for x in sel], [("primary", "0.1.6.3")])
+        self.assertEqual(
+            [(x.stream.name, x.version.tag) for x in sel], [("primary", "0.1.6.3")]
+        )
 
     def test_development_selector_includes_all_matching_dev_versions_but_not_mod(self):
         sel = self._space().resolve_selection("0.1.6-dev")
         self.assertEqual(
             [(x.stream.name, x.version.tag) for x in sel],
-            [("primary", "0.1.6.1-dev"), ("alt1", "0.1.6.2-dev"), ("primary", "0.1.6.2-dev")],
+            [
+                ("primary", "0.1.6.1-dev"),
+                ("alt1", "0.1.6.2-dev"),
+                ("primary", "0.1.6.2-dev"),
+            ],
         )
 
     def test_scoped_selector_stays_within_named_stream(self):

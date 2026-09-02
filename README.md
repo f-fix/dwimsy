@@ -1,7 +1,7 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation
 
-**Version: 0.1.6.69-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-02)
+**Version: 0.1.6.70-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-02)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
@@ -218,22 +218,22 @@ Any `dwimsy` bundle or installed command can be forced into a maintainer persona
 
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.69-dev (2026-09-02)
+Version: 0.1.6.70-dev (2026-09-02)
 
-`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.69-dev.py`).
+`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.70-dev.py`).
 
 To use the embedded dwimsy CLI directly from the bundle:
 ```bash
-python3 dwimsy_0.1.6.69-dev.py dwimsy --help
-python3 dwimsy_0.1.6.69-dev.py dwimsy --version
-python3 dwimsy_0.1.6.69-dev.py dwimsy readme
-python3 dwimsy_0.1.6.69-dev.py dwimsy license
-python3 dwimsy_0.1.6.69-dev.py dwimsy changelog
+python3 dwimsy_0.1.6.70-dev.py dwimsy --help
+python3 dwimsy_0.1.6.70-dev.py dwimsy --version
+python3 dwimsy_0.1.6.70-dev.py dwimsy readme
+python3 dwimsy_0.1.6.70-dev.py dwimsy license
+python3 dwimsy_0.1.6.70-dev.py dwimsy changelog
 ```
 
 To extract the repository tree to disk:
 ```bash
-python3 dwimsy_0.1.6.69-dev.py meta unbundle /path/to/target --deps
+python3 dwimsy_0.1.6.70-dev.py meta unbundle /path/to/target --deps
 ```
 
 
@@ -638,11 +638,11 @@ options:
   * `dwimsy meta bundle --baseline`: Reconstructs the baseline standalone unpacker from the embedded baseline `blztar` payload and its canonical, blztar-elided `unbundle.py` template.
 
 ```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.69-dev.py
+# Bundle live working tree -> generates dwimsy_0.1.6.70-dev.py
 dwimsy meta bundle
 
 # Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.69-dev.py
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.70-dev.py
 ```
 
 ##### `dwimsy meta unbundle`
@@ -696,7 +696,7 @@ dwimsy meta diff
 dwimsy meta diff 0.1.6.55-dev 0.1.6.56-dev
 
 # Compare on-disk checkout against bundle baseline from an external directory
-python3 dwimsy_0.1.6.69-dev.py --version-include-primary=. dwimsy meta diff baseline alt
+python3 dwimsy_0.1.6.70-dev.py --version-include-primary=. dwimsy meta diff baseline alt
 ```
 
 ##### `dwimsy meta integrity`
@@ -2087,7 +2087,7 @@ Multi-stream bundles delimit stream versions using comma `,` with uniform `,altN
 - Timestamps: ISO 8601 UTC timestamps (`YYYY-MM-DDTHH:MM:SSZ`) derived from layer metadata.
 - Hashes: 12-character short hashes by default for easy visual correlation with `--version` and `+mod.<short_hash>` tails. Specifying `--verbose` (`dwimsy --version-list --verbose`) expands hashes to full 64-character SHA-256 strings.
 - Single Shared Entry: When an on-disk checkout is content-identical to the baseline, the redundant top `[unbundled]` row is omitted, and the primary baseline row includes `=unbundled` in its annotations (`[=baseline, =primary, =unbundled, =selected]`).
-- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.69-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
+- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.70-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
 
 ### Execution Model & The Three Paths
 - Path A: Default in-memory virtual mount via `BundleFinder` (zero disk writes).

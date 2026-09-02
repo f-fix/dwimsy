@@ -100,12 +100,12 @@ def render_diff(
             summary = vspace.format_list_versions(on_disk_root=repo if repo else None)
             ph = (
                 'blztar = """\n'
-                '<- actual omitted base64 lzma tar sequence(s) would start here\n\n'
-                '$VERSION_SUMMARY\n' + summary + '\n\n'
-                'actual omitted base64 lzma tar sequence(s) would end here ->\n'
+                "<- actual omitted base64 lzma tar sequence(s) would start here\n\n"
+                "$VERSION_SUMMARY\n" + summary + "\n\n"
+                "actual omitted base64 lzma tar sequence(s) would end here ->\n"
                 '"""'
             )
-            return (text[:m.start()] + ph + text[m.end():]).encode("utf-8")
+            return (text[: m.start()] + ph + text[m.end() :]).encode("utf-8")
 
         # Normalize the generated blztar payload before equality testing; otherwise
         # canonical bundle elision can bypass the intended $VERSION_SUMMARY view.
@@ -128,7 +128,6 @@ def render_diff(
         else:
             new_lines = new_bytes.decode("utf-8", errors="replace").splitlines(True)
             new_label = f"{v2_tag}/{name}"
-
 
         diff = list(
             difflib.unified_diff(

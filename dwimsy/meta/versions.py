@@ -137,14 +137,14 @@ def validate_version_tag(tag: str) -> None:
         raise ValueError(f"Version tag '{tag}' contains invalid characters.")
 
 
-
 class SemVer:
     """Semantic version parser and matcher with partial match support."""
+
     def __init__(self, tag: str):
         self.tag = tag
         # Strip prefixes like primary_ or altN_
         t = tag.split("_")[-1] if "_" in tag else tag
-        
+
         m = re.match(
             r"^v?([0-9]+)(?:\.([0-9]+))?(?:\.([0-9]+))?(?:\.([0-9]+))?"
             r"(?:-([0-9A-Za-z._-]+))?(?:\+([0-9A-Za-z._-]+))?$",
@@ -158,11 +158,14 @@ class SemVer:
             self.suffix = m.group(5) or ""
             self.build = m.group(6) or ""
             self.is_valid = True
-            
+
             self.parts_count = 1
-            if m.group(2) is not None: self.parts_count = 2
-            if m.group(3) is not None: self.parts_count = 3
-            if m.group(4) is not None: self.parts_count = 4
+            if m.group(2) is not None:
+                self.parts_count = 2
+            if m.group(3) is not None:
+                self.parts_count = 3
+            if m.group(4) is not None:
+                self.parts_count = 4
         else:
             self.major = 0
             self.minor = self.patch = self.rev = None
@@ -176,19 +179,28 @@ class SemVer:
 
     def tuple(self) -> Tuple:
         return (
-            self.major, 
+            self.major,
             self.minor if self.minor is not None else -1,
             self.patch if self.patch is not None else -1,
             self.rev if self.rev is not None else -1,
             not self.is_pre_release,
-            self.suffix
+            self.suffix,
         )
 
-    def __lt__(self, other): return self.tuple() < other.tuple()
-    def __le__(self, other): return self.tuple() <= other.tuple()
-    def __gt__(self, other): return self.tuple() > other.tuple()
-    def __ge__(self, other): return self.tuple() >= other.tuple()
-    def __eq__(self, other): return self.tuple() == other.tuple()
+    def __lt__(self, other):
+        return self.tuple() < other.tuple()
+
+    def __le__(self, other):
+        return self.tuple() <= other.tuple()
+
+    def __gt__(self, other):
+        return self.tuple() > other.tuple()
+
+    def __ge__(self, other):
+        return self.tuple() >= other.tuple()
+
+    def __eq__(self, other):
+        return self.tuple() == other.tuple()
 
     def matches(self, pattern: str) -> bool:
         """Check if this version semantically falls within the pattern.
@@ -216,9 +228,10 @@ class SemVer:
         if pat.is_pre_release:
             return self.suffix == pat.suffix
         return True
+
+
 def parse_semver(tag: str) -> Tuple:
     return SemVer(tag).tuple()
-
 
 
 _B64_BLOCK_RE = re.compile(rb"[A-Za-z0-9+/]+={1,2}|[A-Za-z0-9+/]+")
@@ -627,58 +640,69 @@ class Stream:
         if self.index == 0:
             self.apply_retention()
 
-    
     def apply_retention(self) -> None:
         """Apply tiered primary stream historical retention limits (3-3-3 rule)."""
         if self.index != 0 or not self.layers:
             return
-        
+
         versions = self.get_versions()
         open_count = self.get_open_dev_layer_count()
-        
+
         # Identify the Tip (the current active development version)
         tip_ref = versions[open_count] if open_count < len(versions) else versions[-1]
         tip_sv = SemVer(tip_ref.tag)
-        
-        keep_ordinals = {v.ordinal for v in versions[:open_count + 1]}
-        
+
+        keep_ordinals = {v.ordinal for v in versions[: open_count + 1]}
+
         sealed = [v for v in versions if v.sealed and v.ordinal not in keep_ordinals]
         sealed.sort(key=lambda v: (SemVer(v.tag), v.ordinal), reverse=True)
-        
+
         # Tier 1: Patches in Tip's major.minor
-        patches = [v for v in sealed if SemVer(v.tag).major == tip_sv.major and SemVer(v.tag).minor == tip_sv.minor]
+        patches = [
+            v
+            for v in sealed
+            if SemVer(v.tag).major == tip_sv.major
+            and SemVer(v.tag).minor == tip_sv.minor
+        ]
         for v in patches[:_RETAIN_POINT_RELEASES]:
             keep_ordinals.add(v.ordinal)
-            
+
         # Tier 2: Minors in Tip's major (highest of each minor)
         minors_map = {}
         for v in sealed:
             sv = SemVer(v.tag)
             if sv.major == tip_sv.major:
                 key = (sv.major, sv.minor)
-                if key not in minors_map: minors_map[key] = v
-        
-        sorted_minors = sorted(minors_map.values(), key=lambda v: (SemVer(v.tag), v.ordinal), reverse=True)
+                if key not in minors_map:
+                    minors_map[key] = v
+
+        sorted_minors = sorted(
+            minors_map.values(), key=lambda v: (SemVer(v.tag), v.ordinal), reverse=True
+        )
         for v in sorted_minors[:_RETAIN_MINOR_RELEASES]:
             keep_ordinals.add(v.ordinal)
-            
+
         # Tier 3: Majors in history (highest of each major)
         majors_map = {}
         for v in sealed:
             sv = SemVer(v.tag)
             key = sv.major
-            if key not in majors_map: majors_map[key] = v
-                
-        sorted_majors = sorted(majors_map.values(), key=lambda v: (SemVer(v.tag), v.ordinal), reverse=True)
+            if key not in majors_map:
+                majors_map[key] = v
+
+        sorted_majors = sorted(
+            majors_map.values(), key=lambda v: (SemVer(v.tag), v.ordinal), reverse=True
+        )
         for v in sorted_majors[:_RETAIN_MAJOR_RELEASES]:
             keep_ordinals.add(v.ordinal)
 
-        new_layers = [self.layers[i] for i in range(len(self.layers)) if i in keep_ordinals]
-        
+        new_layers = [
+            self.layers[i] for i in range(len(self.layers)) if i in keep_ordinals
+        ]
+
         if len(new_layers) != len(self.layers):
             self.mark_mutated()
             self.layers = new_layers
-
 
     def append_layer(self, layer: Layer, allow_replacement: bool = False) -> None:
         """Append layer enforcing writing invariants (Section1.1.1, Section1.4)."""
@@ -1184,7 +1208,7 @@ class VersionSpace:
 
         return b64_res
 
-        return b64_res # Skip validation
+        return b64_res  # Skip validation
 
         # In-memory roundtrip validation (Section1.3)
         rb_vs = VersionSpace.from_blztar(b64_res)
@@ -1219,7 +1243,7 @@ class VersionSpace:
         new_vs = self.copy()
         if stream_idx < len(new_vs.streams):
             s = new_vs.streams[stream_idx]
-            s.layers = s.layers[:ordinal + 1]
+            s.layers = s.layers[: ordinal + 1]
         return new_vs
 
     def renumber_streams(self):
@@ -1235,7 +1259,6 @@ class VersionSpace:
             all_refs.extend(s.get_versions())
         return all_refs
 
-    
     def _semantic_matches(self, selector: str):
         """Return all versions matched by a semantic family selector.
 
@@ -1260,7 +1283,9 @@ class VersionSpace:
             for ref in stream.get_versions():
                 if SemVer(ref.tag).matches(selector):
                     out.append(Selection(stream, ref.ordinal, ref))
-        out.sort(key=lambda item: (SemVer(item.version.tag), item.ordinal, item.stream.index))
+        out.sort(
+            key=lambda item: (SemVer(item.version.tag), item.ordinal, item.stream.index)
+        )
         return out
 
     def _scoped_semantic_matches(self, selector: str):
@@ -1282,7 +1307,9 @@ class VersionSpace:
             for ref in stream.get_versions()
             if SemVer(ref.tag).matches(bare)
         ]
-        out.sort(key=lambda item: (SemVer(item.version.tag), item.ordinal, item.stream.index))
+        out.sort(
+            key=lambda item: (SemVer(item.version.tag), item.ordinal, item.stream.index)
+        )
         return out
 
     def resolve_selection(
@@ -1297,7 +1324,11 @@ class VersionSpace:
 
         if low == "baseline":
             stream = self.streams[0]
-            refs = [v for v in stream.get_versions() if not SemVer(v.tag).build.startswith("mod.")]
+            refs = [
+                v
+                for v in stream.get_versions()
+                if not SemVer(v.tag).build.startswith("mod.")
+            ]
             if not refs:
                 return SelectionSet.empty()
             ref = max(refs, key=lambda v: (SemVer(v.tag), v.ordinal))
@@ -1305,12 +1336,20 @@ class VersionSpace:
 
         if low == "primary":
             head = self.streams[0].get_head_version()
-            return SelectionSet.single(self.streams[0], head.ordinal, head) if head else SelectionSet.empty()
+            return (
+                SelectionSet.single(self.streams[0], head.ordinal, head)
+                if head
+                else SelectionSet.empty()
+            )
 
         if low in ("sealed", "primary_sealed"):
             stream = self.streams[0]
             refs = [v for v in stream.get_versions() if v.sealed]
-            return SelectionSet.single(stream, refs[-1].ordinal, refs[-1]) if refs else SelectionSet.empty()
+            return (
+                SelectionSet.single(stream, refs[-1].ordinal, refs[-1])
+                if refs
+                else SelectionSet.empty()
+            )
 
         if low in ("alt", "alt_sealed"):
             items = []
@@ -1330,7 +1369,11 @@ class VersionSpace:
             if idx >= len(self.streams):
                 return SelectionSet.empty()
             refs = [v for v in self.streams[idx].get_versions() if v.sealed]
-            return SelectionSet.single(self.streams[idx], refs[-1].ordinal, refs[-1]) if refs else SelectionSet.empty()
+            return (
+                SelectionSet.single(self.streams[idx], refs[-1].ordinal, refs[-1])
+                if refs
+                else SelectionSet.empty()
+            )
 
         m = re.match(r"^alt(\d+)$", low)
         if m:
@@ -1338,7 +1381,11 @@ class VersionSpace:
             if idx >= len(self.streams):
                 return SelectionSet.empty()
             head = self.streams[idx].get_head_version()
-            return SelectionSet.single(self.streams[idx], head.ordinal, head) if head else SelectionSet.empty()
+            return (
+                SelectionSet.single(self.streams[idx], head.ordinal, head)
+                if head
+                else SelectionSet.empty()
+            )
 
         matches = self._scoped_semantic_matches(sel)
         if matches:
@@ -1356,16 +1403,27 @@ class VersionSpace:
         item = selection.first
         return (item.stream, item.ordinal, item.version) if item else None
 
-    
     def match_versions(self, pattern: str) -> List[Tuple[Stream, int, VersionRef]]:
         """Return the versions matched by a selector or glob filter."""
         pat = pattern.strip()
         low = pat.lower()
         if low == "*_sealed":
-            return [(s, v.ordinal, v) for s in self.streams for v in s.get_versions() if v.sealed]
+            return [
+                (s, v.ordinal, v)
+                for s in self.streams
+                for v in s.get_versions()
+                if v.sealed
+            ]
         if low == "alt_sealed":
-            return [(s, v.ordinal, v) for s in self.streams[1:] for v in s.get_versions() if v.sealed]
-        if low in ("sealed", "primary_sealed", "primary", "alt") or re.match(r"^alt\d+(?:_sealed)?$", low):
+            return [
+                (s, v.ordinal, v)
+                for s in self.streams[1:]
+                for v in s.get_versions()
+                if v.sealed
+            ]
+        if low in ("sealed", "primary_sealed", "primary", "alt") or re.match(
+            r"^alt\d+(?:_sealed)?$", low
+        ):
             sel = self.resolve_selection(pat)
             return [(i.stream, i.ordinal, i.version) for i in sel]
         semantic = self._scoped_semantic_matches(pat)
@@ -1883,7 +1941,8 @@ class VersionSpace:
                                 matching = [
                                     item
                                     for item in members
-                                    if item.stream.index == s.index and item.ordinal == v.ordinal
+                                    if item.stream.index == s.index
+                                    and item.ordinal == v.ordinal
                                 ]
                                 if not matching:
                                     continue
@@ -1970,4 +2029,3 @@ class VersionSpace:
                 )
 
         return "\n".join(lines)
-

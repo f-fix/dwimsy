@@ -63,12 +63,14 @@ class TestLintFilenames(unittest.TestCase):
             (root / "dwimsy" / "valid_file.py").write_text("")
 
             # .gitignore rules
-            (root / ".gitignore").write_text("""
+            (root / ".gitignore").write_text(
+                """
 # Ignored patterns
 build/
 *.tmp
 dwimsy/CamelCase.py
-""")
+"""
+            )
             # Create files matching .gitignore that would otherwise violate lint rules
             (root / "build").mkdir()
             (root / "build" / "NonSnake.py").write_text("")

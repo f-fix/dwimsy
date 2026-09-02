@@ -542,7 +542,9 @@ def verify_bundle_roundtrip(script_text: str, repo_root: Optional[Path] = None) 
             rebuilt.encode("utf-8"), "dwimsy/meta/unbundle.py"
         )
         if candidate_canonical != rebuilt_canonical:
-            raise RuntimeError("Bundle round-trip canonical rebundle differs from candidate")
+            raise RuntimeError(
+                "Bundle round-trip canonical rebundle differs from candidate"
+            )
 
 
 def write_pyz_bundle(script_text: str, output_path: Path) -> None:

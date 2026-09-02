@@ -81,7 +81,9 @@ class TestMetaBundle(unittest.TestCase):
                 text=True,
             )
             self.assertEqual(res.returncode, 0, res.stderr)
-            self.assertNotEqual((conflict / "README.md").read_text(encoding="utf-8"), "local\n")
+            self.assertNotEqual(
+                (conflict / "README.md").read_text(encoding="utf-8"), "local\n"
+            )
 
     def test_unbundle_extract_default_excludes_deps(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -170,13 +172,16 @@ class TestMetaBundle(unittest.TestCase):
             tmp_path = Path(tmp)
             unbundle.extract_b64_lzma_tar(unbundle.blztar, tmp_path, with_deps=True)
             (tmp_path / "README.md").write_text(
-                (tmp_path / "README.md").read_text(encoding="utf-8") + "\nroundtrip fixture\n",
+                (tmp_path / "README.md").read_text(encoding="utf-8")
+                + "\nroundtrip fixture\n",
                 encoding="utf-8",
             )
             script = bundle.build_bundle_script(tmp_path, with_deps=True, preset=1)
             # This tree intentionally differs from the current checkout.  The
             # verifier must validate candidate -> extract -> rebundle only.
-            bundle.verify_bundle_roundtrip(script, repo_root=Path(__file__).resolve().parent.parent)
+            bundle.verify_bundle_roundtrip(
+                script, repo_root=Path(__file__).resolve().parent.parent
+            )
 
     def test_cli_meta_bundle_to_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -345,12 +350,14 @@ class TestMetaBundle(unittest.TestCase):
             (root / "dwimsy" / "main.py").write_text("")
             (root / "dwimsy" / "meta").mkdir()
             (root / "dwimsy" / "meta" / "unbundle.py").write_text('blztar = """\n"""\n')
-            (root / ".gitignore").write_text("""
+            (root / ".gitignore").write_text(
+                """
 __pycache__/
 *.tmp
 ignored_dir/
 dwimsy/ignored_file.py
-""")
+"""
+            )
             (root / "dwimsy" / "test.tmp").write_text("temp data")
             (root / "ignored_dir").mkdir()
             (root / "ignored_dir" / "file.txt").write_text("ignored")

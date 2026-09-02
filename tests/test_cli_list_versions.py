@@ -141,7 +141,10 @@ class TestCLIListVersions(unittest.TestCase):
         self.assertIn("=primary_0.1.6.0", out)
 
     def test_version_list_short_hash_and_timestamp_by_default(self):
-        f0 = {"dwimsy/_version.py": b'__version__ = "0.1.6.0"\n__code_hash__ = ""\n', "CHANGELOG.md": b"## [0.1.6.0] - 2026-08-30\n"}
+        f0 = {
+            "dwimsy/_version.py": b'__version__ = "0.1.6.0"\n__code_hash__ = ""\n',
+            "CHANGELOG.md": b"## [0.1.6.0] - 2026-08-30\n",
+        }
         vspace = VersionSpace([Stream(0, "primary", [Layer(f0, is_delta=False)])])
         out = vspace.format_list_versions(verbose=False)
         self.assertRegex(out, r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
@@ -150,7 +153,10 @@ class TestCLIListVersions(unittest.TestCase):
         self.assertNotIn(head_hash, out)
 
     def test_version_list_verbose_expands_to_64_char_hash(self):
-        f0 = {"dwimsy/_version.py": b'__version__ = "0.1.6.0"\n__code_hash__ = ""\n', "CHANGELOG.md": b"## [0.1.6.0] - 2026-08-30\n"}
+        f0 = {
+            "dwimsy/_version.py": b'__version__ = "0.1.6.0"\n__code_hash__ = ""\n',
+            "CHANGELOG.md": b"## [0.1.6.0] - 2026-08-30\n",
+        }
         vspace = VersionSpace([Stream(0, "primary", [Layer(f0, is_delta=False)])])
         out = vspace.format_list_versions(verbose=True)
         head_hash = vspace.streams[0].get_head_version().content_hash
@@ -190,24 +196,33 @@ class TestCLIListVersions(unittest.TestCase):
                 self.assertGreaterEqual(len(tokens), 4)
                 h = tokens[3]
                 if expect_64_char:
-                    self.assertEqual(len(h), 64, f"Expected 64-char hash for {flags}, got: {h}")
+                    self.assertEqual(
+                        len(h), 64, f"Expected 64-char hash for {flags}, got: {h}"
+                    )
                 else:
-                    self.assertEqual(len(h), 12, f"Expected 12-char hash for {flags}, got: {h}")
+                    self.assertEqual(
+                        len(h), 12, f"Expected 12-char hash for {flags}, got: {h}"
+                    )
 
     @unittest.skipIf(
         os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
         "Excluded during bundle build verification",
     )
-    def test_version_list_shares_single_entry_when_unbundled_identical_to_baseline(self):
+    def test_version_list_shares_single_entry_when_unbundled_identical_to_baseline(
+        self,
+    ):
         import tempfile
         from dwimsy.meta import unbundle
+
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
             unbundle.safe_unbundle(output_dir=tmpdir, force=True, quiet=True)
             raw_b64 = unbundle._get_active_blztar()
             vspace = VersionSpace.from_blztar(raw_b64)
             out = vspace.format_list_versions(on_disk_root=tmpdir)
-            self.assertFalse(any(line.strip().startswith("[unbundled]") for line in out.splitlines()))
+            self.assertFalse(
+                any(line.strip().startswith("[unbundled]") for line in out.splitlines())
+            )
             self.assertIn("=unbundled", out)
 
     @unittest.skipIf(
@@ -217,14 +232,19 @@ class TestCLIListVersions(unittest.TestCase):
     def test_version_list_separate_unbundled_row_when_modified(self):
         import tempfile
         from dwimsy.meta import unbundle
+
         with tempfile.TemporaryDirectory() as tmp:
             tmpdir = Path(tmp)
             unbundle.safe_unbundle(output_dir=tmpdir, force=True, quiet=True)
-            (tmpdir / "dwimsy" / "_version.py").write_text('__version__ = "0.1.6.58-dev"\n__code_hash__ = ""\n# mod\n')
+            (tmpdir / "dwimsy" / "_version.py").write_text(
+                '__version__ = "0.1.6.58-dev"\n__code_hash__ = ""\n# mod\n'
+            )
             raw_b64 = unbundle._get_active_blztar()
             vspace = VersionSpace.from_blztar(raw_b64)
             out = vspace.format_list_versions(on_disk_root=tmpdir)
-            self.assertTrue(any(line.strip().startswith("[unbundled]") for line in out.splitlines()))
+            self.assertTrue(
+                any(line.strip().startswith("[unbundled]") for line in out.splitlines())
+            )
             self.assertIn("+mod.", out)
 
 

@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.69-dev (2026-09-02)
+Version: 0.1.6.70-dev (2026-09-02)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.69-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.70-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.69-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.69-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.69-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.69-dev.py dwimsy license
-  python3 dwimsy_0.1.6.69-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.70-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.70-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.70-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.70-dev.py dwimsy license
+  python3 dwimsy_0.1.6.70-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.69-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.70-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -4535,7 +4535,7 @@ ZcImSu12LIJZ/t1YiWY+//DI70wyAqmcuv9T98dAB3tHSJks7GiZ3IKDR3sLQvdkTvB28M5ICfd3
 ZhRWt5qH5aPo0cuPxZWdi1N5PxX6P1ANOMzQovtEJT6tUC0MYNXqcB4zseDBoTny/4gsWqgB46AD
 mIdpIXytpOhSBR7p03vYPFi8zSbWpMcPn8j59TgBtczmYbIPZyv4IrudmxRsm1Lxr4Egl2NzWCAw
 ZpANfpv2A9zzLajB3+/xinbuPQHQqFAdrmPFhNlfVvNAuw0CGYotChlcMlPTJj/GjFXFAzkLKNJr
-u/7kuJE5L6vBCMrWnRxdSr4rBPpNhrv08oXdQH2o8nor2CASjgeZDiwA8rlKMqCSAQ1jtwdQ9Idk
+u/7kuJE5L6vBCMrWnRxdSr4rBPpNhrv08oXdQH2o8nor2CASlOeZEdQA8rlKMqCSAQ1jtwdQ9Idk
 If+9lvNeK0ypRHiGhH1aUWKSHha7VSexXHE930nj1xh3QS1HFpHsePYV1r1PCxF5tr0+Z10oh/zE
 owuBnUpyKbK6+odIYokZ367vAboadMMUuX0J79BirtSesngLs33+xXFhoBvxL8KI4DxOP19bmVOj
 asYP3KFukAKHdBw+L2ZEvZAVl1R6YHT+HSovUo00zUg6CZrNDdQSBGlqETdVojuKTR09Py9FrEK9
@@ -4599,8 +4599,24 @@ CYiDb/T/R3KaKpxzBUULX8tYLdWyv0fMkv0HxG2eGDBpDsquWxlqwuklJdgmOi14engPrd7op3k0
 a/uQyUZxNqw2HV27/z9+HECPIuyb1Se8WxcgEpNXNKiloK1ImI9jGNxor9qgzE+ZOP68wuMUy/9F
 /3ReuwDe4pSEC3tyI5dS7nvolu2KDO01MxXnwel2REqNyOYIDBSjs2Xj5A86pp1MgB+mAMLE+4iK
 t5wJkaNzGHmojhV1TM9am5PIgxQhbtG+yeFzsHtXKKcVp1iTxSoZNpw09iTWq43RdfL0yM7Pz3eF
-C5HtIm03DDSEPWusdwbSkaWmUw5UAAAAAACqPJcGM6TRrAABldMPgID8AgAAAK++GNgUFzswAwAA
-AAAEWVo=
+C5HtIm03DDSEPWusdwbSkaWbvSPZKFgHZZ/ih7Dd8HVHcpwu44RXESN2TgoWDX9U8PmbpxHKvHSm
+rysQrw0ezx+nPfw3EyGTNqsGKbeGCow7cZCGojh6i5jJrHDuuWkVWkjZyty3+US2YOwIa8gPfM78
+85AcoSNgZbWIIjEjXyLsfODYwWjhtz0maUDJVk6h322iSPAct0UgZEzKSxL57vx2kNO2fYVzH9up
+f3cjp4Re4cmYE/zUjCFld93kCjf9FnM1mC4F1Nv9iwqtQjX4btCQ9qh+nYnfi5riwAZj0/RwErKz
+dBfabN+mXC7Z78oYDiQz/qxgyOSJQ8BchSiqkbXGxzB7RMouwFqeuORaQw98cMmR037cHO8AwJ0q
+Llsu+rs4W4cTC6K0+7a8CRVnphrDiV4djilkx01FleYkqqjPP6LT8461nLCgiPLvMchjCPyRl5hn
+7I/JMPmcr0HV2DUFxcVQ7u2lw4rq3FuH66l2JQiutWPdAQV5DR6/GB0hMGrZyUeRHaARKDsNI0yh
+5Fycr+SWzg+vlC2FSInDm+pGLb3zyys0gO6+1geAX4kl+PdtlzJz/BKd8Wr9dRaC60w0DkHB94rf
+oTrK6EqKnQDmL6zvLq1kpQ49rMmNS38FC8UXn4hPhH6frZLYPOP4oXQ8EwVnHvWJCD71kzFJx53B
+tad6ztrwsps4Y6W45ai+bPJ1lktaOqxgesEjbTCfACUECgRZ14ptKDT+kn3M/2n8gTX0g3YCsYWc
+5R6sRgja+d3qdO8K4IQhL/Ik9Ya09xVLIm05FB8x1/+a9QOBBZ0yUgvnTB+jvpeYBaKG7P6MVKW8
+vefthLjPyAtGACjhj4MH2K8ucPEPG0rQc1GwWWDMAhGU/xhcmZmXHfGMTbP1+lzDlWKaVrxZyc/r
+gtt/9oeVgnBtHX5cCyTE4rkzTGhMMIFri/Th6TSrTA72VPnznYXllvuu5hKT0qs7waLU3kCgwV3/
+NIsYTviauKMC/ID+FCr+kVy9Ww08ANVim1E5kh6Q+HeDHiiF84oTDC2esEB81psD+mTmpvSSV+TK
+/M1T/G7siuKX64xfaZdbyVUjDGEwTVqA4zunPntBKnQP2xaTlhOwkAwdziXWYN2fTft7wHlzFEde
+4Q5X3GNJpfh2Osy4+UgKSN3CALc68RGmkuViu+Pe858FyM/8QNiPQ216kvBwEGMt+G85Gz8RTrmw
+53l1h2rmoUmXH/Wd3q0sXlJUaDH3Yn/2JOmjXS+R78h8m1f/7w/yCNB8DUZbAAAAAAC/XVVKtcXG
+xwABvdoPgMCXAwAAAIVgN3EUFzswAwAAAAAEWVo=
 """
 
 
@@ -6164,9 +6180,20 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-v", "--verbose", action="count", default=0, help="Increase output verbosity"
     )
     parser.add_argument("--help-all", action="store_true", help="Show full help")
-    parser.add_argument("-f", "--force", action="store_true", help="Replace conflicting files")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be extracted without changing files")
-    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress non-error extraction output")
+    parser.add_argument(
+        "-f", "--force", action="store_true", help="Replace conflicting files"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be extracted without changing files",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Suppress non-error extraction output",
+    )
     parser.add_argument(
         "target_directory",
         nargs="?",
