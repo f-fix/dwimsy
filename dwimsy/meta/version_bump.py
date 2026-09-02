@@ -265,6 +265,11 @@ def bump_version(
     verbose: bool = False,
 ) -> str:
     """Advance revision, update metadata files, and optionally synchronize the baseline bundle."""
+    if not message or not message.strip():
+        raise ValueError("A non-empty changelog message is required for every version bump.")
+    if version_str is None and part not in ("major", "minor", "patch", "rev", "build"):
+        raise ValueError("An explicit bump tier (--major, --minor, --patch, or --rev) is required when no target version is supplied.")
+
     root = integrity.find_repo_root(repo_root)
     values = integrity._version_values(root)
     current_ver = values.get("__version__", "0.1.6.0-dev")
@@ -434,6 +439,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         pattern = [args.test] if isinstance(args.test, str) else ["meta version-bump"]
         return run_tests(pattern, verbose=max(args.verbose, 1))
+
+    tier_flags = [args.major, args.minor, args.patch, args.rev]
+    if sum(bool(x) for x in tier_flags) > 1:
+        parser.error("bump tiers are mutually exclusive")
+    if explicit_version is None and not any(tier_flags):
+        parser.error("specify an explicit target version or a bump tier (--major, --minor, --patch, or --rev)")
+    if not args.message or not args.message.strip():
+        parser.error("a non-empty changelog message is required (-m/--message)")
 
     part = "patch"
     if args.major:

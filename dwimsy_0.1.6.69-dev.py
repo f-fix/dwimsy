@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.61-dev (2026-08-30)
+Version: 0.1.6.69-dev (2026-09-02)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.61-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.69-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.61-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.61-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.61-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.61-dev.py dwimsy license
-  python3 dwimsy_0.1.6.61-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.69-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.69-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.69-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.69-dev.py dwimsy license
+  python3 dwimsy_0.1.6.69-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.61-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.69-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -4362,7 +4362,7 @@ B2QPxJvnj51ZHVMZGwspTSkVaXVbubptriC4Akt4gj0Px3BaqQrTdCZYT+++7haZlXESRjN1PCT3
 67jNssh3gOAizd1NIy2EyRywmZVpJWE+ZSZHl1sDjROX1CNfQ4wOcZBKZDl7yJr/IUycFrk0E51x
 ZYORG9zAcm6U8AQv0tN/sljSrhZcvwBN7SCsq+x4Cd+N1OfKWbRzjrdYogW2QiOPqQeT/S+reVPs
 hCHv+g/zH7eIMpfqLO9thggnmQVqEzspyID4XdHWpHME5IrJFZtjXhXuYYSJigraP7rkT/TOvTQ2
-+X1q5n7KGZ6O4Bz+AOxzU6f9vq53y3Uzp1I6m6xtIz+pNJA3HW3EKoFkvktrnr69jnHiEEKw5vZq
++X1q5n7KGZ//RiacAOxzU6f9vq53y3Uzp1I6m6xtIz+pNJA3HW3EKoFkvktrnr69jnHiEEKw5vZq
 KjCxvnj5zavp5sucnmDoVmwaKVBPSmaj/4EprZrk+Xfsr4sD/HOYRQuGZZZzAw5Kj698+ZjEQrx6
 IFFzbHp/5cwadvApsxGjepQr7n5ETmQCe46QiUb91/jJUPGOyg2nZ9OR2h61mDWFs9kFNsxLzRPk
 ScFo5oE5txlFUNbDDReo9AEcoXff20EYoQm9/mg7+7J80aCeT+e0UHG5bw5piIBmtBF5L/k8I44I
@@ -4488,12 +4488,119 @@ W+YKvrVHi0nx5LvdnyJCGhGEOCUcB+R4rvFnds8qoZA8S1e7zra7/CIKdac8H2pdzhczr+PPZwOg
 bnf2x5Yr08UYiYgggI+1hSbxLkTFnMZxZmM6B3xgoJ7olBuI7mdyDHph4Pn0RH4BU4tGv3Nhndu5
 4M0AdVIKvvrRElXYoU8irIORdmE6qVekxHXg1Uzjl+0OpeBViS9HEOUcJ7l+Xtg/YXQK1w6IgQYO
 Ar/Zj3HcJ2NCbanRZW6gbs0f5EcvVJFPYxWL3zoKM7ZFnfAwYTB0pllrKjbH4Vo4C8PRR7zK24IF
-kyaoL+MXoAxOJcQEb6pL3ftADGQwOn0ea32JUYi5OX2YAVeYfVro67nAwDdEDjXxSrur3XwhbOXi
-Yrey+2DjqJIT+P5sTuZFyjiRlIs5mbPi2KcWlwoTwUBppVQcHu4CVwLZoSnHSwOt0S/YpHqlbEGw
-1D2gfkj00GKkfpVbV4wlx415cJAmb4ZyXoI2jSBnqG5mFbMvIF3DsjOEPWBO9DyjJWVk4NLWOBBf
-cZ2KUWW266r34c927Fu/AOcdBhiG/sXejz8vdJ7tp2zPtyZmPANlHH9u/IN+u+RP7/HMgjs5mGsM
-MVTaINnriad4ZeJEk0HLoiq2Gk8XTMflOgAAAABolmJxpoQYEAABxaMPgJC+AgAAAIDySrAUFzsw
-AwAAAAAEWVo=
+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
+AAAEWVo=
 """
 
 
@@ -4719,7 +4826,7 @@ def safe_unbundle(
     target_version: Optional[str] = None,
     verbose: bool = False,
 ) -> None:
-    """Smart destination verification and delta unpacking engine adhering to Spec §2.1, §3, §3.1."""
+    """Smart destination verification and delta unpacking engine adhering to Spec Section2.1, Section3, Section3.1."""
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
     out_path = Path(output_dir).resolve()
@@ -4766,7 +4873,7 @@ def safe_unbundle(
         details = "\n".join(err for _name, err in invalid_paths)
         raise ValueError("Cannot extract non-portable paths:\n" + details)
 
-    # 1. Type Collision Guard (Spec §3.1)
+    # 1. Type Collision Guard (Spec Section3.1)
     if out_path.exists() and not force:
         for norm_name in assets:
             if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
@@ -4785,7 +4892,7 @@ def safe_unbundle(
                         f"Type collision: directory component '{parent_part.relative_to(out_path)}' exists as a {kind} on disk. Use --force to override."
                     )
 
-    # 2. Check existing on-disk modifications and branches (Surviving State Verification, Spec §3.1)
+    # 2. Check existing on-disk modifications and branches (Surviving State Verification, Spec Section3.1)
     previous_version_tag: Optional[str] = None
     if target_version_tag is None:
         target_v_data = assets.get("dwimsy/_version.py") or assets.get("_version.py")
@@ -6057,6 +6164,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-v", "--verbose", action="count", default=0, help="Increase output verbosity"
     )
     parser.add_argument("--help-all", action="store_true", help="Show full help")
+    parser.add_argument("-f", "--force", action="store_true", help="Replace conflicting files")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be extracted without changing files")
+    parser.add_argument("-q", "--quiet", action="store_true", help="Suppress non-error extraction output")
     parser.add_argument(
         "target_directory",
         nargs="?",
@@ -6086,16 +6196,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     is_verbose = (
         getattr(args, "verbose", 0) > 0 or pipeline.get("explicit_verbose_count", 0) > 0
     )
-    safe_unbundle(
-        b64_string=_get_active_blztar(),
-        output_dir=args.target_directory,
-        with_deps=args.deps,
-        force=getattr(args, "force", False),
-        dry_run=getattr(args, "dry_run", False),
-        quiet=getattr(args, "quiet", False),
-        target_version=target_ver,
-        verbose=is_verbose,
-    )
+    try:
+        safe_unbundle(
+            b64_string=_get_active_blztar(),
+            output_dir=args.target_directory,
+            with_deps=args.deps,
+            force=args.force,
+            dry_run=args.dry_run,
+            quiet=args.quiet,
+            target_version=target_ver,
+            verbose=is_verbose,
+        )
+    except RuntimeError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 

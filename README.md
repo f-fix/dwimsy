@@ -1,7 +1,7 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation
 
-**Version: 0.1.6.61-dev** (Milestone 1.6 [IN PROGRESS], 2026-08-30)
+**Version: 0.1.6.69-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-02)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
@@ -204,23 +204,36 @@ git submodule update --init --recursive
 
 ### Standalone Bundle Basics
 
-Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.61-dev (2026-08-30)
+### Developer Cheat Sheet (The -a Escape Hatch)
 
-`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.61-dev.py`).
+Any `dwimsy` bundle or installed command can be forced into a maintainer personality using the `-a` (argv0) override. This allows you to treat any bundle as a toolkit for inspecting or reconstructing other parts of the project.
+
+| Task | Command |
+| :--- | :--- |
+| **List History** | `python3 dwimsy_bundle.py --version-list` |
+| **Diff Checkout** | `python3 dwimsy_bundle.py -a dwimsy meta diff baseline unbundled` |
+| **Extract Source** | `python3 dwimsy_bundle.py -a dwimsy-meta-unbundle ./src --deps` |
+| **Reconstruct Bundle** | `python3 dwimsy_bundle.py --version=V --version-restrict-to=V -a dwimsy meta bundle --baseline -o out.py` |
+
+
+
+Project Homepage: https://github.com/f-fix/dwimsy
+Version: 0.1.6.69-dev (2026-09-02)
+
+`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.69-dev.py`).
 
 To use the embedded dwimsy CLI directly from the bundle:
 ```bash
-python3 dwimsy_0.1.6.61-dev.py dwimsy --help
-python3 dwimsy_0.1.6.61-dev.py dwimsy --version
-python3 dwimsy_0.1.6.61-dev.py dwimsy readme
-python3 dwimsy_0.1.6.61-dev.py dwimsy license
-python3 dwimsy_0.1.6.61-dev.py dwimsy changelog
+python3 dwimsy_0.1.6.69-dev.py dwimsy --help
+python3 dwimsy_0.1.6.69-dev.py dwimsy --version
+python3 dwimsy_0.1.6.69-dev.py dwimsy readme
+python3 dwimsy_0.1.6.69-dev.py dwimsy license
+python3 dwimsy_0.1.6.69-dev.py dwimsy changelog
 ```
 
 To extract the repository tree to disk:
 ```bash
-python3 dwimsy_0.1.6.61-dev.py meta unbundle /path/to/target --deps
+python3 dwimsy_0.1.6.69-dev.py meta unbundle /path/to/target --deps
 ```
 
 
@@ -625,11 +638,11 @@ options:
   * `dwimsy meta bundle --baseline`: Reconstructs the baseline standalone unpacker from the embedded baseline `blztar` payload and its canonical, blztar-elided `unbundle.py` template.
 
 ```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.61-dev.py
+# Bundle live working tree -> generates dwimsy_0.1.6.69-dev.py
 dwimsy meta bundle
 
 # Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.61-dev.py
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.69-dev.py
 ```
 
 ##### `dwimsy meta unbundle`
@@ -652,6 +665,22 @@ dwimsy meta unbundle ./restored --deps
 python3 dwimsy/meta/unbundle.py --version=0.1.6.56-dev .
 ```
 
+
+##### Version Retention Policy (3-3-3 Rule)
+To balance historical context with bundle size, `dwimsy` maintains a tiered retention policy in the primary stream:
+*   **The Tip**: The current working version (HEAD) is always retained.
+*   **Latest Patches**: The last **3** sealed versions within the current `major.minor` branch.
+*   **Minor Milestones**: The last **3** minor release tips (the latest patch of each minor version).
+*   **Major Milestones**: The last **3** major release tips.
+
+##### Semantic Version Selection
+The `--version` flag and other version operations support semantic prefix matching:
+*   `--version=0.1` matches the latest stable (non-pre-release, non-build) version in the `0.1.x` series.
+*   `--version=0.1.6-dev` performs an exact match or matches the latest build of that pre-release.
+*   **SemVer Strictness**:
+    *   **Bare versions** (e.g., `0.1`, `1.0.0`) will **never** match a pre-release (e.g., `-dev`) or a build (e.g., `+mod`).
+    *   To match a pre-release, you must explicitly include the pre-release identifier in your selector (e.g., `--version=0.1-dev`).
+
 ##### `dwimsy meta diff`
 Shows the canonical project diff between the current working tree and the embedded baseline, or between two specified version targets. The comparison elides the generated `blztar` payload in `unbundle.py`, writes the unified diff to stdout, and does not create a bundle file.
 
@@ -667,7 +696,7 @@ dwimsy meta diff
 dwimsy meta diff 0.1.6.55-dev 0.1.6.56-dev
 
 # Compare on-disk checkout against bundle baseline from an external directory
-python3 dwimsy_0.1.6.61-dev.py --version-include-primary=. dwimsy meta diff baseline alt
+python3 dwimsy_0.1.6.69-dev.py --version-include-primary=. dwimsy meta diff baseline alt
 ```
 
 ##### `dwimsy meta integrity`
@@ -855,9 +884,9 @@ To maintain absolute synchronization between the source checkout and the portabl
 To ensure cross-platform terminal compatibility, clean diff tracking, and seamless script-driven automated patching:
 
 1. **Pure ASCII Source Code**: All Python source files outside `deps/` are strictly 100% pure ASCII.
-2. **Hyphen-Minus Dash Policy**: All non-`deps/` files (`.py`, `.md`, `.txt`) strictly use ASCII hyphen-minus `-` (`0x2D`). Unicode em dashes (`&mdash;` `U+2014`) and en dashes (`&ndash;` `U+2013`) are forbidden.
+2. **Hyphen-Minus Dash Policy**: All non-`deps/` files (`.py`, `.md`, `.txt`) strictly use ASCII hyphen-minus `-` (`0x2D`). Unicode em dashes (&mdash; `U+2014`) and en dashes (&ndash; `U+2013`) are forbidden.
 3. **Reserved Syntax for Meta-Coding**: Triple single quotes (&apos;&apos;&apos;) are strictly forbidden in all non-`deps/` Python and Markdown files. All docstrings and multi-line strings must use double-quote delimiters (`"""` or `r"""`). This reserves &apos;&apos;&apos; as guaranteed collision-free wrapper syntax for meta-programming and automated code generation tools.
-4. **Standard GFM Markdown Math**: Markdown files use literal Unicode symbols (e.g. `≈`, `µs`, `→`, `~`) and backtick code spans; raw inline LaTeX delimiters (`&dollar;...&dollar;`) and LaTeX commands (`&bsol;approx`, `&bsol;text`, `&bsol;frac`) are forbidden to ensure clean rendering on standard GitHub and terminal Markdown parsers.
+4. **Standard GFM Markdown Math**: Markdown files use literal Unicode symbols (e.g. `≈`, `µs`, `→`, `~`) and backtick code spans; raw inline LaTeX delimiters (&dollar;...&dollar;) and LaTeX commands (&bsol;approx, &bsol;text, &bsol;frac) are forbidden to ensure clean rendering on standard GitHub and terminal Markdown parsers.
 
 ## 4. Existing Project Lineage & Asset Repositories
 
@@ -2058,7 +2087,7 @@ Multi-stream bundles delimit stream versions using comma `,` with uniform `,altN
 - Timestamps: ISO 8601 UTC timestamps (`YYYY-MM-DDTHH:MM:SSZ`) derived from layer metadata.
 - Hashes: 12-character short hashes by default for easy visual correlation with `--version` and `+mod.<short_hash>` tails. Specifying `--verbose` (`dwimsy --version-list --verbose`) expands hashes to full 64-character SHA-256 strings.
 - Single Shared Entry: When an on-disk checkout is content-identical to the baseline, the redundant top `[unbundled]` row is omitted, and the primary baseline row includes `=unbundled` in its annotations (`[=baseline, =primary, =unbundled, =selected]`).
-- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.61-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
+- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.69-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
 
 ### Execution Model & The Three Paths
 - Path A: Default in-memory virtual mount via `BundleFinder` (zero disk writes).

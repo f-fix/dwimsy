@@ -8,7 +8,7 @@ import difflib
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 for p in Path(__file__).resolve().parents:
     if (p / "dwimsy").is_dir() and str(p) not in sys.path:
@@ -90,6 +90,28 @@ def render_diff(
         old_bytes = None if a is None else integrity._canonical_bytes(a, name)
         new_bytes = None if b is None else integrity._canonical_bytes(b, name)
 
+        def _sub_version_summary_bytes(data):
+            if data is None or not name.endswith("unbundle.py"):
+                return data
+            text = data.decode("utf-8", errors="replace")
+            m = re.search(r'blztar = """([\s\S]*?)"""', text)
+            if not m or not m.group(1).strip():
+                return data
+            summary = vspace.format_list_versions(on_disk_root=repo if repo else None)
+            ph = (
+                'blztar = """\n'
+                '<- actual omitted base64 lzma tar sequence(s) would start here\n\n'
+                '$VERSION_SUMMARY\n' + summary + '\n\n'
+                'actual omitted base64 lzma tar sequence(s) would end here ->\n'
+                '"""'
+            )
+            return (text[:m.start()] + ph + text[m.end():]).encode("utf-8")
+
+        # Normalize the generated blztar payload before equality testing; otherwise
+        # canonical bundle elision can bypass the intended $VERSION_SUMMARY view.
+        old_bytes = _sub_version_summary_bytes(old_bytes)
+        new_bytes = _sub_version_summary_bytes(new_bytes)
+
         if old_bytes == new_bytes:
             continue
 
@@ -107,22 +129,6 @@ def render_diff(
             new_lines = new_bytes.decode("utf-8", errors="replace").splitlines(True)
             new_label = f"{v2_tag}/{name}"
 
-        if name.endswith("unbundle.py"):
-
-            def _sub_version_summary(data_lines):
-                text = "".join(data_lines)
-                m = re.search(r'blztar = """([\s\S]*?)"""', text)
-                if m and m.group(1).strip():
-                    summary = vspace.format_list_versions(
-                        on_disk_root=repo if repo else None
-                    )
-                    ph = f'blztar = """\n<- actual omitted base64 lzma tar sequence(s) would start here\n\n$VERSION_SUMMARY\n{summary}\n\nactual omitted base64 lzma tar sequence(s) would end here ->\n"""'
-                    text = text[: m.start()] + ph + text[m.end() :]
-                    return text.splitlines(True)
-                return data_lines
-
-            old_lines = _sub_version_summary(old_lines)
-            new_lines = _sub_version_summary(new_lines)
 
         diff = list(
             difflib.unified_diff(

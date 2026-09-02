@@ -43,6 +43,46 @@ class TestMetaBundle(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             unbundle.get_asset("non_existent_file_xyz.txt")
 
+    def test_unbundle_cli_force_dry_run_and_quiet_flags_are_wired(self):
+        unbundle_script = Path(unbundle.__file__).resolve()
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            dry = tmp_path / "dry"
+            res = subprocess.run(
+                [sys.executable, str(unbundle_script), "--dry-run", str(dry)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertFalse(dry.exists())
+
+            quiet = tmp_path / "quiet"
+            res = subprocess.run(
+                [sys.executable, str(unbundle_script), "--quiet", str(quiet)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertTrue((quiet / "README.md").is_file())
+            self.assertEqual(res.stdout, "")
+
+            conflict = tmp_path / "conflict"
+            conflict.mkdir()
+            (conflict / "README.md").write_text("local\n", encoding="utf-8")
+            res = subprocess.run(
+                [sys.executable, str(unbundle_script), str(conflict)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(res.returncode, 0)
+            res = subprocess.run(
+                [sys.executable, str(unbundle_script), "-f", str(conflict)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertNotEqual((conflict / "README.md").read_text(encoding="utf-8"), "local\n")
+
     def test_unbundle_extract_default_excludes_deps(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -124,6 +164,19 @@ class TestMetaBundle(unittest.TestCase):
 
             self.assertTrue((tmp_path / "deps").is_dir())
             self.assertTrue((tmp_path / "deps" / "bin2fds" / "bin2fds.py").is_file())
+
+    def test_bundle_roundtrip_is_candidate_self_consistent_not_checkout_equal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            unbundle.extract_b64_lzma_tar(unbundle.blztar, tmp_path, with_deps=True)
+            (tmp_path / "README.md").write_text(
+                (tmp_path / "README.md").read_text(encoding="utf-8") + "\nroundtrip fixture\n",
+                encoding="utf-8",
+            )
+            script = bundle.build_bundle_script(tmp_path, with_deps=True, preset=1)
+            # This tree intentionally differs from the current checkout.  The
+            # verifier must validate candidate -> extract -> rebundle only.
+            bundle.verify_bundle_roundtrip(script, repo_root=Path(__file__).resolve().parent.parent)
 
     def test_cli_meta_bundle_to_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -292,14 +345,12 @@ class TestMetaBundle(unittest.TestCase):
             (root / "dwimsy" / "main.py").write_text("")
             (root / "dwimsy" / "meta").mkdir()
             (root / "dwimsy" / "meta" / "unbundle.py").write_text('blztar = """\n"""\n')
-            (root / ".gitignore").write_text(
-                """
+            (root / ".gitignore").write_text("""
 __pycache__/
 *.tmp
 ignored_dir/
 dwimsy/ignored_file.py
-"""
-            )
+""")
             (root / "dwimsy" / "test.tmp").write_text("temp data")
             (root / "ignored_dir").mkdir()
             (root / "ignored_dir" / "file.txt").write_text("ignored")

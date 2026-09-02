@@ -498,6 +498,53 @@ def build_bundle_script(
     return inject_blztar_bytes(elide_blztar_bytes(template), b64_str).decode("utf-8")
 
 
+def verify_bundle_roundtrip(script_text: str, repo_root: Optional[Path] = None) -> None:
+    """Verify candidate bundle extraction and canonical rebundling are lossless."""
+    root = find_repo_root(repo_root)
+    from dwimsy.meta import integrity as _integrity
+
+    with tempfile.TemporaryDirectory(prefix="dwimsy_roundtrip_") as tmp:
+        tmpdir = Path(tmp)
+        candidate = tmpdir / "candidate.py"
+        candidate.write_text(script_text, encoding="utf-8")
+        candidate.chmod(0o755)
+        extracted = tmpdir / "extracted"
+        extracted.mkdir()
+        proc = subprocess.run(
+            [
+                sys.executable,
+                str(candidate),
+                "meta",
+                "unbundle",
+                str(extracted),
+                "--deps",
+                "--force",
+            ],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "DWIMSY_REBUNDLE_VERIFYING": "1"},
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                "Bundle round-trip extraction failed"
+                + (f": {proc.stderr.strip()}" if proc.stderr.strip() else "")
+            )
+
+        # The round-trip invariant is candidate -> extraction -> canonical rebundle.
+        # Do not compare the extracted tree to the current checkout here: a bundle
+        # is allowed to represent a historical version that intentionally differs
+        # from the checkout used to run this verifier.
+        rebuilt = build_bundle_script(extracted, with_deps=True)
+        candidate_canonical = _integrity._canonical_bytes(
+            script_text.encode("utf-8"), "dwimsy/meta/unbundle.py"
+        )
+        rebuilt_canonical = _integrity._canonical_bytes(
+            rebuilt.encode("utf-8"), "dwimsy/meta/unbundle.py"
+        )
+        if candidate_canonical != rebuilt_canonical:
+            raise RuntimeError("Bundle round-trip canonical rebundle differs from candidate")
+
+
 def write_pyz_bundle(script_text: str, output_path: Path) -> None:
     """Generate a compressed .pyz bundle using stdlib zipapp."""
     import zipapp
@@ -663,6 +710,9 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
             if proc.stderr:
                 stderr.write(proc.stderr)
             return 1
+
+    if not os.environ.get("DWIMSY_REBUNDLE_VERIFYING"):
+        verify_bundle_roundtrip(script_text, repo_root=root)
 
     if out_name == "-":
         stdout.write(script_text)

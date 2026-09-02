@@ -5,6 +5,46 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.69-dev] - 2026-09-02
+
+### Changed
+- Implement multistream specification compliance and harden the release bundle
+
+## [0.1.6.68-dev] - 2026-09-02
+
+### Changed
+- Integrate hardened unbundle controls and candidate self-round-trip verification
+
+## [0.1.6.67-dev] - 2026-09-01
+
+### Changed
+- Complete set-valued selectors and harden bundle/unbundle verification
+
+## [0.1.6.66-dev] - 2026-08-31
+
+### Changed
+- Restore =~ aliases and fix duplicate = matches in version list
+
+## [0.1.6.65-dev] - 2026-08-31
+
+### Changed
+- Strict SemVer match fix + fast bundle
+
+## [0.1.6.64-dev] - 2026-08-31
+
+### Changed
+- Strict SemVer compliance for bare version patterns (v2)
+
+## [0.1.6.63-dev] - 2026-08-31
+
+### Changed
+- Strict SemVer compliance for bare version patterns and repair versions.py
+
+## [0.1.6.62-dev] - 2026-08-31
+
+### Changed
+- Enhanced semantic version matching logic.
+
 ## [0.1.6.61-dev] - 2026-08-30
 
 ### Changed
