@@ -252,6 +252,20 @@ class GitIgnoreMatcher:
         return matched
 
 
+def _canonical_layer_mtimes(root: Path, names) -> tuple[int, dict[str, int]]:
+    """Return one newest on-disk mtime for the supplied changed files."""
+    mtimes = {}
+    for name in names:
+        fp = root / name
+        if fp.is_file():
+            try:
+                mtimes[name] = int(fp.stat().st_mtime)
+            except OSError:
+                pass
+    layer_mtime = max(mtimes.values()) if mtimes else int(time.time())
+    return layer_mtime, {name: layer_mtime for name in names}
+
+
 def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, bytes]:
     """Return the deterministic portable file tree used by bundle creation."""
     result: dict[str, bytes] = {}
@@ -704,16 +718,7 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
             primary.layers.pop()
             primary.mark_mutated()
         else:
-            d_mtimes = {}
-            for name in delta:
-                fp = root / name
-                if fp.is_file():
-                    try:
-                        d_mtimes[name] = int(fp.stat().st_mtime)
-                    except OSError:
-                        pass
-            d_layer_mtime = max(d_mtimes.values()) if d_mtimes else int(time.time())
-            d_mtimes = {name: d_layer_mtime for name in delta}
+            d_layer_mtime, d_mtimes = _canonical_layer_mtimes(root, delta)
             declared_base = current_tag.split("+")[0]
             mod_hash = integrity.modification_hash(root)
             mod_tag = f"{declared_base}+mod.{mod_hash}"
@@ -729,23 +734,21 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
                 allow_replacement=True,
             )
     elif not head:
+        d_layer_mtime, d_mtimes = _canonical_layer_mtimes(root, new_state)
         primary.append_layer(
-            Layer(dict(new_state), is_delta=False, version_tag=current_tag)
+            Layer(
+                dict(new_state),
+                is_delta=False,
+                version_tag=current_tag,
+                mtime=d_layer_mtime,
+                file_mtimes=d_mtimes,
+            )
         )
     else:
         head_state = primary.materialize_layer_state(head.ordinal)
         delta = compute_tree_delta(head_state, new_state)
         if delta and integrity.is_modified(root):
-            d_mtimes = {}
-            for name in delta:
-                fp = root / name
-                if fp.is_file():
-                    try:
-                        d_mtimes[name] = int(fp.stat().st_mtime)
-                    except OSError:
-                        pass
-            d_layer_mtime = max(d_mtimes.values()) if d_mtimes else int(time.time())
-            d_mtimes = {name: d_layer_mtime for name in delta}
+            d_layer_mtime, d_mtimes = _canonical_layer_mtimes(root, delta)
             declared_base = current_tag.split("+")[0]
             mod_hash = integrity.modification_hash(root)
             mod_tag = f"{declared_base}+mod.{mod_hash}"

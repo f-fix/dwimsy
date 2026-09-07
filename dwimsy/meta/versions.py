@@ -1981,7 +1981,9 @@ class VersionSpace:
             if int(value) > 0 and int(value) != LEGACY_BOGUS_MTIME:
                 meaningful.append(int(value))
 
-        if getattr(layer, "tar_bytes", None):
+        # Current layers already carry canonical file_mtimes.  Only parse
+        # the TAR payload for older layers that lack usable member timestamps.
+        if not meaningful and getattr(layer, "tar_bytes", None):
             try:
                 import io
                 import tarfile
@@ -2015,11 +2017,22 @@ class VersionSpace:
             c_candidates = []
             if "CHANGELOG.md" in layer.files:
                 c_candidates.append(layer.files["CHANGELOG.md"])
-            for stream in getattr(self, "streams", []):
-                for lyr in reversed(stream.layers):
-                    if "CHANGELOG.md" in lyr.files:
-                        c_candidates.append(lyr.files["CHANGELOG.md"])
-                        break
+            else:
+                # Fall back only through the historical state of this layer's
+                # own stream; never borrow an unrelated stream's changelog.
+                for stream in getattr(self, "streams", []):
+                    try:
+                        ordinal = next(
+                            i for i, candidate in enumerate(stream.layers)
+                            if candidate is layer
+                        )
+                    except StopIteration:
+                        continue
+                    for lyr in reversed(stream.layers[: ordinal + 1]):
+                        if "CHANGELOG.md" in lyr.files:
+                            c_candidates.append(lyr.files["CHANGELOG.md"])
+                            break
+                    break
             tag_escaped = re.escape(tag)
             for c_data in c_candidates:
                 try:

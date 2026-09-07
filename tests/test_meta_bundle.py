@@ -16,7 +16,7 @@ if str(pkg_root) not in sys.path:
     sys.path.insert(0, str(pkg_root))
 
 from dwimsy.cli import main as dwimsy_cli_main
-from dwimsy.meta import bundle, integrity, unbundle
+from dwimsy.meta import bundle, integrity, unbundle, versions
 
 
 @unittest.skipIf(
@@ -320,7 +320,24 @@ class TestMetaBundle(unittest.TestCase):
             pyz = py.with_suffix(".pyz")
             self.assertTrue(pyz.is_file())
             self.assertNotIn("+mod.", py.name)
-            self.assertNotIn("+mod.", py.read_text(encoding="utf-8"))
+            # The implementation itself legitimately contains the literal
+            # "+mod."; inspect the generated VersionSpace rather than source
+            # text to verify that the baseline contains no modification layer.
+            source = py.read_bytes()
+            match = re.search(
+                rb'(?ms)^\s*blztar\s*=\s*"""(.*?)"""', source
+            )
+            self.assertIsNotNone(match)
+            generated_space = versions.VersionSpace.from_blztar(
+                match.group(1).decode("ascii")
+            )
+            self.assertFalse(
+                any(
+                    "+mod." in layer.version_tag.lower()
+                    for stream in generated_space.streams
+                    for layer in stream.layers
+                )
+            )
             output = err.getvalue()
             self.assertIn("Generated bundles:", output)
             self.assertIn(str(py), output)
