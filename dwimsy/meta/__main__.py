@@ -62,7 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show full detailed help for all meta subcommands and exit",
     )
 
-    subparsers = parser.add_subparsers(dest="meta_command", metavar="<meta-command>", parser_class=PagedArgumentParser)
+    subparsers = parser.add_subparsers(
+        dest="meta_command", metavar="<meta-command>", parser_class=PagedArgumentParser
+    )
 
     # bundle
     p_bundle = subparsers.add_parser(
@@ -188,7 +190,10 @@ def build_parser() -> argparse.ArgumentParser:
         "target_version", nargs="?", default=None, help="Explicit new version string"
     )
     p_bump.add_argument(
-        "--set-version", dest="set_version", default=None, help="Explicit new version string (alias for positional target version)"
+        "--set-version",
+        dest="set_version",
+        default=None,
+        help="Explicit new version string (alias for positional target version)",
     )
     p_bump.add_argument(
         "--patch", action="store_true", help="Increment patch component"
@@ -368,6 +373,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             out = diff.render_diff(root=root_path, v1_sel=v1, v2_sel=v2)
             if out:
                 from dwimsy.meta.unbundle import safe_page
+
                 safe_page(out)
             return 0
         except (ValueError, RuntimeError) as exc:
@@ -398,12 +404,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         if sum(bool(x) for x in tier_flags) > 1:
             print("error: bump tiers are mutually exclusive", file=sys.stderr)
             return 1
-        explicit_version = getattr(args, "set_version", None) or getattr(args, "target_version", None)
-        if getattr(args, "set_version", None) is not None and getattr(args, "target_version", None) is not None:
-            print("error: target_version and --set-version are mutually exclusive", file=sys.stderr)
+        explicit_version = getattr(args, "set_version", None) or getattr(
+            args, "target_version", None
+        )
+        if (
+            getattr(args, "set_version", None) is not None
+            and getattr(args, "target_version", None) is not None
+        ):
+            print(
+                "error: target_version and --set-version are mutually exclusive",
+                file=sys.stderr,
+            )
             return 1
         if explicit_version is None and not any(tier_flags):
-            print("error: specify an explicit target version or a bump tier (--major, --minor, --patch, or --rev)", file=sys.stderr)
+            print(
+                "error: specify an explicit target version or a bump tier (--major, --minor, --patch, or --rev)",
+                file=sys.stderr,
+            )
             return 1
         if getattr(args, "major", False):
             part = "major"
@@ -415,7 +432,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             part = "rev"
         try:
             new_v = version_bump.bump_version(
-                version_str=(getattr(args, "set_version", None) or getattr(args, "target_version", None)),
+                version_str=(
+                    getattr(args, "set_version", None)
+                    or getattr(args, "target_version", None)
+                ),
                 part=part,
                 release=getattr(args, "release", False),
                 dev=getattr(args, "dev", False),
@@ -429,7 +449,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"Version bumped to {new_v}")
         return 0
     elif args.meta_command == "lint":
-        lint_root = Path(args.repo_root).resolve() if getattr(args, "repo_root", None) else None
+        lint_root = (
+            Path(args.repo_root).resolve() if getattr(args, "repo_root", None) else None
+        )
         errs = lint.run_all_lints(lint_root)
         if errs:
             for e in errs:

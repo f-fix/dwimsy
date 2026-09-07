@@ -425,6 +425,7 @@ class TestVersionBumpChangelogFormatting(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
 class TestV91GitMetadataUnbundle(unittest.TestCase):
     def test_safe_unbundle_ignores_git_metadata_in_target_tree(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -450,8 +451,9 @@ class TestV91GitMetadataUnbundle(unittest.TestCase):
                 for p in root.rglob("*")
                 if p.is_file() and ".git" not in p.relative_to(root).parts
             }
-            unbundle_mod.materialize_stream0_assets_with_removals = (
-                lambda _b64: (assets, set())
+            unbundle_mod.materialize_stream0_assets_with_removals = lambda _b64: (
+                assets,
+                set(),
             )
             try:
                 safe_unbundle(output_dir=root, force=False, quiet=True)

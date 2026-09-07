@@ -390,7 +390,8 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                     for m in src_tar.getmembers():
                         norm = m.name.removeprefix("./")
                         if (norm == "deps" or norm.startswith("deps/")) and (
-                            norm == "deps" or integrity._manifest_matches(norm, manifest)
+                            norm == "deps"
+                            or integrity._manifest_matches(norm, manifest)
                         ):
                             arcname = "./" + norm
                             tarinfo = tarfile.TarInfo(name=arcname)
@@ -649,8 +650,13 @@ def _set_layer_version_tag(
             updated = True
             break
     if not updated:
-        result["dwimsy/_version.py"] = f'"""dwimsy._version - Project version and sealed build identifier."""\n\n__version__ = "{version_tag}"\n__code_hash__ = ""\n'.encode("utf-8")
+        result["dwimsy/_version.py"] = (
+            f'"""dwimsy._version - Project version and sealed build identifier."""\n\n__version__ = "{version_tag}"\n__code_hash__ = ""\n'.encode(
+                "utf-8"
+            )
+        )
     return result
+
 
 def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     """Generate a bundle while preserving the current VersionSpace history."""
@@ -672,6 +678,7 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
 
     if getattr(args, "diff", False):
         from dwimsy.meta.diff import render_diff
+
         diff_text = render_diff(root)
         if diff_text:
             stdout.write(diff_text)
@@ -712,11 +719,19 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
             mod_tag = f"{declared_base}+mod.{mod_hash}"
             delta = _set_layer_version_tag(delta, mod_tag)
             primary.append_layer(
-                Layer(delta, is_delta=True, version_tag=mod_tag, mtime=d_layer_mtime, file_mtimes=d_mtimes),
+                Layer(
+                    delta,
+                    is_delta=True,
+                    version_tag=mod_tag,
+                    mtime=d_layer_mtime,
+                    file_mtimes=d_mtimes,
+                ),
                 allow_replacement=True,
             )
     elif not head:
-        primary.append_layer(Layer(dict(new_state), is_delta=False, version_tag=current_tag))
+        primary.append_layer(
+            Layer(dict(new_state), is_delta=False, version_tag=current_tag)
+        )
     else:
         head_state = primary.materialize_layer_state(head.ordinal)
         delta = compute_tree_delta(head_state, new_state)
@@ -736,7 +751,13 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
             mod_tag = f"{declared_base}+mod.{mod_hash}"
             delta = _set_layer_version_tag(delta, mod_tag)
             primary.append_layer(
-                Layer(delta, is_delta=True, version_tag=mod_tag, mtime=d_layer_mtime, file_mtimes=d_mtimes)
+                Layer(
+                    delta,
+                    is_delta=True,
+                    version_tag=mod_tag,
+                    mtime=d_layer_mtime,
+                    file_mtimes=d_mtimes,
+                )
             )
 
     script_text = build_bundle_script(root, with_deps=True, version_space=vspace)
@@ -834,7 +855,9 @@ def run_meta_fetch_deps(args, stdout=None, stderr=None) -> int:
     # dispatcher before this handler runs.  Dependency materialization is
     # therefore based on the active embedded payload here; the selected
     # version has already determined that payload.
-    use_baseline = bool(getattr(args, "baseline", False)) or not (repo_root / ".git").exists()
+    use_baseline = (
+        bool(getattr(args, "baseline", False)) or not (repo_root / ".git").exists()
+    )
 
     if not use_baseline:
         res = subprocess.run(
@@ -909,14 +932,41 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "-o", "--output", default=None, help="Output bundle filepath (.py, .pyz, or -)"
     )
-    parser.add_argument("--baseline", action="store_true", help="Bundle clean baseline without working tree delta")
-    parser.add_argument("-t", "--tag", default=None, help="Optional short descriptive tag/label")
-    parser.add_argument("--with-deps", action="store_true", help="Include legacy submodule scaffolding from deps/")
-    parser.add_argument("--status", action="store_true", help="List uncommitted/modified and untracked files")
-    parser.add_argument("--diff", action="store_true", help="Display working tree diff before bundling")
-    parser.add_argument("-f", "--force", action="store_true", help="Force bundle emission, overwriting collisions")
-    parser.add_argument("--dry-run", action="store_true", help="Build bundle in memory/temp and display manifest without writing output")
-    parser.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="Bundle clean baseline without working tree delta",
+    )
+    parser.add_argument(
+        "-t", "--tag", default=None, help="Optional short descriptive tag/label"
+    )
+    parser.add_argument(
+        "--with-deps",
+        action="store_true",
+        help="Include legacy submodule scaffolding from deps/",
+    )
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="List uncommitted/modified and untracked files",
+    )
+    parser.add_argument(
+        "--diff", action="store_true", help="Display working tree diff before bundling"
+    )
+    parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Force bundle emission, overwriting collisions",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build bundle in memory/temp and display manifest without writing output",
+    )
+    parser.add_argument(
+        "--help-all", action="store_true", help="Show full help documentation and exit"
+    )
     parser.add_argument("--version-include", action="append", default=[])
     parser.add_argument("--version-restrict-to", default=None)
     parser.add_argument("--version-prune", default=None)
@@ -970,10 +1020,25 @@ def main(argv: Optional[List[str]] = None) -> int:
         d_mtimes = {name: d_layer_mtime for name in delta}
         if is_replace:
             primary.append_layer(
-                Layer(delta, is_delta=True, version_tag=v_tag, mtime=d_layer_mtime, file_mtimes=d_mtimes), allow_replacement=True
+                Layer(
+                    delta,
+                    is_delta=True,
+                    version_tag=v_tag,
+                    mtime=d_layer_mtime,
+                    file_mtimes=d_mtimes,
+                ),
+                allow_replacement=True,
             )
         elif delta or not head:
-            primary.append_layer(Layer(delta, is_delta=True, version_tag=v_tag, mtime=d_layer_mtime, file_mtimes=d_mtimes))
+            primary.append_layer(
+                Layer(
+                    delta,
+                    is_delta=True,
+                    version_tag=v_tag,
+                    mtime=d_layer_mtime,
+                    file_mtimes=d_mtimes,
+                )
+            )
     alt_val = (
         (True, args.version_alt)
         if isinstance(args.version_alt, str)

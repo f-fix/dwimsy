@@ -104,8 +104,7 @@ def update_version_files(
             )
             entry = f"{header}\n\n### Changed\n{msg_entry}"
             match = re.search(
-                r"(## \[[^\]]+\] - "
-                r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)",
+                r"(## \[[^\]]+\] - " r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)",
                 c_text,
             )
             if match:
@@ -190,8 +189,13 @@ def _set_layer_version_tag(
             updated = True
             break
     if not updated:
-        result["dwimsy/_version.py"] = f'"""dwimsy._version - Project version and sealed build identifier."""\n\n__version__ = "{version_tag}"\n__code_hash__ = ""\n'.encode("utf-8")
+        result["dwimsy/_version.py"] = (
+            f'"""dwimsy._version - Project version and sealed build identifier."""\n\n__version__ = "{version_tag}"\n__code_hash__ = ""\n'.encode(
+                "utf-8"
+            )
+        )
     return result
+
 
 def sync_bundle_baseline(
     repo_root: Optional[Path] = None,

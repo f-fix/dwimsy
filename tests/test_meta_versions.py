@@ -333,28 +333,54 @@ class TestMetaVersions(unittest.TestCase):
             st.append_layer(Layer(f0, is_delta=True, version_tag="0.1.6.0"))
         self.assertIn("Cannot add duplicate version tag '0.1.6.0'", str(cm.exception))
 
-
     def test_prune_requires_force(self):
-        space = VersionSpace([
-            Stream(0, "primary", [
-                Layer({"a.txt": b"a"}, is_delta=False, version_tag="0.1.6.0-dev"),
-                Layer({"a.txt": b"b"}, is_delta=True, version_tag="0.1.6.1-dev"),
-            ])
-        ])
+        space = VersionSpace(
+            [
+                Stream(
+                    0,
+                    "primary",
+                    [
+                        Layer(
+                            {"a.txt": b"a"}, is_delta=False, version_tag="0.1.6.0-dev"
+                        ),
+                        Layer(
+                            {"a.txt": b"b"}, is_delta=True, version_tag="0.1.6.1-dev"
+                        ),
+                    ],
+                )
+            ]
+        )
         with self.assertRaises(RuntimeError) as ctx:
             space.prune("0.1.6.1-dev")
         self.assertIn("--force", str(ctx.exception))
         space.prune("0.1.6.1-dev", force=True)
-        self.assertEqual([v.tag for v in space.streams[0].get_versions()], ["0.1.6.0-dev"])
+        self.assertEqual(
+            [v.tag for v in space.streams[0].get_versions()], ["0.1.6.0-dev"]
+        )
 
     def test_force_does_not_change_result_beyond_permitting_prune(self):
         def make_space():
-            return VersionSpace([
-                Stream(0, "primary", [
-                    Layer({"a.txt": b"a"}, is_delta=False, version_tag="0.1.6.0-dev"),
-                    Layer({"a.txt": b"b"}, is_delta=True, version_tag="0.1.6.1-dev"),
-                ])
-            ])
+            return VersionSpace(
+                [
+                    Stream(
+                        0,
+                        "primary",
+                        [
+                            Layer(
+                                {"a.txt": b"a"},
+                                is_delta=False,
+                                version_tag="0.1.6.0-dev",
+                            ),
+                            Layer(
+                                {"a.txt": b"b"},
+                                is_delta=True,
+                                version_tag="0.1.6.1-dev",
+                            ),
+                        ],
+                    )
+                ]
+            )
+
         forced = make_space()
         forced.prune("0.1.6.1-dev", force=True)
         self.assertEqual(
@@ -362,12 +388,22 @@ class TestMetaVersions(unittest.TestCase):
         )
 
     def test_restrict_to_requires_force_when_it_discards_history(self):
-        space = VersionSpace([
-            Stream(0, "primary", [
-                Layer({"a.txt": b"a"}, is_delta=False, version_tag="0.1.6.0-dev"),
-                Layer({"a.txt": b"b"}, is_delta=True, version_tag="0.1.6.1-dev"),
-            ])
-        ])
+        space = VersionSpace(
+            [
+                Stream(
+                    0,
+                    "primary",
+                    [
+                        Layer(
+                            {"a.txt": b"a"}, is_delta=False, version_tag="0.1.6.0-dev"
+                        ),
+                        Layer(
+                            {"a.txt": b"b"}, is_delta=True, version_tag="0.1.6.1-dev"
+                        ),
+                    ],
+                )
+            ]
+        )
         with self.assertRaises(RuntimeError) as ctx:
             space.restrict_to("0.1.6.1-dev")
         self.assertIn("--force", str(ctx.exception))
@@ -588,9 +624,9 @@ class TestSetValuedSemanticSelectors(unittest.TestCase):
         self.assertEqual(sv.suffix, "dev")
         self.assertEqual(sv.build, "mod.abc")
 
-
     def test_truncated_primary_to_preserves_history_up_to_target(self):
         from dwimsy.meta import unbundle, versions
+
         raw_b64 = unbundle._get_active_blztar()
         space = versions.VersionSpace.from_blztar(raw_b64)
         head = space.streams[0].get_head_version()

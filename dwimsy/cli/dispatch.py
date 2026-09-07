@@ -44,6 +44,7 @@ def early_dispatch(
 
     if pipeline.get("early_exit") == "version-help":
         from dwimsy.meta.unbundle import safe_page
+
         safe_page(VERSION_SPACE_HELP)
         return True, remaining
 
@@ -59,6 +60,7 @@ def early_dispatch(
             verbose=pipeline.get("version_list_verbose", False),
         )
         from dwimsy.meta.unbundle import safe_page
+
         safe_page(output)
         return True, remaining
 

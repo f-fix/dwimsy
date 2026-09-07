@@ -77,7 +77,9 @@ class TestMtimePolicy(unittest.TestCase):
         self.assertEqual(copied.mtime, layer.mtime)
         self.assertEqual(copied.file_mtimes, layer.file_mtimes)
 
-    def test_repeated_unbundle_does_not_rewrite_identical_unbundle_and_normalizes_mtime(self):
+    def test_repeated_unbundle_does_not_rewrite_identical_unbundle_and_normalizes_mtime(
+        self,
+    ):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp)
             raw_b64 = unbundle._get_active_blztar()

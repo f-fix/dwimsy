@@ -16,7 +16,9 @@ class TestStandaloneDiffIsolation(unittest.TestCase):
             cwd = Path(tmp)
             (cwd / "dwimsy").mkdir()
             (cwd / "dwimsy" / "__init__.py").write_text("\n", encoding="utf-8")
-            with patch.object(diff.integrity, "is_standalone_bundle", return_value=True):
+            with patch.object(
+                diff.integrity, "is_standalone_bundle", return_value=True
+            ):
                 with patch.object(diff.Path, "cwd", return_value=cwd):
                     with self.assertRaisesRegex(ValueError, "could not be resolved"):
                         diff.render_diff()

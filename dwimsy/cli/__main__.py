@@ -25,6 +25,7 @@ class PagedArgumentParser(argparse.ArgumentParser):
         super().__init__(*args, **kwargs)
         self.add_argument("-h", "--help", action=PagedHelpAction)
 
+
 is_checkout, repo_root = unbundle.detect_self_location()
 if is_checkout and repo_root and str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
@@ -724,7 +725,9 @@ def main(
         help="Show full detailed help for all subcommands at once and exit",
     )
 
-    subparsers = parser.add_subparsers(dest="command", metavar="<command>", parser_class=PagedArgumentParser)
+    subparsers = parser.add_subparsers(
+        dest="command", metavar="<command>", parser_class=PagedArgumentParser
+    )
 
     p_conv = subparsers.add_parser(
         "convert", help="Convert between media representations (WAV, T88, CMT)."
@@ -1280,7 +1283,10 @@ def main(
         "target_version", nargs="?", default=None, help="Explicit new version string"
     )
     p_meta_bump.add_argument(
-        "--set-version", dest="set_version", default=None, help="Explicit new version string (alias for positional target version)"
+        "--set-version",
+        dest="set_version",
+        default=None,
+        help="Explicit new version string (alias for positional target version)",
     )
     p_meta_bump.add_argument(
         "--patch", action="store_true", help="Increment patch component"
@@ -1323,16 +1329,32 @@ def main(
     )
 
     meta_subparsers.add_parser(
-        "bundle-fixtures", help="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures."
+        "bundle-fixtures",
+        help="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
     )
 
     # Roadmap placeholders
     for pl, h in [
-        ("charset", "[NOT IMPLEMENTED — Milestone 2.3] Streaming character set converter."),
-        ("extract", "[NOT IMPLEMENTED — Milestone 2.3] Payload and filesystem extractor."),
-        ("package", "[NOT IMPLEMENTED — Milestone 2.4] ROM cartridge compiler (cas2rom / mkrom)."),
-        ("bridge", "[NOT IMPLEMENTED — Milestone 2.5] Real-time hardware transport gateway."),
-        ("archive", "[NOT IMPLEMENTED — Milestone 2.5] Archival preservation bundle generator."),
+        (
+            "charset",
+            "[NOT IMPLEMENTED — Milestone 2.3] Streaming character set converter.",
+        ),
+        (
+            "extract",
+            "[NOT IMPLEMENTED — Milestone 2.3] Payload and filesystem extractor.",
+        ),
+        (
+            "package",
+            "[NOT IMPLEMENTED — Milestone 2.4] ROM cartridge compiler (cas2rom / mkrom).",
+        ),
+        (
+            "bridge",
+            "[NOT IMPLEMENTED — Milestone 2.5] Real-time hardware transport gateway.",
+        ),
+        (
+            "archive",
+            "[NOT IMPLEMENTED — Milestone 2.5] Archival preservation bundle generator.",
+        ),
         ("recover", "Forensic bit/pulse recovery engine."),
     ]:
         subparsers.add_parser(pl, help=h, description=h)

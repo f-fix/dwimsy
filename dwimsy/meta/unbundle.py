@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.99-dev (2026-09-07)
+Version: 0.1.6.100-dev (2026-09-07)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.99-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.100-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.99-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.99-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.99-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.99-dev.py dwimsy license
-  python3 dwimsy_0.1.6.99-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.100-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.100-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.100-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.100-dev.py dwimsy license
+  python3 dwimsy_0.1.6.100-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.99-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.100-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -70,6 +70,7 @@ class _LazyVersionAction(argparse.Action):
         fn = self.version_fn or get_bundle_version
         parser._print_message(f"{parser.prog} {fn()}\n", sys.stdout)
         parser.exit()
+
 
 def safe_page(text: str, out_stream=None) -> None:
     """Output text using terminal pager if stdout is a TTY, falling back cleanly to direct write."""
@@ -5037,7 +5038,7 @@ chVZmZJGHLkW0Z93zp93DySjUPYLaVvtvVwvZaq3yjf/KtEayBlXzEgJEHu4X3cn1CY5xFWj6pq2
 JqP3DkwomXGvQcqDhssEI2BmfslblclND63sRdg2SJiVbGRnWxxuK2Ht+pmH+y6kGP4bAcJW6gXc
 /AnHph6l6Ua329XZInvi5sHFrqNc/A8+mXRvfSkCCn/bevVZRY+etGBF8LtmZ84uewtwk88c8Yu3
 eP4YAxI2gIbAbx+F72hYoqU4JPYHalZsd6Xwh8cHBxTmGLowHc/BTFt3xUfsXR+aBzLcjWyESLAo
-VESYyS4rYxn76366Hqu8CozyJQaYAO3YyxScJvUvDjIwX1CUngN7rD7mbDa77CjLhdGVmn1zx+Id
+VESYyS4rYxn76366Hqu8CpbKJQ8/AO3YyxScJvUvDjIwX1CUngN7rD7mbDa77CjLhdGVmn1zx+Id
 LcjspMQBXV1QGgApYZBwHvwabFxIVdXGQCyqvj69LrOSgMSSdZUNlcw4TNauCn4zH+R6yOXCWyAT
 vkOeqBCyYNSQ6JAk2vT0M9mYPrYyk1KopxHdbp4HZ6HM3mycnaA9mnjjr0Ue3WNWxiknqOszI3sf
 syCWLDl/QtFEQWDdgc3NsXbFeyP88qIXXZPWWxV9yfcAnXDSQGayiYEObjqCICeLqhIOmxDfqXVY
@@ -5066,8 +5067,47 @@ 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
-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
+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
 """
 
 
@@ -5135,7 +5175,10 @@ def get_bundle_version() -> str:
 
 def iter_tar_layers(raw_tar_bytes: bytes) -> List[Dict[str, bytes]]:
     """Parse concatenated TAR layers from raw bytes."""
-    if not raw_tar_bytes or (raw_tar_bytes[:512] == b'\x00' * min(512, len(raw_tar_bytes)) and raw_tar_bytes.count(b'\x00') == len(raw_tar_bytes)):
+    if not raw_tar_bytes or (
+        raw_tar_bytes[:512] == b"\x00" * min(512, len(raw_tar_bytes))
+        and raw_tar_bytes.count(b"\x00") == len(raw_tar_bytes)
+    ):
         return []
 
     layers: List[Dict[str, bytes]] = []
@@ -5144,7 +5187,10 @@ def iter_tar_layers(raw_tar_bytes: bytes) -> List[Dict[str, bytes]]:
 
     while offset < total:
         remaining = raw_tar_bytes[offset:]
-        if not remaining or (remaining[:512] == b'\x00' * min(512, len(remaining)) and remaining.count(b'\x00') == len(remaining)):
+        if not remaining or (
+            remaining[:512] == b"\x00" * min(512, len(remaining))
+            and remaining.count(b"\x00") == len(remaining)
+        ):
             break
 
         tar_bio = io.BytesIO(remaining)
@@ -5454,7 +5500,10 @@ def safe_unbundle(
                     st_canonical = {
                         name: _safe_canonical_bytes(data, name)
                         for name, data in st.items()
-                        if (with_deps or not (name == "deps" or name.startswith("deps/")))
+                        if (
+                            with_deps
+                            or not (name == "deps" or name.startswith("deps/"))
+                        )
                         and not (
                             any(part == ".git" for part in Path(name).parts)
                             or any(part == "__pycache__" for part in Path(name).parts)
@@ -5469,7 +5518,11 @@ def safe_unbundle(
 
         if matching_ver_tag is None:
             try:
-                declared_v = integrity._version_values(out_path).get("__version__", "").split("+mod.")[0]
+                declared_v = (
+                    integrity._version_values(out_path)
+                    .get("__version__", "")
+                    .split("+mod.")[0]
+                )
                 if declared_v:
                     res_decl = vspace.resolve_version_ref(declared_v)
                     if res_decl is not None:
@@ -5498,10 +5551,7 @@ def safe_unbundle(
                         continue
                     if "__pycache__" in Path(name).parts or name.endswith(".pyc"):
                         continue
-                    if (
-                        name == "deps"
-                        or name.startswith("deps/")
-                    ) and not with_deps:
+                    if (name == "deps" or name.startswith("deps/")) and not with_deps:
                         continue
                     if (
                         Path(name).parent == Path(".")
@@ -5546,10 +5596,17 @@ def safe_unbundle(
                 )
                 raise RuntimeError(msg)
 
-    if previous_version_tag and target_version_tag and previous_version_tag != target_version_tag:
+    if (
+        previous_version_tag
+        and target_version_tag
+        and previous_version_tag != target_version_tag
+    ):
         try:
             from dwimsy.meta.versions import parse_semver
-            rollback_is_destructive = parse_semver(target_version_tag) < parse_semver(previous_version_tag)
+
+            rollback_is_destructive = parse_semver(target_version_tag) < parse_semver(
+                previous_version_tag
+            )
         except Exception:
             rollback_is_destructive = bool(reconcile_removals)
 
@@ -5562,14 +5619,19 @@ def safe_unbundle(
                 return tag.lower().split("+mod.", 1)[0]
 
             history_preserved_elsewhere = any(
-                any(_base_tag(v.tag) == _base_tag(previous_version_tag) for v in stream.get_versions())
+                any(
+                    _base_tag(v.tag) == _base_tag(previous_version_tag)
+                    for v in stream.get_versions()
+                )
                 for stream in vspace.streams[1:]
             )
             # A --version-alt branch is itself the preservation mechanism.  If
             # the caller has explicitly requested it, trust that topology even
             # when the previous working-tree state is represented by a synthetic
             # or +mod. tag that is not byte-for-byte named like the alternate head.
-            history_preserved_elsewhere = history_preserved_elsewhere or preserve_previous_history
+            history_preserved_elsewhere = (
+                history_preserved_elsewhere or preserve_previous_history
+            )
             if not history_preserved_elsewhere and len(vspace.streams) > 1:
                 try:
                     prev_sem = parse_semver(previous_version_tag)
@@ -5598,7 +5660,9 @@ def safe_unbundle(
                 if target_version is not None:
                     res_target = vspace.resolve_version_ref(target_version)
                     if res_target is not None and res_target[0].index == 0:
-                        history_b64 = vspace.truncated_primary_to(res_target[1]).to_blztar()
+                        history_b64 = vspace.truncated_primary_to(
+                            res_target[1]
+                        ).to_blztar()
 
     # 3. Compute manifest actions and perform extraction
     removals.update(reconcile_removals)
@@ -5687,7 +5751,9 @@ def safe_unbundle(
     # The self-carrier must contain the effective history, but identical
     # bytes must never be rewritten merely to update its embedded payload.
     target_unbundle = out_path / "dwimsy" / "meta" / "unbundle.py"
-    if "dwimsy/meta/unbundle.py" in assets or (not with_deps and "dwimsy/meta/unbundle.py" in assets):
+    if "dwimsy/meta/unbundle.py" in assets or (
+        not with_deps and "dwimsy/meta/unbundle.py" in assets
+    ):
         try:
             if "dwimsy/meta/unbundle.py" in assets:
                 template = elide_blztar_bytes(assets["dwimsy/meta/unbundle.py"])
@@ -5718,7 +5784,10 @@ def safe_unbundle(
 
             if not dry_run:
                 target_unbundle.parent.mkdir(parents=True, exist_ok=True)
-                if not target_unbundle.is_file() or target_unbundle.read_bytes() != expected:
+                if (
+                    not target_unbundle.is_file()
+                    or target_unbundle.read_bytes() != expected
+                ):
                     target_unbundle.write_bytes(expected)
                     try:
                         target_unbundle.chmod(0o755)
@@ -5788,7 +5857,6 @@ def safe_unbundle(
                             f"No undo command is available: the new bundle payload does not contain previous version '{previous_version_tag}'.",
                             file=stdout,
                         )
-
 
 
 def extract_b64_lzma_tar(
@@ -6635,16 +6703,30 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
     # target resolution and reconciliation.
     version_selector = pipeline.get("version")
     positional = [a for a in remaining_args if not a.startswith("-")]
-    is_meta_unbundle = len(positional) >= 2 and positional[0] == "meta" and positional[1] == "unbundle"
-    is_direct = _is_unbundle_entrypoint(argv0_effective) and (bool(positional) or not is_meta_unbundle)
+    is_meta_unbundle = (
+        len(positional) >= 2 and positional[0] == "meta" and positional[1] == "unbundle"
+    )
+    is_direct = _is_unbundle_entrypoint(argv0_effective) and (
+        bool(positional) or not is_meta_unbundle
+    )
     if version_selector and (is_meta_unbundle or is_direct):
-        target = positional[2] if is_meta_unbundle and len(positional) > 2 else (positional[0] if is_direct and positional else None)
+        target = (
+            positional[2]
+            if is_meta_unbundle and len(positional) > 2
+            else (positional[0] if is_direct and positional else None)
+        )
         with_deps = any(a in ("--deps", "-d") for a in remaining_args)
-        force = pipeline.get("force", False) or any(a in ("--force", "-f") for a in remaining_args)
+        force = pipeline.get("force", False) or any(
+            a in ("--force", "-f") for a in remaining_args
+        )
         dry_run = any(a == "--dry-run" for a in remaining_args)
         quiet = any(a in ("--quiet", "-q") for a in remaining_args)
-        verbose = any(a in ("--verbose", "-v") for a in remaining_args) or bool(pipeline.get("verbosity", 0))
-        help_requested = any(a in ("--help", "-h", "--help-all") for a in remaining_args)
+        verbose = any(a in ("--verbose", "-v") for a in remaining_args) or bool(
+            pipeline.get("verbosity", 0)
+        )
+        help_requested = any(
+            a in ("--help", "-h", "--help-all") for a in remaining_args
+        )
         if target is not None and not help_requested:
             try:
                 safe_unbundle(
@@ -6656,7 +6738,9 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
                     quiet=quiet,
                     target_version=version_selector,
                     verbose=verbose,
-                    preserve_previous_history=any(op == "alt" for op, _ in pipeline["operations"]),
+                    preserve_previous_history=any(
+                        op == "alt" for op, _ in pipeline["operations"]
+                    ),
                 )
             except RuntimeError as exc:
                 print(str(exc), file=sys.stderr)
@@ -6795,7 +6879,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         raw_b64 = _get_active_blztar()
         vspace = VersionSpace.from_blztar(raw_b64)
-        safe_page(pipeline.get("version_list_snapshot")
+        safe_page(
+            pipeline.get("version_list_snapshot")
             or vspace.format_list_versions(
                 on_disk_root=repo_root if is_checkout else None,
                 selected=pipeline.get("selected_ref"),
@@ -6803,9 +6888,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
         )
         return 0
-    if (
-        pipeline.get("version")
-        and pipeline["version"].lower() not in ("baseline", "primary", "unbundled")
+    if pipeline.get("version") and pipeline["version"].lower() not in (
+        "baseline",
+        "primary",
+        "unbundled",
     ):
         # Explicit version selections must use the same complete VersionSpace
         # safety path as the multicall invocation.
@@ -6928,7 +7014,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 if __name__ == "__main__":
     try:
         pipeline, remaining = parse_early_pipeline_flags(sys.argv[1:])
-        raw_argv0 = pipeline["argv0"] or (sys.argv[0] if sys.argv and sys.argv[0] else "")
+        raw_argv0 = pipeline["argv0"] or (
+            sys.argv[0] if sys.argv and sys.argv[0] else ""
+        )
         argv0_effective = get_invocation_path(raw_argv0) if raw_argv0 else ""
         if _is_unbundle_entrypoint(argv0_effective):
             sys.exit(main())

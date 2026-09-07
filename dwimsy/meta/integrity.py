@@ -75,8 +75,7 @@ def get_latest_release_info(root: Optional[Path] = None) -> tuple[str, str]:
             pass
     if c_text:
         m = re.search(
-            r"## \[([^\]]+)\] - "
-            r"(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)",
+            r"## \[([^\]]+)\] - " r"(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)",
             c_text,
         )
         if m:
@@ -446,13 +445,21 @@ def is_modified(root: Optional[Path] = None, baseline: bool = False) -> bool:
     if not sealed:
         try:
             cur_hash = canonical_code_hash(repo, baseline=False)
-            declared_v = _version_values(repo, baseline=False).get("__version__", "").split("+mod.")[0]
+            declared_v = (
+                _version_values(repo, baseline=False)
+                .get("__version__", "")
+                .split("+mod.")[0]
+            )
             if declared_v:
                 from dwimsy.meta import unbundle, versions
+
                 raw_b64 = None
                 unb_f = repo / "dwimsy" / "meta" / "unbundle.py"
                 if unb_f.is_file():
-                    m = re.search(r'blztar\s*=\s*"""([\s\S]*?)"""', unb_f.read_text(encoding="utf-8", errors="replace"))
+                    m = re.search(
+                        r'blztar\s*=\s*"""([\s\S]*?)"""',
+                        unb_f.read_text(encoding="utf-8", errors="replace"),
+                    )
                     if m and m.group(1).strip():
                         raw_b64 = m.group(1).strip()
                 if not raw_b64:
@@ -524,7 +531,11 @@ def version_banner(
         from dwimsy.meta import unbundle, versions
 
         raw_b64 = unbundle._get_active_blztar()
-        vs = versions.VersionSpace.from_blztar(raw_b64) if raw_b64 else versions.VersionSpace()
+        vs = (
+            versions.VersionSpace.from_blztar(raw_b64)
+            if raw_b64
+            else versions.VersionSpace()
+        )
         selected = vs.resolve_selection("primary")
         if selected and selected.first:
             sel = selected.first
@@ -574,6 +585,7 @@ def version_banner(
     if h_str:
         return f"{prog} {v_tag} ({timestamp} {h_str})"
     return f"{prog} {v_tag}"
+
 
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI entrypoint for running dwimsy.meta.integrity directly."""

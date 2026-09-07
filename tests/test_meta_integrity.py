@@ -358,6 +358,7 @@ def main(argv=None):
 if __name__ == "__main__":
     main()
 
+
 class GitMetadataTests(unittest.TestCase):
     def test_source_files_ignores_git_metadata_at_any_depth(self):
         with tempfile.TemporaryDirectory() as tmp:

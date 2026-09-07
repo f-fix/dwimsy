@@ -58,16 +58,17 @@ def render_diff(
         target1 = v1_sel or "baseline"
         target2 = v2_sel or "unbundled"
 
-    def _resolve_target(target: str) -> Tuple[Dict[str, bytes], str, Optional[VersionSpace]]:
+    def _resolve_target(
+        target: str,
+    ) -> Tuple[Dict[str, bytes], str, Optional[VersionSpace]]:
         if _is_dir_target(target):
             if target in (".", "./") and repo is not None:
                 explicit_root = Path(repo).resolve()
             else:
                 explicit_root = Path(target).resolve()
-            is_checkout = (
-                (explicit_root / "dwimsy").is_dir()
-                and (explicit_root / "dwimsy" / "__init__.py").is_file()
-            )
+            is_checkout = (explicit_root / "dwimsy").is_dir() and (
+                explicit_root / "dwimsy" / "__init__.py"
+            ).is_file()
             if not is_checkout:
                 raise ValueError(
                     f"Version selector '{target}' could not be resolved: directory is not a dwimsy checkout."
@@ -79,7 +80,10 @@ def render_diff(
             vsp = None
             unb_data = assets.get("dwimsy/meta/unbundle.py")
             if unb_data:
-                m = re.search(r'blztar\s*=\s*"""([\s\S]*?)"""', unb_data.decode("utf-8", errors="replace"))
+                m = re.search(
+                    r'blztar\s*=\s*"""([\s\S]*?)"""',
+                    unb_data.decode("utf-8", errors="replace"),
+                )
                 if m and m.group(1).strip():
                     try:
                         vsp = VersionSpace.from_blztar(m.group(1).strip())
@@ -96,7 +100,8 @@ def render_diff(
                 and (repo / "dwimsy" / "__init__.py").is_file()
             )
             if not is_checkout or (
-                integrity.is_standalone_bundle() and (repo is None or "<dwimsy-bundle>" in str(repo))
+                integrity.is_standalone_bundle()
+                and (repo is None or "<dwimsy-bundle>" in str(repo))
             ):
                 raise ValueError(
                     "Version selector 'unbundled' could not be resolved: standalone bundle does not implicitly compare with the current working directory.\n"
@@ -116,7 +121,17 @@ def render_diff(
                 assets = s_b.materialize_layer_state(ord_b)
                 tag = f"dwimsy_{ref_b.tag}"
                 from dwimsy.meta.versions import Stream
-                vsp_b = VersionSpace([Stream(s_b.index, s_b.name, s_b.layers[: ord_b + 1], source=s_b.source)])
+
+                vsp_b = VersionSpace(
+                    [
+                        Stream(
+                            s_b.index,
+                            s_b.name,
+                            s_b.layers[: ord_b + 1],
+                            source=s_b.source,
+                        )
+                    ]
+                )
             else:
                 assets = integrity.canonical_assets(repo, baseline=True)
                 tag = f"dwimsy_{integrity._version_values(repo, baseline=True).get('__version__', '0.1.6.0')}"
@@ -129,7 +144,17 @@ def render_diff(
                 assets = s_p.materialize_layer_state(ord_p)
                 tag = f"dwimsy_{ref_p.tag}"
                 from dwimsy.meta.versions import Stream
-                vsp_p = VersionSpace([Stream(s_p.index, s_p.name, s_p.layers[: ord_p + 1], source=s_p.source)])
+
+                vsp_p = VersionSpace(
+                    [
+                        Stream(
+                            s_p.index,
+                            s_p.name,
+                            s_p.layers[: ord_p + 1],
+                            source=s_p.source,
+                        )
+                    ]
+                )
             else:
                 assets = integrity.canonical_assets(repo, baseline=False)
                 tag = f"dwimsy_{integrity._version_values(repo, baseline=False).get('__version__', '0.1.6.0')}"
@@ -144,13 +169,25 @@ def render_diff(
             stream_prefix = f"alt{s.index}_" if s.index > 0 else ""
             tag = f"dwimsy_{stream_prefix}{ref.tag}"
             from dwimsy.meta.versions import Stream
+
             streams_sliced = []
             for st_i in vspace.streams:
                 if st_i.index == s.index:
-                    streams_sliced.append(Stream(st_i.index, st_i.name, st_i.layers[: ord_idx + 1], source=st_i.source))
+                    streams_sliced.append(
+                        Stream(
+                            st_i.index,
+                            st_i.name,
+                            st_i.layers[: ord_idx + 1],
+                            source=st_i.source,
+                        )
+                    )
                 else:
                     # Slice other streams to matching semver if available, else full
-                    streams_sliced.append(Stream(st_i.index, st_i.name, list(st_i.layers), source=st_i.source))
+                    streams_sliced.append(
+                        Stream(
+                            st_i.index, st_i.name, list(st_i.layers), source=st_i.source
+                        )
+                    )
             vsp_t = VersionSpace(streams_sliced)
             return assets, tag, vsp_t
 
@@ -178,12 +215,18 @@ def render_diff(
         a = old_assets.get(name)
         b = new_assets.get(name)
 
-        def _format_file_bytes(data: Optional[bytes], side_vspace: Optional[VersionSpace]) -> Optional[bytes]:
+        def _format_file_bytes(
+            data: Optional[bytes], side_vspace: Optional[VersionSpace]
+        ) -> Optional[bytes]:
             if data is None:
                 return None
             if not name.endswith("unbundle.py"):
                 return integrity._canonical_bytes(data, name)
-            text = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n").decode("utf-8", errors="replace")
+            text = (
+                data.replace(b"\r\n", b"\n")
+                .replace(b"\r", b"\n")
+                .decode("utf-8", errors="replace")
+            )
             m = re.search(r'blztar\s*=\s*"""([\s\S]*?)"""', text)
             if not m:
                 return integrity._canonical_bytes(data, name)
@@ -203,6 +246,7 @@ def render_diff(
             if not res_text.endswith("\n"):
                 res_text += "\n"
             return res_text.encode("utf-8")
+
         old_bytes = _format_file_bytes(a, vsp1)
         new_bytes = _format_file_bytes(b, vsp2)
 
@@ -236,6 +280,8 @@ def render_diff(
             lines.extend(diff)
 
     return "".join(lines)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI entrypoint for running dwimsy.meta.diff directly."""
     effective = sys.argv[1:] if argv is None else list(argv)

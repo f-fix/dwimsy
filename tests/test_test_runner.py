@@ -207,6 +207,7 @@ def main(argv=None):
 if __name__ == "__main__":
     main()
 
+
 class StandaloneListTestsTests(unittest.TestCase):
     def test_list_tests_restores_meta_path_in_standalone_mode(self):
         from dwimsy.meta import integrity

@@ -381,7 +381,9 @@ class Layer:
         )
         self.sealed = bool(self.code_hash and self.code_hash.strip())
         self.mtime = int(mtime) if mtime is not None else None
-        self.file_mtimes = {k: int(v) for k, v in file_mtimes.items()} if file_mtimes else {}
+        self.file_mtimes = (
+            {k: int(v) for k, v in file_mtimes.items()} if file_mtimes else {}
+        )
         self.mtime = int(mtime) if mtime is not None else None
 
     def _extract_version_tag(self) -> str:
@@ -406,7 +408,11 @@ class Layer:
         if self.tar_bytes is not None:
             return self.tar_bytes
         bio = io.BytesIO()
-        layer_mtime = int(self.mtime) if getattr(self, "mtime", None) is not None else LEGACY_BOGUS_MTIME
+        layer_mtime = (
+            int(self.mtime)
+            if getattr(self, "mtime", None) is not None
+            else LEGACY_BOGUS_MTIME
+        )
         file_mtimes = getattr(self, "file_mtimes", {}) or {}
         with tarfile.open(fileobj=bio, mode="w:") as tar:
             for name in sorted(self.files.keys()):
@@ -719,7 +725,9 @@ class Stream:
     def append_layer(self, layer: Layer, allow_replacement: bool = False) -> None:
         """Append layer enforcing writing invariants (Section1.1.1, Section1.4)."""
         if layer.is_delta and not layer.files and not allow_replacement:
-            raise ValueError(f"Cannot append empty delta layer to stream '{self.name}'.")
+            raise ValueError(
+                f"Cannot append empty delta layer to stream '{self.name}'."
+            )
         if not self.layers:
             if layer.is_delta:
                 raise ValueError(
@@ -771,12 +779,16 @@ class Stream:
                 l for l in self.layers if parse_semver(l.version_tag) >= initial_semver
             ]
             if "+mod." in layer.version_tag.lower():
-                if tip_layers and parse_semver(base_new) < parse_semver(tip_layers[-1].version_tag.split("+")[0]):
+                if tip_layers and parse_semver(base_new) < parse_semver(
+                    tip_layers[-1].version_tag.split("+")[0]
+                ):
                     raise ValueError(
                         f"Tip sequence +mod layer semver '{layer.version_tag}' must be greater than or equal to preceding layer '{tip_layers[-1].version_tag}'."
                     )
             else:
-                if tip_layers and curr_semver <= parse_semver(tip_layers[-1].version_tag):
+                if tip_layers and curr_semver <= parse_semver(
+                    tip_layers[-1].version_tag
+                ):
                     raise ValueError(
                         f"Tip sequence layer semver '{layer.version_tag}' must be strictly greater than preceding layer '{tip_layers[-1].version_tag}'."
                     )
@@ -907,7 +919,10 @@ def parse_tar_layers_from_bytes(
 
     while offset < total:
         remaining = raw_tar_bytes[offset:]
-        if not remaining or (remaining[:512] == b'\x00' * min(512, len(remaining)) and remaining.count(b'\x00') == len(remaining)):
+        if not remaining or (
+            remaining[:512] == b"\x00" * min(512, len(remaining))
+            and remaining.count(b"\x00") == len(remaining)
+        ):
             break
 
         tar_bio = io.BytesIO(remaining)
@@ -1033,7 +1048,10 @@ def parse_tar_layers_from_bytes(
                                 warnings.warn(warn_msg, UserWarning, stacklevel=2)
                                 return []
                     else:
-                        if curr_semver <= last_tip_semver or curr_semver in seen_semvers:
+                        if (
+                            curr_semver <= last_tip_semver
+                            or curr_semver in seen_semvers
+                        ):
                             reason = f"semver '{tag_str}' is not strictly greater than preceding tip semver (duplicate or decreasing order)."
                             if stream_name == "primary":
                                 raise RuntimeError(
@@ -1913,7 +1931,9 @@ class VersionSpace:
             new_layers,
             source=primary.source,
         )
-        result = VersionSpace([new_primary] + [stream.copy() for stream in self.streams[1:]])
+        result = VersionSpace(
+            [new_primary] + [stream.copy() for stream in self.streams[1:]]
+        )
         result.renumber_streams()
         return result
 
