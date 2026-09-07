@@ -76,7 +76,9 @@ def update_version_files(
 ) -> None:
     """Update dwimsy/_version.py, README.md, unbundle.py docstring, and CHANGELOG.md with new_version."""
     root = integrity.find_repo_root(repo_root)
-    today_str = datetime.date.today().isoformat()
+    now_utc = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+    changelog_timestamp = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    today_str = now_utc.date().isoformat()
 
     # 1. Update dwimsy/_version.py
     version_file = root / "dwimsy" / "_version.py"
@@ -93,7 +95,7 @@ def update_version_files(
     changelog_file = root / "CHANGELOG.md"
     if changelog_file.is_file():
         c_text = changelog_file.read_text(encoding="utf-8")
-        header = f"## [{new_version}] - {today_str}"
+        header = f"## [{new_version}] - {changelog_timestamp}"
         if header not in c_text:
             msg_entry = (
                 f"- {message}"
@@ -101,7 +103,11 @@ def update_version_files(
                 else "- Maintenance release and baseline synchronization."
             )
             entry = f"{header}\n\n### Changed\n{msg_entry}"
-            match = re.search(r"(## \[[^\]]+\] - \d{4}-\d{2}-\d{2})", c_text)
+            match = re.search(
+                r"(## \[[^\]]+\] - "
+                r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)",
+                c_text,
+            )
             if match:
                 prefix = c_text[: match.start()].rstrip() + "\n\n"
                 suffix = c_text[match.start() :].lstrip()
@@ -170,6 +176,7 @@ def _set_layer_version_tag(
 ) -> dict[str, bytes]:
     """Return layer files with _version.py carrying the serialized layer tag."""
     result = dict(files)
+    updated = False
     for path in ("dwimsy/_version.py", "_version.py"):
         if path in result:
             text = result[path].decode("utf-8", errors="strict")
@@ -180,12 +187,18 @@ def _set_layer_version_tag(
                 count=1,
             )
             result[path] = text.encode("utf-8")
+            updated = True
             break
+    if not updated:
+        result["dwimsy/_version.py"] = f'"""dwimsy._version - Project version and sealed build identifier."""\n\n__version__ = "{version_tag}"\n__code_hash__ = ""\n'.encode("utf-8")
     return result
 
-
 def sync_bundle_baseline(
-    repo_root: Optional[Path] = None, verbose: bool = False, *, release: bool = False
+    repo_root: Optional[Path] = None,
+    verbose: bool = False,
+    *,
+    release: bool = False,
+    layer_timestamp: Optional[str] = None,
 ) -> Path:
     """Synchronize the embedded VersionSpace with the current working tree."""
     root = integrity.find_repo_root(repo_root)
@@ -203,16 +216,48 @@ def sync_bundle_baseline(
         delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
     new_tag = integrity._version_values(root).get("__version__", "0.1.6.0-dev")
     delta = _set_layer_version_tag(delta, new_tag)
+    file_mtimes = {}
+    for name in delta:
+        fp = root / name
+        if fp.is_file():
+            try:
+                file_mtimes[name] = int(fp.stat().st_mtime)
+            except OSError:
+                pass
+    if layer_timestamp:
+        layer_mtime = int(
+            datetime.datetime.fromisoformat(
+                layer_timestamp.replace("Z", "+00:00")
+            ).timestamp()
+        )
+    else:
+        layer_mtime = max(file_mtimes.values()) if file_mtimes else int(time.time())
+    file_mtimes = {name: layer_mtime for name in delta}
+
     if old_head and (
         old_head.tag.split("+")[0].lower() == new_tag.split("+")[0].lower()
         or "+mod." in old_head.tag.lower()
     ):
         primary.append_layer(
-            versions.Layer(delta, is_delta=True, version_tag=new_tag),
+            versions.Layer(
+                delta,
+                is_delta=True,
+                version_tag=new_tag,
+                mtime=layer_mtime,
+                file_mtimes=file_mtimes,
+            ),
             allow_replacement=True,
         )
     elif delta or not old_head:
-        primary.append_layer(versions.Layer(delta, is_delta=True, version_tag=new_tag))
+        primary.append_layer(
+            versions.Layer(
+                delta,
+                is_delta=True,
+                version_tag=new_tag,
+                mtime=layer_mtime,
+                file_mtimes=file_mtimes,
+            )
+        )
 
     if release:
         primary.seal_open_dev()
@@ -256,7 +301,7 @@ def sync_bundle_baseline(
 
 def bump_version(
     version_str: Optional[str] = None,
-    part: str = "patch",
+    part: Optional[str] = None,
     release: bool = False,
     dev: bool = False,
     message: Optional[str] = None,
@@ -309,8 +354,12 @@ def bump_version(
             )
 
     if not no_bundle:
+        _, changelog_timestamp = integrity.get_latest_release_info(root)
         bundle_path = sync_bundle_baseline(
-            repo_root=root, verbose=verbose, release=release
+            repo_root=root,
+            verbose=verbose,
+            release=release,
+            layer_timestamp=changelog_timestamp,
         )
         if verbose:
             print(
@@ -454,7 +503,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not args.message or not args.message.strip():
         parser.error("a non-empty changelog message is required (-m/--message)")
 
-    part = "patch"
+    part = None
     if args.major:
         part = "major"
     elif args.minor:

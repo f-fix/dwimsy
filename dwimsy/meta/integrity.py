@@ -21,6 +21,11 @@ import os
 from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
+for p in Path(__file__).resolve().parents:
+    if (p / "dwimsy").is_dir() and str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+        break
+
 _PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 _BUNDLE_ASSET_CACHE: Optional[dict[str, bytes]] = None
 _HASH_CACHE: dict[tuple, tuple[tuple, str]] = {}
@@ -48,7 +53,11 @@ def _repo_fingerprint(repo: Path, baseline: bool) -> tuple:
 
 
 def get_latest_release_info(root: Optional[Path] = None) -> tuple[str, str]:
-    """Retrieve (version, datestamp) for the most recent changelog entry."""
+    """Retrieve (version, UTC timestamp) for the most recent changelog entry.
+
+    New changelog entries use second-exact ISO-8601 UTC timestamps.  Older
+    date-only entries remain readable and are normalized to midnight UTC.
+    """
     repo = find_repo_root(root) if root is not None else find_repo_root()
     c_file = repo / "CHANGELOG.md"
     c_text = None
@@ -65,11 +74,18 @@ def get_latest_release_info(root: Optional[Path] = None) -> tuple[str, str]:
         except Exception:
             pass
     if c_text:
-        m = re.search(r"## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})", c_text)
+        m = re.search(
+            r"## \[([^\]]+)\] - "
+            r"(\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)",
+            c_text,
+        )
         if m:
-            return (m.group(1), m.group(2))
+            stamp = m.group(2)
+            if "T" not in stamp:
+                stamp += "T00:00:00Z"
+            return (m.group(1), stamp)
     v = _version_values(root).get("__version__", "0.1.6.0-dev")
-    return (v, "2026-08-26")
+    return (v, "2026-08-26T00:00:00Z")
 
 
 _VERSION_FILE = _PACKAGE_ROOT / "_version.py"
@@ -85,17 +101,35 @@ _HASH_RE = re.compile(
 def is_standalone_bundle() -> bool:
     """Return True when code is being served by the relocatable bundle bootstrap."""
     try:
+        from dwimsy.meta import unbundle
+
+        is_checkout, repo_root = unbundle.detect_self_location()
+        if is_checkout and repo_root is not None:
+            return False
+
+        main_mod = sys.modules.get("__main__")
+        if (
+            main_mod is sys.modules.get("dwimsy.meta.unbundle")
+            and hasattr(main_mod, "blztar")
+            and hasattr(main_mod, "bootstrap_in_memory_cli")
+        ):
+            return True
+
+        for finder in sys.meta_path:
+            if (
+                finder.__class__.__name__ == "BundleFinder"
+                and getattr(finder, "on_disk_root", None) is None
+                and getattr(finder, "_index", None)
+                and getattr(finder, "b64_string", "").strip()
+            ):
+                return True
+
         mod = sys.modules.get("dwimsy.meta.unbundle")
         mod_file = str(getattr(mod, "__file__", ""))
         if "<dwimsy-bundle>" in mod_file:
             return True
-        from dwimsy.meta import unbundle
 
-        mod_file = str(getattr(unbundle, "__file__", ""))
-        if "<dwimsy-bundle>" in mod_file:
-            return True
-        is_checkout, _ = unbundle.detect_self_location()
-        return not is_checkout
+        return True
     except Exception:
         return False
 
@@ -226,7 +260,7 @@ def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
         if not p.is_file():
             continue
         rel = p.relative_to(repo).as_posix()
-        if "__pycache__" in p.parts or p.suffix == ".pyc":
+        if ".git" in p.parts or "__pycache__" in p.parts or p.suffix == ".pyc":
             continue
         if _manifest_matches(rel, patterns):
             files.append(p)
@@ -411,9 +445,27 @@ def is_modified(root: Optional[Path] = None, baseline: bool = False) -> bool:
     sealed = sealed_code_hash(repo, baseline=baseline)
     if not sealed:
         try:
-            return canonical_code_hash(repo, baseline=False) != canonical_code_hash(
-                repo, baseline=True
-            )
+            cur_hash = canonical_code_hash(repo, baseline=False)
+            declared_v = _version_values(repo, baseline=False).get("__version__", "").split("+mod.")[0]
+            if declared_v:
+                from dwimsy.meta import unbundle, versions
+                raw_b64 = None
+                unb_f = repo / "dwimsy" / "meta" / "unbundle.py"
+                if unb_f.is_file():
+                    m = re.search(r'blztar\s*=\s*"""([\s\S]*?)"""', unb_f.read_text(encoding="utf-8", errors="replace"))
+                    if m and m.group(1).strip():
+                        raw_b64 = m.group(1).strip()
+                if not raw_b64:
+                    raw_b64 = unbundle._get_active_blztar()
+                if raw_b64:
+                    vs = versions.VersionSpace.from_blztar(raw_b64)
+                    res = vs.resolve_version_ref(declared_v)
+                    if res is not None:
+                        s, ord_idx, ref = res
+                        expected_h = ref.content_hash or s.compute_content_hash(ord_idx)
+                        if cur_hash == expected_h:
+                            return False
+            return cur_hash != canonical_code_hash(repo, baseline=True)
         except Exception:
             return True
     return canonical_code_hash(repo, baseline=baseline) != sealed
@@ -432,6 +484,8 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
     """Return the package version, adding a PEP 440 local ``+mod.`` suffix.
 
     If no base version is supplied it is read from ``dwimsy._version``.
+    A portable bundle with no explicit root is hermetic: its version comes
+    from the embedded payload and its host checkout is never inspected.
     """
     if base_version is None:
         values = _version_values(root)
@@ -449,6 +503,9 @@ def version(base_version: Optional[str] = None, root: Optional[Path] = None) -> 
     if "+mod." in base_version:
         base_version = base_version.split("+mod.")[0]
 
+    if root is None and is_standalone_bundle():
+        return base_version
+
     if is_modified(root):
         return f"{base_version}+mod.{modification_hash(root)}"
     return base_version
@@ -463,9 +520,26 @@ def version_banner(
     content_hash: Optional[str] = None,
 ) -> str:
     """Format standard --version output with version, UTC timestamp, and content hash."""
-    repo = find_repo_root(root) if root is not None else find_repo_root()
-    v_tag = version_tag or version(root=repo)
-    c_hash = content_hash or canonical_code_hash(repo, baseline=False)
+    if root is None and is_standalone_bundle() and not (version_tag or content_hash):
+        from dwimsy.meta import unbundle, versions
+
+        raw_b64 = unbundle._get_active_blztar()
+        vs = versions.VersionSpace.from_blztar(raw_b64) if raw_b64 else versions.VersionSpace()
+        selected = vs.resolve_selection("primary")
+        if selected and selected.first:
+            sel = selected.first
+            layer = sel.stream.layers[sel.ordinal]
+            v_tag = sel.version.tag
+            c_hash = layer.code_hash or sel.version.content_hash or ""
+            if timestamp is None:
+                timestamp = vs.get_layer_timestamp(layer)
+        else:
+            v_tag = version()
+            c_hash = ""
+    else:
+        repo = find_repo_root(root) if root is not None else find_repo_root()
+        v_tag = version_tag or version(root=repo)
+        c_hash = content_hash or canonical_code_hash(repo, baseline=False)
 
     if timestamp is None:
         try:
@@ -497,38 +571,15 @@ def version_banner(
         timestamp = f"{dt_str}T00:00:00Z"
 
     h_str = c_hash if verbose else c_hash[:12]
-    return f"{prog} {v_tag} ({timestamp} {h_str})"
-
-
-__all__ = [
-    "canonical_assets",
-    "canonical_code_hash",
-    "clear_integrity_cache",
-    "get_latest_release_info",
-    "canonical_manifest",
-    "find_repo_root",
-    "is_modified",
-    "modification_hash",
-    "package_root",
-    "sealed_code_hash",
-    "source_files",
-    "version",
-    "version_banner",
-]
-
+    if h_str:
+        return f"{prog} {v_tag} ({timestamp} {h_str})"
+    return f"{prog} {v_tag}"
 
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI entrypoint for running dwimsy.meta.integrity directly."""
     import argparse
 
     effective = sys.argv[1:] if argv is None else list(argv)
-    from dwimsy.cli.dispatch import early_dispatch
-
-    handled, effective = early_dispatch(
-        effective, ["meta", "integrity"], use_process_argv0=(argv is None)
-    )
-    if handled:
-        return 0
     from dwimsy.cli.dispatch import early_dispatch
 
     handled, effective = early_dispatch(
@@ -597,6 +648,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Suppress output and exit with 0 if clean, 1 if modified",
     )
+    parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="Check the embedded clean baseline instead of the working tree",
+    )
     args = parser.parse_args(effective)
 
     if args.test is not False:
@@ -605,9 +661,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         pattern = [args.test] if isinstance(args.test, str) else ["meta integrity"]
         return run_tests(pattern, verbose=max(args.verbose, 1))
 
-    current = canonical_code_hash()
+    baseline = bool(args.baseline)
+    current = canonical_code_hash(baseline=baseline)
     sealed = sealed_code_hash()
-    modified = is_modified()
+    modified = is_modified(baseline=baseline)
     ver_str = version()
 
     if not args.quiet:

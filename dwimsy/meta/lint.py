@@ -307,6 +307,40 @@ def lint_duplicates(repo_root: Optional[Path] = None) -> List[str]:
     return errors
 
 
+def lint_python_whitespace(repo_root: Optional[Path] = None) -> List[str]:
+    """Verify that no line in any non-dependency Python file ends in trailing whitespace or contains tabs."""
+    root = integrity.find_repo_root(repo_root)
+    py_files = sorted(
+        [
+            p
+            for p in root.rglob("*.py")
+            if not (
+                p.as_posix().startswith("deps/")
+                or "/deps/" in p.as_posix()
+                or "<dwimsy-bundle>/deps/" in p.as_posix()
+                or any(part in (".git", "__pycache__") for part in p.parts)
+            )
+            and not (
+                p.name.startswith("dwimsy_")
+                and (p.name.endswith(".py") or p.name.endswith(".pyz"))
+            )
+        ]
+    )
+    errors: List[str] = []
+    for p in py_files:
+        rel = p.relative_to(root)
+        try:
+            lines = p.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            continue
+        for idx, line in enumerate(lines, start=1):
+            if line.rstrip(" \t") != line:
+                errors.append(f"{rel}:{idx}: trailing whitespace")
+            if "\t" in line:
+                errors.append(f"{rel}:{idx}: contains tab character")
+    return errors
+
+
 def run_all_lints(repo_root: Optional[Path] = None) -> List[str]:
     """Run all repository lint checks and return combined list of errors."""
     return (
@@ -314,6 +348,7 @@ def run_all_lints(repo_root: Optional[Path] = None) -> List[str]:
         + lint_markdown(repo_root)
         + lint_filenames(repo_root)
         + lint_duplicates(repo_root)
+        + lint_python_whitespace(repo_root)
     )
 
 
@@ -329,11 +364,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     if handled:
         return 0
-    from dwimsy.cli.dispatch import early_dispatch
-
-    handled, effective = early_dispatch(
-        effective, ["meta", "lint"], use_process_argv0=(argv is None)
-    )
     if handled:
         return 0
 

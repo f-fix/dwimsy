@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.70-dev (2026-09-02)
+Version: 0.1.6.99-dev (2026-09-07)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.70-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.99-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.70-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.70-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.70-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.70-dev.py dwimsy license
-  python3 dwimsy_0.1.6.70-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.99-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.99-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.99-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.99-dev.py dwimsy license
+  python3 dwimsy_0.1.6.99-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.70-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.99-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -70,6 +70,56 @@ class _LazyVersionAction(argparse.Action):
         fn = self.version_fn or get_bundle_version
         parser._print_message(f"{parser.prog} {fn()}\n", sys.stdout)
         parser.exit()
+
+def safe_page(text: str, out_stream=None) -> None:
+    """Output text using terminal pager if stdout is a TTY, falling back cleanly to direct write."""
+    if out_stream is None:
+        out_stream = sys.stdout
+
+    is_tty = False
+    try:
+        is_tty = hasattr(out_stream, "isatty") and out_stream.isatty()
+    except (AttributeError, io.UnsupportedOperation, OSError):
+        is_tty = False
+
+    if is_tty:
+        try:
+            import pydoc
+
+            pydoc.pager(text)
+            return
+        except Exception:
+            pass
+
+    out_stream.write(text)
+    if not text.endswith("\n"):
+        out_stream.write("\n")
+    out_stream.flush()
+
+
+class PagedHelpAction(argparse.Action):
+    """Prints help documentation through safe_page terminal pager on a TTY."""
+
+    def __init__(
+        self,
+        option_strings,
+        dest=argparse.SUPPRESS,
+        default=argparse.SUPPRESS,
+        help="show this help message and exit",
+    ):
+        super().__init__(
+            option_strings=option_strings,
+            dest=dest,
+            default=default,
+            nargs=0,
+            help=help,
+        )
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        out = io.StringIO()
+        parser.print_help(out)
+        safe_page(out.getvalue())
+        parser.exit(0)
 
 
 def elide_blztar_bytes(data: bytes) -> bytes:
@@ -4535,7 +4585,7 @@ ZcImSu12LIJZ/t1YiWY+//DI70wyAqmcuv9T98dAB3tHSJks7GiZ3IKDR3sLQvdkTvB28M5ICfd3
 ZhRWt5qH5aPo0cuPxZWdi1N5PxX6P1ANOMzQovtEJT6tUC0MYNXqcB4zseDBoTny/4gsWqgB46AD
 mIdpIXytpOhSBR7p03vYPFi8zSbWpMcPn8j59TgBtczmYbIPZyv4IrudmxRsm1Lxr4Egl2NzWCAw
 ZpANfpv2A9zzLajB3+/xinbuPQHQqFAdrmPFhNlfVvNAuw0CGYotChlcMlPTJj/GjFXFAzkLKNJr
-u/7kuJE5L6vBCMrWnRxdSr4rBPpNhrv08oXdQH2o8nor2CASlOeZEdQA8rlKMqCSAQ1jtwdQ9Idk
+u/7kuJE5L6vBCMrWnRxdSr4rBPpNhrv08oXdQH2o8nor2CASn/9dGywA8rlKMqCSAQ1jtwdQ9Idk
 If+9lvNeK0ypRHiGhH1aUWKSHha7VSexXHE930nj1xh3QS1HFpHsePYV1r1PCxF5tr0+Z10oh/zE
 owuBnUpyKbK6+odIYokZ367vAboadMMUuX0J79BirtSesngLs33+xXFhoBvxL8KI4DxOP19bmVOj
 asYP3KFukAKHdBw+L2ZEvZAVl1R6YHT+HSovUo00zUg6CZrNDdQSBGlqETdVojuKTR09Py9FrEK9
@@ -4615,15 +4665,418 @@ gtt/9oeVgnBtHX5cCyTE4rkzTGhMMIFri/Th6TSrTA72VPnznYXllvuu5hKT0qs7waLU3kCgwV3/
 NIsYTviauKMC/ID+FCr+kVy9Ww08ANVim1E5kh6Q+HeDHiiF84oTDC2esEB81psD+mTmpvSSV+TK
 /M1T/G7siuKX64xfaZdbyVUjDGEwTVqA4zunPntBKnQP2xaTlhOwkAwdziXWYN2fTft7wHlzFEde
 4Q5X3GNJpfh2Osy4+UgKSN3CALc68RGmkuViu+Pe858FyM/8QNiPQ216kvBwEGMt+G85Gz8RTrmw
-53l1h2rmoUmXH/Wd3q0sXlJUaDH3Yn/2JOmjXS+R78h8m1f/7w/yCNB8DUZbAAAAAAC/XVVKtcXG
-xwABvdoPgMCXAwAAAIVgN3EUFzswAwAAAAAEWVo=
+53l1h2rmoUmXH/Wd3q0sXlJUaDH3Yn/2JOmjXS+R78h8m1f/7w/yCNB6YYNa8e6hQ0NjIPdjPZqn
+RVj0VNziCFazIuJ1b6Z7qRvdrwJ0wCxE7E1Lvu5UAo+p/I4uPm3rZpnexzSJxXZruM1EWJksSs9G
+pV46HDpRcsSBCIwN/FKdOIu7QXUNmvvYdjrjPqxq/iVAqiGH1POi2+9cqJlmbM/hwjOtfn7SNvhY
+CC3AFeIRgtCY6dBx6SsCS/vfTUHB0fSKnNKjhKPCqKluz7xWS369eYoJBz99P7smbxV+1YbgTItL
+PE37DQRToWTwy7k+EIx7Hus4PjRGPhwjrRMTuUTO9AievaBKMGBLM4dKzyCX2C6tv7g/5RSF3E3t
+Qtg21kfsRQ3ZSXOUvqcCEMqF3Jb3k+iK9xnItpvrJiOxn2yDjJM/UtfGss3KGuMmZDCiwNalzLal
+tJp2F4USpq5BoQiKUALHy+abqZobX8m8GGoTsBNrQ+OSpYJzZcKtEGkXxPMu9VKjltHmeeGWZCw2
+531VuH6sps3cT/EEoRS0fDxW9El7orWjzQUNXjm13DM9Ad0Q+QwJ5qtq7MU4efB6LLMoY4sbrKwO
+/umNcfK3a6CK9Je+SpILfk1a2QHkIKjiqLOLXwpP4cg/PPNa2mEpQSCkAU42MzMYNhs3hFqsRtR6
+moFIQs4TNVAB6ylUAMR4cmOZxzsJH+6uf2IvHtnOAaoFPYYgtMcLp+6bHeLuXcfsucgg1GGCtcFC
+uLftPmYAzwF5HQ2g0lOabq+tb+HIL3DYEQMzmvJDIS07DUiziskzUjNNUVdYlH/kInreLkC2xZ0G
+nWdXnCkzF+4pob+G5WYBZ1R+hIdc5HimgKDNXRZMW7v1q/KBjD+RuukXeSFrvyaDapj1jA+p6lbn
+EPaWVRDKoTOkB9je/3iDaVKQ5zWgR13+vBAdOsFodoLKcKTNKRgK6pb/fkzJPZEsHcFgQFNl8wNe
+8j6E7RM7GJc/Aaky1mSXMaNmBlWa4P+Iugvj/JNVC/il2VGm1qQ08CK74fP5i4nuZ6pqNVHI1H3W
+1TpQTvCW3cMDeT62v+plEjn4GYx32RdsISkazKiGJiJoW1uWv6RZlmTT5+8levT9khWmDfFQuG/g
+FixfL8WPZhwSL2qOSLCvEu7fceKyA6DU7eQA+5q96u0zHhyJdw6ZHz1zQE2hIl+V9BFD13RC9CG6
+ChVv1/SniCvmjP4mLcBU3JFqgbIwK0HFYgdYfG7TZebx4EU3EUrSfvkDiHWd1tEXKq7bL2IxGfHC
+/eYjSj1+zZpqSn7jD2NFBU1Dn5wk9ILIDQjnCuAFv5zZ4IzcSqAEfP09eQCoiOubegzxR6XAfhfQ
+gR7lpWWT6N+RE1VfkCIg1wCAppD9nOceh244P9YMTSxyV0phjA9/wxyxyKFTmwsJJzr9UPHPp/Or
+yEZu4l+Dy6+ZIB0YXlmiEuLudNbS0UMx8M6qTEluJMDiSnNkMZnqLOurYitvQfl5U5orfHO28rzc
+ysAi5LhPnYelybGy2gOJdmo3MZylsB2rt+R7/1dwHoZ7BVs3xRMU7kWDySiI6beQsXQQlcdJEEk3
+okWPU7r4uRmciBVccnyu8z0XPLcVg9kGhffCxmXUAX6aOvKqcUmrDQkUX2oQNGwc5xbwu3hnRrdO
+NGzRmXNYfP2YWlwNQ1cOCC3gjSYgAvxXWj1YEK4QNuguNAxI7UkYTNRFbjSb5J/7tabUCOSbZABq
+ksPnMZEEOH8UPqJZyEqZGf1zm11IkI8AL0imHRxKMk2PHm02hIVBggbaUXVpLmmYObdRNRirGBFY
+2GNCznsNKFwSnfV3HLpgOfQzTevPBqchWw50S5evxTsD9tnNj9PNDFrfPcts+ZHk7H5y3YV7Z93x
+KxPzTdtpVC/X6hgRAxASKL7DD+Kh8Jr+9M6GpoMHE7eD9j/tc1rmQw2iXYPcAw7Yi3/dESWMY9zg
++pmHD/e4q0VxyfYEdhJGDwEowcmUS9pwgCsP3Hp4sK+93gsX33f5KF8C3v1DfBhyHbKjmM2K3fzl
+eOh2dkBkgpSkCRMtHQw3y04OypFWKTDsrYPvDm+QtHpAj1IxfoFq2g+kVQsDcDMywd83jRci31Tc
+45RPVfmgeBGCBZ/31j5yV1vtH7ccOpW0zq5oE9Y89riwa/mEqZ++4PVzS/GjCiVMEdHcAAlToW4L
+IhyuhODI/h/I425LgTgpwJZ0JVmy/BuFr05bMEVvbm8VsObMys5/o9pL8J7B+obvJRmmkArq2BV8
+kBd/I4hOAXckqtei/5aILlRBMxcZdMe4fNny5++zlRX8+Mk8y6bfIfmjr5B21wyfFwuIiTn+Rs5b
+2PCRjzKfUPiCHoiH/qgJHOZrhLX4kF99dO5sGnZ8LLWwJgcuil60ebYnogwhEIJbJPcblf+UIJEW
+vD2PqRyPiaTlnWRQ63eL51jZkmJF+M6RS5brR/1EpaWg9qShaSzcktmTt9eBGfxO04Pd31QGv0Bj
+8lG1Tk4n1PImBVrJc1qN+fE1HYwAmTEs4Z2l1mZTZKi41I+59jqFqejXHEOe0xIm3aSCJk5ZAxcR
+3PGFkkoGlzCxOhwUWqDDJ34eLssKHR3xhxXCa2GTy04sDnkGTMclbMGjjdGzb0VMWHyKWAo9qkcv
+GI5GqpMiFukXbWRh2WZaz3j5N6qWWhjHjPH0IdZIg0MKyQevFLSC2LsKBJjA8PcD0kkSORU0fr0W
+VuNQiMNeE4U+6ZG25/oruYi1x2LtM3JxyvOSNDUoPGX9xqBKABJ2AcZ3h/QYyZVZOr5EDGNUAcyV
+9Q2StH3cNYaShRMTDLzxsp7kGu/UR4BjpKc14yt/5at1kMBwfcmiZiGJCU5SV2Rh6/g5JA15OGbQ
+PpC5W5zg0O43jlz92q8N+XSqHP6UefwXauO6lt0AZ6i0pb8as2brtzPXmzTp78sqyinhkaBykepz
+JsSc6KZWxF3UAhDEjn5Uxn4VLpgiDO+0FRTJdxizL+7NWGdbw6/QojWDrFaU1+16mJci1Y2TrEVt
+xUVa3Fabz13WcNd0W2OV8HxX0XgxqgDLZ0g1g+/D/6MI33Kv00I/OAJonAwiWsNlmE4lUzdt7W37
+pEx8ZPDSHc3ZsYPd+hUVTwCsGGugyFjXUh03K0vPZ0kotU9DnYE5pK4r+F6ZQ2ldEwjrJ13h4Lxs
+A5gQ8Yw7avUudcDTKqok6woWe+ggC/iMK4fz3r1o7KyZYWibfpYG06d0OZCf/5oOTQDrPKJLc+f2
+jcee2pFyg60lYO/mBBFzcJrFldJWP6K3xbh80obIHI5kCPVggL/rNrbouJu3UEI6glFoJCxlRKuL
+EdqDsHBTs70tte8w+8NMBcZ/KScPfxbUQaPnpIoDAKJOT9/LJv9+qAH5T5s5M0EDcZ7mogTzdDvw
+IrV+OYY7XECeBO9HUgLkjUkQZ1+t3LUW3iVTjRmYix050FA/GUDwwxo+1qhs7fpsrekD+NZ/4MUv
+URJd25qNcrkZcnd1nnEIW+cjPqdNTrBau30KqoEUUeuV+HbJTaxm2iwOxoNyEsi6/tGdrSty0qgT
+O3KmSSYmDflfhVevh0DRlMd66nPVUyF1uZx5hvEB6leB4DVIodxCXYAs74UYU7rEjweI49VOryYo
+hPkmTUkMR1ZTR80euukSALxmLCZAue5foQPdg6K2dG1bsnD392IaCxueP8uVkuxxLXN2LxAo6jlJ
+sjd0sdMLZH6+tpGwFRhZ35iGOuPlsknaXJcHtMzk8BpstDrMbV6BsSruejCNJOmgGEiW49DaoMLI
+py5EurlqIOJolX9DPhUuCUjscNZWtF/plYck8sON7sMNJWerYqVnYEXXKYpWSZL+B7ThoawT2S2s
+Fv34NCMvZCK/Bpq0FVD5zgi1aWlqDI9ihH1aT+Upves+wC09z1djR0yQRwGSVROn+9sn9iWsPivn
+qbkY/Rqc0e6AqqZXShunm598jQUab/9Gv61hhPGeUrJid2Q7Ph4glw50OPlBDYfdUB3kP3tcfHUO
+jKd6YEO6AYqQDPOHppz0W8GPMi6H4iZUcrEB71zzTx352nSP8qLpvDTHsWnwuLm5JHL0MFEdso61
+lpaXwGmram2Mencb/ZnIsMZFyqy2hLDAJodIvnEakMCieVzLfnAeo8nwIN1gH629AQK2Lv9vZJ/V
+pUkLah0BMZvIf0Y3TGZeYr2En1xLkYfqBulpzhXG3Z391iVmuiZqywDp9Mso2w63E7vbGez9Jii0
+m9lG8RMxtjJuqvBcSmcqA9c7tcssEe9M/caOC6MnUTMj4XZrR27v19roH3+GRsD3cMksylwal4MS
+Pygk1jjr0t44dfOI3dDy7NiRrCKMbvaRyg8s0UedPbZNMiLl2slo3vwVxJmuoBQeK4rU7GWIm7KO
+bAR3kty2WXwJ+ADvaxRzMoFyFtsgxJ9SZ8Yxv+IN5sFaRe4NwcOr570JzVGPINRzTDgOhBzT5FHR
+T/k66S9eeWukhc/o4lsCmcf1aydRfa9yVgBzF9cKKyk8HnTDPB2KLBqq+yl1Oqf0EUj3VaBEFyIC
+N2Ji1VRiJ2eBwlZitg3bX1wP0o3iHVdLAAhmVfmzO1eX1VCDmn+3ii8vjyTcV5Wjxu7MX/2ktgrn
+UcU8WzzawOy45Xu5Fwqeahhs0BwA+15p2fJ/bFolo6crK6PPe6hd8ITgxNz356WndT9R3IfCbdSt
+s+buM3QrQILUTfL3eMDGuZc0VfRJW0azY05imnoF4PHvmwYW3OP7ZM5mPOQMNQAYYCaNhK805WbV
+tigh1tQEj8RXZnzv7wroGVnuOM70Zd11pytq7SfQrDMpfqdnMu7CgBNkZsTPQfkhZOLnxP+Z3+bO
+CVwt+B2/1EIedYkiiwJifBa0tQ/doDaNqX2DMEOuK43qv0HHiBRnEgF9v7Cs46pZ8vINslRCTPX4
+o2qArhVBuLu0u3RPgcJ8v3loGJVGt9hRsdYM44FqeI4yPV66N1bJ3lovT5xU3TpZB1Hg224kzf1p
+jDr3+MvpWKCoauiwnVtEQ0OX2A0C+gkRaEIxNfZBlVOp5yqpVzlMzIRxgDtG88PeW4X2eQF6fH5e
+a2oTSwnOvMJMOczGcC24a6i17C5mxuqGxIx2p7XOXDtK01/UDx5PMxiyggO860qhktHDFixqsDcq
+hjM3weRROa2EIHuuveoMV98rwgUZY1RyYDDfbuoNdDRiWJRlELpzbDDQGTGPKxt2uZgcl/1RcgBg
+8eQ8R48rwp7f6iAt7lxo7JvwQaJzKTnCb2PQstqBkfFfe8Em69SArKmdwSx1rQqm6XszGgHVgoJh
+uKXQffXYQaisL//iF0LY614981KnMaclhSBiDy01dF0HJt9/rQPXTrrzmZ27WrrhWMfDxdIYrpH3
+a5g9RHQDGZ9VT8vM3n7qxbdoteSaT33ZR9epj9JVWpfYm/Sixec3Rn3e5GndlzXaBvhEV1N1Twuw
+oqjHtqtbjc2Q8lrn9tSvfFSOgs14tCSVDpqZXMCTqiJeBpo8aMoLvauwC778kKKCW4spY0Z7dctI
+ujQcwqn6RyqlHoqh4O88MtqES9L6oYOF2umg5XdFN7wn8wh+mldTpcXfTMtukdjbpMUug/Jk9EtW
+HXYwVrrdg4CqsjL0PdIdfKUjXNGIZ4CvPheMdKMSlw5lgLGaE5kRDxUFFbO4xuq/IAPZCtrTOBCI
+qZ8beukb0JFAJeBFpdM7xuEsTnW9lBs6YaEao1FJH1fEZjtdx0dUgFV/zSaKM1LDmoR73qagiAGo
+Bele8g9kJOCFy1wZwqCx5F6C3nmzj/Qy0O95iRNQLOvr6UdeThTRILjnFbN+RfJXQsDG2G5KdH4u
+0K5MySt5hStDNXLFXheS76DBqZKdXnxTLUO4PGRHS9p6qOaROTeBXFHshhK90T64ZsKyrolWImb1
+njtBcZWu1jFBIWLpZVm2DeZDGXvkndPDcNl7R2l1AyGADpi/qHP4OOXBb4mS9LnseeRDDwhn/R1B
+E/SXpMBFr7Ym/RYypaBD9r/QAYWSuvgxW13rv7zIZTpQdAj5SXk7AWZUenSexL4HbQBtWz/+N0eF
+T1otsXi+pQIlDH2Y9c4wGU5iVQy1yPdMah4mAijYHrlW2O3IxYk9LdxAMR4WsyWwK1YeHxPPdH/p
+wRez2TqdV/UrQBjPxiRQszBJcifOcvnSrl1yIKViO1rA6RIuXuoajWcoBSrvHwyvpGJrU8fjSfKk
+F6TruY0Kv0jrmQ/bnX7UKuo3K/vZ3QiS8JNohT/eXqczu6LP8F1sDeneFGbh9GfRN+H8YMjpQ4Vc
+fgAvt38k+xKrPdPrfpWpcUR4L9eEUXW+rvKIY45+gXYHqctUrHUXZKWcFVYymmU+iVv3wB44p8XW
+9LdxIMACmujtbds0hEfLhBpHpmRsu5ursTq6oOrG0zuOozfy+0ZSS66uBmI+vQWMFX/pU+0nULIP
+ma6V9Zt+txVtF2gHCIJwlelyNNL1ZfHoEBS0IR1vcVWHue5jYkc+qEc92MnOsaU0tn4i61v+mKou
+ujAxb/u+wm7oxpHH1P/V18YI2aYlopYdNZpa8dnAQiIj4gmQQBzCZrlOjIXy8k7pwkJW+5aPq4LT
+EAgtnDHI7v8H0T8VWqOtWSr4dK9X6XJgG33hI23I5fu29oXFZ+qsKlrEk3tF6i6D4oOSuhLPjN29
+AGvplyJMutTY5H7Tzc4/wfp12Ena5QdZfHvx2tY8Q83/73rRkEbPC2rO6DS4DvIl/Yzf6YFwbUnL
+3FkkX+wlCAiGSQWOB48X88zM/A2JPkXcjVrDXgTPB+2s1sVoK0lkf8RCX/JfClw5s/pNlvSLoQne
+sRk/pHpJN92Nwfmdpw/Vj111aZxrdgPVHa5UFd1+vTdILxYRmspsHVBm3Jp8KZ8xGRdUzPNo2aJv
+ts4zW9u/7AOJ/IZO6UfQHDSphHm4xcKcOhco9i+ra4kWMMfpUx6jvTZqyrOfypdi7+YrWnnyCTMw
+jj1vIMFd+x/ZIANnsjC5JUBZnQU3gHEUtHbjiS0CySUQqVwdjXIl+fPuu+g5NJSehh2Jp2BBjdLV
+DcTpTTOMFwK3VHb8Ep9NvgYy9Sm6Phlfiw1D++av/zBxiY4EMdS8jp+IgpriJfxhQ1BKZhMBtcbg
+h6SExn1H4c+wh5nBH2xioZMIvDOufXtw7gnpedFnF8tRru3wwLsGXETp85d7Rjrptw9yzEZq91yp
++GSQ8oj3TEAT9Dig3oAs1/d6+S5ikcPP1n/8FLqUhWYSxQaKqqvLxIM8bW7hkJ6nVGIrgFRxmiFB
+K3l3MOWDXWryRgM7u29Ndc4m8wFPAn8TLdEuaF4RJgaDa3BOVzlPsvYdgIUgF09ZiompKHAWaY73
+Er61N7Z5HQCfMgNueoDlSOHEHyYiIv6IbkmWnLxAxtd94Jx6IdtSzRBRXR984rELO6qZudVThTlo
+Wjr24Bkax6NaxjRxqMXbE7j0h0NVlDhfi5TXhOsrmVgO+ZeFI4m5VbwmQJb21UROkn5ib41NJPuW
+Y/G/NhKlOoJm9iiHmsmRDKSYtQmqhkITPWde0cnLp7bbwsLOSIYZYR9HIF8xcBmuVbIt6OaAJtBa
+Ars5yFZ8yggtLLLmxOJDrnIxuGIMz4Y4fzOyzOIWPFTy9d51uu65OoYDJuuR3OykpHMvAqKx9enG
+DbMST+1zCuQaPaz0qNkQlyCTcZqchXiUbttRKS5rDL7SZEOY9v+dpUkarfHeCqbp8xJCVmAMQhSl
+p3viGdSVFRYP49Np/3glMyASkpVdfjhPv+8WAsAD7QgNSqBoLeyNBfz7zZaVz/KZoDIAQZMhGeB0
+TW37j85wWP7RDGvSYkUCfgkFpIgn/YnbwI/w/oP7Hur/bpVaSB0Ve5WGtNKmUxWqynbje9jYl6rr
+vKL2VvrKSmGxiZHdr+8J4dl6YgJa9YwY5fX08ZsMXaxeRVbJd+XsVOqhmgct4mbfA7AjNikqnDqt
+2tPkLw9eCP2DW6SH0RyMMw8va7u02PzkNUjNFV/mrkTR+JX+pgjpy3JXFDlHGgZwu9R19uNChvDc
+oeyS+zKZkz3B2c/XwvIAjnadwUBv6CbntOr+YRsTz8PMqFI5TFn1oEecwZurlQCkzc/BKafWH4xi
+akm8SqBsn/9aC+wA5+Or4e7r22lYK8VeUaJ0RRKA7JJ1Zw/dZ6kNylFhvicXhXiFBPZ7oXrLlcwa
+yAYrOS2M7mwBGn1aLnBgej8wWQ14eVCtQG3RmUfpgM9xN2IloBJPT3sf16514/voE/PqthCPYD28
+I6imjhEZh1nQaZnEERTDE5VY0Hq3LZNe8lAiDO15rhWSbwPwq/sIZ0MpIvRithmIrr8nwt9R2PB+
+OV3NNyp0mgHYP18Dp+gFooPkFews2VNEplvfKfEeedNZWKWOZJlLjDiiWbQkwHuIO+CaXe6Ud9Qh
+S2RyK10+BF52TZc7EBm2+n5Mwu9BXLUBF0rtJ0ieEuFF8OKKfHprGlGQ2auRf9ZSroaZy4qrLfzY
+GjqASWsZ/scbHaP8WWgAj+tiLNILnSx8jQUFnPY7t84R2t7ZnNJ4zv+RvbU3wjurke0nlMikCVBD
+rtorb1QOhWmFb3pcovlOvQN34OpaDQgLbZ4yzQtrSXuHJMJavbDlBjOkDkh7qo2mVPCOTphhSwq3
+m2asvWvVkfHFTX6zB50Bc4Vzkh3+jbrvSnF/qwln1WoPbIEmeEOj67vUzluIzeNCRNGFthPSzln2
+rO6iTbxoGYgUBrbQre7pEIb7dEtoVYjwLoKMmlkOPPw3RcRZBVWGmZojaf1TdsTzEOL2X7Yo7DNv
+L/fi3dvcCGfg9G+bADQ35YwGU3C1C563e0Kev3+esdb4J0+r/AqEZqiSFyvHJCGXba2wXMviJpNw
+EgSrKS/xi47VGNFoeEUsPc16MlGFpOadWReYSmXUWwcVLwJ8pCkNRcqkvSEgOEXkzoUW8wc3Jeds
+XqlsIHuwuj6N/2x/+jQSsxDjoYcD4YHqMKQejr6I0eZ5a6IH03J1CpPCEGroABTh01K3NtrIDKvU
+KxGXdfdgrrM3006PO/Y1A2UCnvzYf66IGmpnSPTQdFaDoxS0D5atM/cxAcy+i5DLaFaUNws2XEyg
+12VzhF+rrOQKUGpUdfnE2BWw1LKz40aUQ8GimqSTa1z2IaWe3XPleM9DhQAmJPlkzWbsqbQmdnYc
+gQBid4tlAFoi0/PqqBHBNxIwqZm+ZE0kqZVypJeJcOtLsM9ORnv1qmB8CvT2zH/KxOHh1GiDqsYS
+wztLF17AVIfbkxnhmh26zrEne0a+64XkjQ92AxmZoCvc2q0wO0D688AwsPxvJxTH3WkKVLfkfhaC
+UwRl/WjsS+vVBrTDuUHDijhgicVib5z/x4VHqAFbL67gYSdrvml+ksPzoFzx0mXqAQnHItM0929R
+1/tteB5e3brqhiYlCipfkYkbGKufzLB89Ozqxt1KyilQSA6qv0OkMpLHlgfgkZ++rnwxGp/ipqYu
++k4xL1b3MyS3ZKQb9w5pOCWG/H125R+zfLxDAb7TvUgtaK5GNthyOeJVtiI+IzyK2Q8tssj8atJt
+KUZPu8dvm7CXDKVraJrftxLHvw9xn045fFMjOpEffc8ZCvX/XUhBbupLvUHQlvdH8Yh38lTBxen3
+AmS4i5la4dAJOpKt3Ir8jJEpHQLP2CeH2pGZI+z38XSJrD/2FbcHt9QLWyWP6ZwhQJyTX7uJqyjM
+PndpLf10vvzw7MQym1r8o1ula6cKyu4nudE69rIsdsaX0IIYL3sPQrEY2BprliHt+mjEa0sZYVkC
+/6j8VlxZCYgcIBCkTB9H//7xPLZmD9BtO9BkBH6Md/Z7CQVo4Xz3dWGSvGS9aEfYiQAKdJuoo+Ar
+Euugh5tZwkZvBPnQNQ3hwoFJilJDbP4/eIqZCyccETJhLDpZrhhEEmUd6N2MV2gHYelg1monvG0V
+FdXMEBwfCraCHmdbgh2Wu25obqSzbJ5Zf4nZ03hTTeOSQ7BzGwg8TBqmRo+m5Lyw4DJcuUXHnK8c
+0v/r8XrjOlZlfkj01Ek7hjF0gVZxKPXqCaCW5rnMZkslJMsbvpDBfBdVLgvKEQ4AjJtkWKdf01jj
+19U0vtOgCnoZX/66tbZ+3WXnGqIFpx/3+wH68GJDhb20odlV2vAIj8reV0GDrv/CTHk4/tMN7RyG
+evg0PDUYjyw4nbk45i6UPBLkaZmsEGc8UtRRjkmmvR171eRR/yv+AC5/nSxlQgcFHba9alpA3MqF
+2fCylc6ErxMUb3JnpsPD0aET0bcF1XoJrUf9CnPc3WoQ171rsGm3X09Pt/eBDbipvyY08ai1lVnz
+4pPsv9hhyR5L0iYu6EUVT1mj+2kcaQS1p+iLBmPts4GXtl1xfuGWk/0jUpeR/Utp8+0h1tLKBY5E
+AZ95dzCTNyYeVPsn4Xs4Aa7UsiWkY5/4sG4nnJE/QElr3mk9Sd+JEQiXZR/zOo6YDzPn0HSinxlb
+EdEMqmVIdDkql++qsvU0p4WF1tVKOsFloP1IwJ4nZyzy28AR1RRyds9mCyIBvPmTP2WWQ00Pn1Dv
+M7BU9co8h66DhgUQ8Zd4BkGRdHW7hXd0J0ei1643/MnE4ZKvjFgaFhwyF19K2idXzBWGR769W5Y7
+9sH/wyCOSfwcqe8owugP8DxPL+Ef+vwLeyQUCV5DEY4L63BfaVJXCGeVbrFIosvlNFYho6lcZfPz
+4pb1mGQR/aXnHms9K7BVErHyZKls3WeAkJKxLMKpqqGN4k35jRELdhYjN5TJ4aTvnwQrO926aMhl
+jQqUD8N0neUiXuFo2zM1uFOsoRmBG+F6aFgrmqst22ggEefaRYSyZW65HHW0/QPczvGk7wZgarNO
+bCOqi+DYUSDJlIXdSZdNSNEhDZd41MZDZk4fzO1F6nmvChsWwsbX9tTZLJwFpnQOjxloHVawmQhw
+B/GgI3F4KWYHiwba1Eohk0AIgV+RSKRR3ijDLIDFcw2wXiWeilva8V7Umhd4oPequL4o+1jNQ5dY
+mzGTsPfDmkpw1qXBeU4tai5CjN9ZU50gOzbpG53hz8MOSDxafy4r7EdC42oTbjCGIDJrVAB74CCZ
+Kn2CGMnuqhomYzDlElZIi3RpyUgR5Xzq12bpVwlzPz1ChXnt32PpoWC42rbX11e7goM/wJZgK08O
+25wcwmInBMzfTZo3YzoQAeD68y4flM11NUM4YjteZARzrEtUGSbfGevH7LtP22OH44gLFmVXKX2w
+4qVB3n+5C+Ht9vx4AucEvLWMXpWT17RZ/tQ1KLBLmmNr99l2o5it/SHyCr+dFkcvQHvyCScr6Ieh
+M3H3oFuuLW2rwgK6hGRkayl0DZU2XpnSxly8JI73fyc6EN/sXoIFmkIjBFR0bID/iKscj2clcUAz
+0HyF9UGLRt/AaoKXd5EZYVjRI/EyQ9/Ik4tFi9s1jllCC/+uHumscJt9H/bfKzxUK9Rsra3L9adQ
+yF3k2CduIKog7PZYx9m9y+OBhGmjDeat90/L9/buwugv/IqwuPYIhtAt9uR9tfHvUfro7qowXCRg
+xC7QwTLzAzj/Aw/eHzjDMnneVz8DqVQV5RJsd6CEitv9itx4djN/vR49CbkXu/aJ0PFcce9o+5A3
+rCNKFkjB/h1mB1tEC730LTSgGFqS13Jw9cJuUberV3ETUFd7T7VEieRD8EBkUqC5al2hrm1GVuuF
+n/GgXdrVMfjLstzDemZdu+deN92ziLW6dkCWwpo4mnuWyLB7ebmoUzTH3mvWdHVcz8Pl1m/sOzVz
+51oMZae5cDuYOR/lqnr/mKhcXOhBU+sCRSJFfqjEu3E78ONS59wRdUUQHRL5lgG3KQp2HfsFWS0L
+2F6h+1rTVYma0B3xxO1Oc8vBrse/BaR6T8zwGHmWXQWCHrdv8SylXUwOsAxdtoA7FSy3wKjo0ZWE
+fVbfXkSSSh+7ULHUbjwBZl79DjroV/ZrZ8a2ec8xwoFFr5I7yapH8kxDRCJM9Ppz6Te+BRnCRDLk
+lz+eRJXFWmgTlhgx5o1YNquvhKNTWwA4mg/7Nacxdz/R2i7kGn2GZHXtGqrK9/9Wr5ntSfIYRLL3
+mebLpSa6PvRD9j6uwM2KLAjyAw+j9o+b6cnAAZLopdxHwO5lzcYVWZzTeeyP17UpqQ9buhl3m3uE
+X0uO23P2yr5Qpz+qpLk3Xz2gZTtFSsyZCVUiFtdAM2b9E+W2nypAlYLTup//xxV0AMrA+fujkUVU
+23Jb3C4w2QEBzhArautS4w1ZERvBzkO7riQdZlID6p+OaNwFruVjScEwd0MtpsWOsr83jHe2oL1t
+Lt1DbksXC4TRYfRznNaklAhiGVm1OM9W7ZtVYOBP+w0eNtezvvQe+2ETPwZE/wmOdHDy7LdZP+c+
+Okp6k8TbymgaaFlG4xlRAirtBrv91lxeKpB6MJfDeyfDD97La2h/k6HVbZLUjtpm2JQkEwbFr91V
+2zjM0ii7437NwC9Mb1lGGGlBiday9ssK+njPPcT9WxZd4bhFDRWb0JcCfmnc0jLoX3nMVKa5Zh5t
+/0Un+JYSyqx6hmflLiFlHw7tef6Mhmj83uhKvmUmAKyqiG1tdgHdhvbAZf5tez0ee9PPKv97NihD
+jRupScISwdLFwgxjZLgkyN1ucSZNPXnXnJ7yQmGPMXgiLFtacD/KRvzjqX627hI1t1kpaiY+vA2J
+HDaI8FnMHb+P60DTgUC9fQgCYZd0sod+cUZvYId5Y3emDDY6WXGThagL2vi6qKEfngqNRyRf3AeG
+DgFNPqbO3/lVmV35AvmiWvgoOTHMub+pxVDTPX+09oL1vYGuWxQlIH6NajEU1BLsw6DGJAYd3+4T
+WIaVAdNnQNRQZoEcZUqPf0/TrPYvQ0A3kA9o6ZvfIBH5iwoPOSJJs6UWZ4tByPvfs1GJYzwsgKLe
+ibR0Nzu+0uCJrUCIjJ9VuUCDUFSRIo71GEi9vxFgGVfO674y0caegthfJd+kUpDGb+661F6F0KPS
+mrgcFDOaF8T7Jfp8Jd2/jstXds3wXE1/cMWY4Ii5Le6E6ovgWzXkK4hqASom/o05358vweHWVKfa
+H7Z9MmbSxmFilWS5h8PJm7NcjY1JW1i5lYLjEV9uiOHImBeohlDUVqHapVsh2CBYR5l+T8suDKUJ
+JO0zeIR5fqCkto/Z/q76k56rZlgWbWFxv/NTqrK6ZkqQdT3w/ifhIBUR947I5zNlXbWaD6wqID9Q
+zMWQPn/i5ia3EN+4seOTCC5DR+BboSF/KdoWXWP/UnXqKdF3ovqQ+NLSj3BykfXAQWwlqfUR4Dy2
+8FmBuraPFScQPHnVyU44oRjOjGxF81bKatCa+8ZnEbAiIYexy5wIn2Ove8QurWWSVOC8vWi1HmpB
+Q3OghRLgI8omxJFTIx0srGCJKZaskXYBT9O6F9cRG1u6WQixVdfNESwYxof+M1dAw9gLMu7FxEDd
+jTGrhdduMbvw2LboGkCnuQzxxs7zgYweAsSG2qfX25Ze7oXqukfeVT94vUAZowlQ0u/bwIjkN1il
+zOCqEILLes8Wck+yTTSW1h3YMXZQWpxlaUzsoxSx+6XCOZrHizlxwjWKBlsgQ6i+lRN0YaM/uJqX
+095Wh4Tmw7U3m4yn4gO6U8vpX2b22dM8vUb3jzJlaRaFHjtzyjhno2jd8v1NJUd+H9xl9dVzdImJ
+DwfQyVyqYmQhfz7+O+lumnJ6c4oSkyyAJQjcNGJ9fxO7zPvoxu7HP1u3rw0EJLNUf4rb0H6Dgtxn
+jjhwNQicWDi4vbleGGPCAOYRP1ZIweDtiNI810hp6WiM2JsZJH5/tI59ZCqbl+QejQ4O+Az2iVlO
+x0ih2ElZQMt6oV3LXOobHHx+C0RmQJdx56UdqonNCImVTxljUWtlJr1JtOV+57xuAopdftqYqcIH
+UuW9i0IsKaGJeOKyYIJcWFUdk6k6pZ9PnXNduqGjIvi+Ty3Jj5pygZMmmoBl+0uZwKfm7gg39ibo
+Vuumrfrhv2b4dwV/H46tknfrj3p0X07Lfb27igShL+FUWu20/4kas9OEUCs5TZXrYvcufRu0w42R
+UIrUeAtYwPpGHovQNxA/OvXXtUbQ3u1wDC1Wqzq5Kv9+v2juWdHCg9CG17zkQu+P09NA0pgqK6nw
+kWOsG6kC9cKQAYl4CMLhBOiFHex0tiv9404oCzZaj3jUskuZ6oPRngB40bJDZe8syYLwV/yIrgvg
+ZVcfy7r45Zy4fg52xbWJKg0rB+xuwTsn1z9Iio4fmfXm/uiyfz4TGTvUW5/p5DYhP24sB4IjByOj
+pGQhAST56v7QOQDR33PlpZRtjA2Fdl0FC43SgBVH6I+9nJDkSh7z6wrxQyHwIzZPkLPBpQiGshrL
+bpo1pHzMoASC+Q/KFI9g5ODPHwRm05JY/hdq21kU/QHqo9wrbDCuYTg7mlc4Je+YVu2ZO/YmpLOO
+wCT5xCp13muRjNFW0cZjTtGBeA4gi9YOmsjHs4MRSJkUjAAJw9BZ5T5gu4x2T55SioMHMldVq46L
+ajiBmw2ZnsXvGOMz0iQnYXtafVutronjjbW5pIh14ULO0YQqZmms/D2xyfKm9v2EekRrRvlFr6jj
+hbXPvW7RrcZV4ubv+U8UsLWGYPImuxZceKjKs/KmcyHW/fmL4BK9PadYca2d936Vjdg3WGfgNe8C
+HuVQfUa/vEC1Am7/UNOTZ/f0DzlTVi9vGCzZOayRGTO2hZwL4BWIK0XO7dlIIF6mLE9w7RZCLpld
+2Vir2ZLRcLGle0jn81zkhWtunauW9sxwrt+QaGILBCQZ7YrP1v4yszWiW8XPYGRASTpDL3Q67k7M
+i2yz5daS/+KcBFLfG17Ji4eXyDRjxGLaLw/riTa2m1Yp+ibgN/cBJSSKl0mC/ymSGQVjktwEhEBd
+mVZw6NVvSi/YGSgV5xsVD+Tmb0KtM9TD3gZ5Vc+e7n7hNJ975y2nKiGvcOiM300+o5t294cNhbBL
+RcvDPYIkWsTQslAWMCUNfSe39neeiav6/qEiNfEhbOxeeKW4fr54by9RoChte7IseIx3NvB+Uy9+
+XWhZ+XOmabRdt39AOiof5LfLvSfv2AF4cpgwppL7NkAyV76Q6p7dEk5sOEt0KFy/kvRGOfFq02UY
+TLtJdLBH0BHaVJwOQToKC472IOJefKk89r+G+XJ3AkbxbpN2HHhkFpk9n2Rijxd+4PttQ8yQn/fK
+TeapaIMQ0QafAaRoVi7fu8G373A7DhPuX8S32S3NyTBFgx1WpDiXAMYMsMpkafZ85WzTpdwuHy35
+x3K6EBtqwhzKP+WuLLDrNMYmEL4KP+X066pRKGrk3o3pfpXRPclFQlOLnwlpj9g5lq2eascyHvTF
+kd5Xu0IwWqgY82RN4nDTCugQmrbVPaAK0TAIaNSV7Ol/pPyRYR2TEjlsEOorRY4hwJxjUP45G+Na
+A0sz0LPykY/0Yj9LWBFc76abLu54gWRFpEr7aZM/1ahmqINfjt6Vz54Viud36i+1gNwakqgmVtNO
+kIuJdB+9c6d+Jra2t3tpWSmPiGGhaER6Z+pixNA8pk7gb/uXrbukurQGx8VLFlsuIeQqqoCfutV8
+/aUcCQ7iSMXbvJnGXRtROk8eh9emPYOUFvuVlSEeAXQtiUlBgYjPShUK3ul2xiNZnZCNN3vpRqOe
+ERw6LXCIRq9Ms3tU2TCUqdkIk6wc1Q3nq/crEU4IRsBf+L23+tekzb3oLvL03DvbHp95hJTjBSq+
+stN+iYeLpQ2GhHw/HzQApEuWvsjtDkN+YYAqx/4dw99wLrbf4CmPxtVTBb+RgCKHHQ6H4+X4pmPa
+ELYYrliWzploTyTxM5Bqi0vNvwCJWmQTlsahGmzRYXjyswCkkr0uX6oPPkt9BXWNkp7ZmEm/JPV4
+FbA2N4Ltmmwb4at90gywPgaKX5fgtRHziD0pEPcF4Jcn0wbxeJ1NkNay4DA0yQV9MotRu9K76y/D
+0oNngVlK3Q2JjKcey/D8hfP0OYgiu1pwYZTY0xaNZ+4ToL+U3hH5FVDvQdZ/TMArGBt8D5LiDAGd
+VAwqQvH0iXOLA8iMmV05/7GufDe+k6di7tP0TCoWtusNHcQyac5TD9Ha5c4a9X94Kyk2wfSwMMQW
+F44gsrj0UrEV8VWJIagQy7QCEXt0avECVRfWrZbxkBYT/Y5cOxtyLFLLn0B24rEEaulvI86+TYJL
+VpXwBIc55eengyS+EpbCm1Y64bbkJDqwNXvD3U9QGd0THV3G5/Z+xH8jC5Z34JAoqphQDanItiXz
+PYmsOAtw/Hl9sbeq5C2vfrygai41eHp68SzrMXiYmcu+0g6mxT00XigIY2P8EmLXM8mpjOsafjBq
+afX2t9PT67b/+mBK87doouLiYDNX3HmskXJ1k3gaa4gQyqXaI0jRWhexTDs/LJY+GIHtNS8WHlEv
+90ijp26JElyVN4l3zTBCEtWW8mfoje1ruqqIeD7+LDUVeDetk/38KMX0Ugh361z/TH0T5mUH4ybh
+NFDuLU+0zgS3ttDHzSjORpL0HW4wx1StuDxLosyO0UKDCnROy32HnRFwyadvwc7xlftHrOgaYw+2
+PLMAxY9nI2pO/TPFUzeHGFbv9PvFbRFev8J04Oka6vV4P1fRjPlrVRpUB454z18efBmATWa5S9oU
+vTtOs0GQLIT5w2/8fbZwO4BzU5N0voYdSXjUk3esO9Ps42Mq9gH/7ezmdIs1aBRQKHd046mtKKJG
+IkDxgs7LpaNumGOv+M6JbX8Y5f6V82Hvv/1rSTdybkAvGo4CYG8b8jK5uRgW1Sssjhg64z1KmUnC
+lbrIUWuUbMkk+wU5slLgiPV7QKmdU5Qn+/Wwx1l/xYenCAj7C99NDpyBQIv517SrOamIgkG3SvVM
+QXoYbT7VwL/1O8HKNKPRt0FQuDw8cFba+VIjVt7v9eqvvUlX5cKTDtBoNTpY5MCsB+5yCvERAcKK
+ou/5Wly1qITUdUiegE2RoRiXrdVmejm9pQMaO2B5VB1Fo/W/E9ETE7l6yoHY7tFA7lIKepj47Z/w
+3+dlx1eHb1qcUQK16L0ae2dDtjvJ5vKVeZJPkTWlSJuIQFNRiP1VoujkLRlLC64i8jMeI4vfx8A8
+qobuPgZhkrl79CwnHGvKYwtL0MfEspkcmrzLZ0eO96kGzl1cm9rNoKVTwX/yDRxCyPCivvRSUGKx
+7Eiad5/s/ZSQvibXUtlIanU+1nMNO7PRDYd4bXjq4jYf5yq8ggCKdX4P1tS0GZnWwyqAxLW3Xmr0
+noQkdbC08ptvCutyuBhbDHmAD4fB7dCp4f++ZMv9+EMk3UVWlT4G8SfAhwWJ42Z+miPEoeWCkMR1
+3brcOITJmm0BMiN9zDNbA5EAw9Pr5arLme3YUzUheJ7LZ39hIBq3gLfEXU6gsv1urG4VjJB1oKr3
+ctJgQa0PlvH8+vvR1kkvwVU4P3DMU0dl0M+ODRGjx9B4EWNzCedfzY2VQvMKyb2TAP96TxPhSaDo
+glLiYxzOladQT/Hyj/PAiUQu2AiPkSqvp9UM14+aIHnUNpUFB78iXRN8HszuMoeM58ItwHk39FiZ
+7679bKgFvAQAUglWQtIjjS11lO2N81M98vPY56xelFxdjJIsZp4MQIzSB8vTawhWsiuGinLWyPoj
+6Lg/4jDtuBGqAiTO6GIXH15Sqff0FHMfGWV6BhDJedVTcB2rTYsY/pA0eILLa0JOpnd2JEoRYALw
+H7jERRl59q2BUs5J3EAonofAOjyS+32dp8gw6Ao3pdIb+LbfPgFhp/S+CICDZwkhW0AVodV1lvTi
+AcNgDL2yAuSaxHheRleFs1otfJKTg12msAzuB9Lys6b5gZMzsTa2xWalqCDYPrtJ9QRqN3wqOhGg
+yv8vB9ZcGOzhoLcK9exn4zBbV5bo0hmFTLKodfvdGCCf4AbzVabrHgtZdERfORRmwothvz6Tazjs
+sk+320A6gw88SpF0O53zoawnevTguCVQPc4cISky9mNGBu7TzOU2UxgCo7JSnPJx3xOonrN8E9oI
+Ih2CT527TdK1dWSoSFn5PbSQWeoOcXl0YaoyhMMTQUC1j/n0k5wDXJcy/gu4zvjDE3HxbcvMbCy/
+jpXBbOR2X3LmnzeEYtCIwMDM28Xk6Q+Dbij0aYIQfa86Lol4KI5HEzpXwKpPQJlIok13iWouaIT2
+DCheJcU51YBQJH07EhW9z/oyDbkytjk/RSD4MI3CArBaFDo67aqXD5Zmovr8apHJZx7fUJ48mxnr
+10/+LlLFXI++waeEuvumH4NT9oK16rYTTJ7ErFzmoAsJwXJYiReZbKwSa49l7f5W6lFWQBKjmnBN
+h7QIPlA4l0SEgompdZVnAL047Q+C75+3ea6wW8IQSR2RcyKeoQo+4PdXIGtKz5oukfNrqUkmS8Xn
+0Iev6HqBjVw6JDFcR4SyQI6MLtAvmw0j3TpjrCn4yFfdeGsRl1HEauQJrOv1UshzyiV/lIW4B6d2
+1oCM+4w+rL2rdCLGy9gi6EsTfXevLyZeW1qeeXAogSahfL5aI5+7byBdePaXzPQED8Icq+5B96QA
+cKiXEJ+ZClAxoz/kHVPlUsG8D8aoQj77LjFfvD1E46fD2t2eJGP+jTq9AhzeYkAuLCHx6T92ZRbT
+ioaFpeTxiicOqNxlo+GOgqHzUf2VTv+hTIvCVI6NMusPm8AJvQOas9pSz8heCBUVREELJYWKx/rK
+MFr4lvqFOs6eyqXl80bKVq0dxzSdu04v7O+5bOmIffhIrhBrr5qpdPGoGA8Aac/mryzx/10sZxfu
+S7OWQmXPR2G3iLD4Hc6myGBPJPLBo9cQb+CYd7YqCVBfNSlq2gjxLcQuv7uaEy67hgWw384d59w7
+QsjaksfdY6Zixge+G/F6a3Js4wXszQU1nrkHznD+2ltIQwJYs+BRKcK38GyFcaSod0uwjPX/A976
+E+Q0SdV94olAq4eiAZj64QaMGI/5OYP+TstnNyPB4gw8VBxGDus002uMYaKY49Z1rZdPnwAqZ/x/
+Ka34sr3tDg3PY8DGS5c5QpRBgTxtq0L63KrsrE+QmALuTMadkqRoaFme/HHlfFJRwcGVmKzmqFOJ
+4eIA6Yt5uMcmRaiS/pWtTfZcv24CPpMZGA13UGbhwEHfdi3ue1br7b1ohNQQ/eJL3AAJkdlfIFj7
+zA3W16XoyB8rYKpsuoRgARD9wVRdJ0RFGD7J4F8Iyr4L+usUlI5mweq2H4gXfNhxTd/rQduzN/yC
+VihIeX9Km/wK4eVn+AJCS7OR9ZpXa77BAlrrwckZmzoAorISmUiYNx5i1rq9VpcsATZXWmpCssgm
+U+XhjCln1+uqPjvmDXkLvL2pjgRDpYpyeZd8AeZNOW8ay2vRszI+zpsfwN/VpXQJgb1TXPUYx9Hp
+SYnWq+SRtoqWQCsUCmgqu21pPpOSrlw6llBlJMrUfCC1BF2CUa/lean87zE+XNFYmw4MrRSnEbzV
+KV6qPLEdS7EgTVDC561JJXhFsE+zrmH+UjXhPx6Cv4zzmIoEOQsqUXs/IewUyaiJHFVQFBBKUWVn
+ieQKSWfigQCjpyMJn/9XGZkA7HNTp/lS62bFrHW8RqpSX8L/CEzSxkFN1uvLDNFy0eRJJ3wYpPzI
+uo5xWWp27i5MD0Vgf9puNjl4443RrbsBshQwDT23KemMH3zs9Pxu/qdIdSCKDWYeGRtZWqUBym7c
+GAtaT/LT+VvodLJGubpzqh4w66Fx1OKjZZWggiAz+8If0xHKfy9c2riGencQjZdUKwhTjVLSW5KI
+8gleU8X7A+Rp3yj4aVrMJ7ek53Pci+cOYAKTQN6LYgbV5YXnr/ssJBDAPXTGDQb155BBem1G2AO8
+I++I/DyDYogVwq7BahrY2xCgbOP89dmeVf4iDw9wxMlmNISr7Zc6E/gjqYPGNbl36NszInHOHUto
+BbpknWtqZZMWcRCVxD+ZFSxIV9jZlWu0/CuVQgeUh2ECRVOUZJbzHfA+15aWBN1/e7C4W2pfJ8Oj
+RtugVJdoHGK3E4ZxEpNm/kt5xdtRuArzniLL7sKQmdr90L0qowQoq0MD0n9zGDCGDCXmpzJCJYZZ
+nk2pB8bQ0ZHqnhxqSP/LPt3lhYK7DAACKOLY++asQtkySbxU6BJBmdPxM0UtF2zHO0YPv6VhLtmU
+5TdrZrA7jr4GEOpRKVWveWIi1ghjZyUcSGCJFAmBgmtsZ1v3wmZuRzVJR+1ZyDl27r4JJDfDAr2q
+yGIf62r6kfagqkgRlTFIzT+oDSwJ5aqR4G9gp46ZI2LBF+/ajalpVrC3O7lrBqNwCA1vWq9tAmWc
+xKoMNlVplnJK+SVFRgbKN6SCvn3six/x5fgksn6f4nflOAsMFM286hS7Cfof3q5qweD5sb50ejQ/
+mQT2A2BkjhWYy8beBYTzW4wXUi1CKc5hHVawu36PlaedyTD7e7uuI6P8M4caSS6dwNZ0nObuPum9
+4q4YWUQlFKf/1cbLMkd2949SiBT8GPSpOYMhIol7/RIxFZvNMPHFbvk4UCxCBtemC1ynzpyLGuXR
+20aM8iITq6fP1Ne3juuVErfdwR+6p/n2J0nGY0YRYbzAYBDncqYqQJLEjcnqDGRWeoUogAslHfO6
+IXkt8xAd4hHmMMnhgT+cGk2IG3X6tdvao7AvDS9DZpUkSbClY8+k2kI5YTYGXpX7ENutKuiO51eS
+FVYCH1u5zi6tysnU15Egr/a7jDoCKmHIbuGxVErfVKWCaOfEsvZy+L7JsUcPnGC9OheOO5G2TW8i
+jA6SZMdga7iihYvvm6SfBGHDG4zldiYFBH0z6WhyGlORoVDq6KR0kqQ9iw5tIbkNGnzOh5XLRtr5
+zKFJykD+hSO3FKXBnpPBc/bBSj2WBNZ9acixsW2I6JsKpOSpbP2sJ5jsYH1LBXjzc7l2N6uby2CW
+Tmfp+EbibgPS+yTsAMZM+u4GQZBzzf50phRK87wAgBZRorpM9W32lvQLiWQAWcaaKJO4uWUDh3qu
+R0Cd5c3xLVhAU5inKdoNnisLPdQxuYHL/XFfCaNL7IYWMBaNZ/ifUCca7T7PBO6rTK8iW3GZOD5u
+b1h8JwJQu7WdBkNAaGcY9C3YHy76sU/PH229YllqhhTshUZ7OeDbVA+UYCoGepqcUBXrHGUCwd2B
+zS2Lpd5mPdI5qLLLKlPi6/Eh0zie4b5vZqFX66aqmPF3/b6ufDeCDSO8bza3oyC3YFzfDt5fwsLW
+bwnUwUTuA4CLrFUjpLvK0ycVUWXI4fyrCqAx7anGydD3NTOrjrL8Aw7Nwp+vqAotOhize00d6nNa
+bnTOOt+sTkUzIGR0B0q6E+zphlZwndRx8mR0Zf9oVxU5F6CKAwl+t2JbSUNJmS8jotzV0QlepRh5
+zqFPnTnZnqtsF/b5fGfJulOO59KK334Iq9PRX5o2II4xyzCM3kw1rj0lyLxkeJPRQM2a8E/15sRz
+hvC3zZg9EaianPghfgKdLgT0dH1K+oWxRrwVTfxPjQZs+RJYCwAVgm2P6DxoiWEamf/X9T6CDIte
+Cvjl/pscBzDopGQkVr8AHGjPhjteGfSOZcdwpy1LDyIAJdBUvmM2JGnD/+h38T+axYdyZ9Pjj7H4
+wfv4HPWZLFMka8txM6IuIhJag7wGNYmJP+Ys9q+jkv4PgEodHSFvP0XiP1Ay8dlintOtxLm72TZ9
+1+UQxNsbL5+uQYrrMpWLLdpjCGknIJref/Soljcr7QyLrKC3plHQpohRSuZf4c97dx3SLHt6HAI4
+eCrC8kYMU22Ae8BXC/ZJHhOolZAYGw0eCW5QKyituhHYUsxWgAJVZV4HWFJdviEKlO0dR1wxjOmT
+KlCko3TR7NFV8HcFuL+vvdHUwubEJjc9vZATfj1/8HaAPG9A338r4xr1suoxNFJfRZS+hxZXHeot
+39R1DX3i7JxJLz+hyaWkreAmDDrqfIZd3GWJZR0wZ8hVY1vQ5In8Njiui6hRnqwncMrryOz15ydA
++Qz575MPBwHL54nQif9wrkyR29fM3XBssGJBnApz9MEUjXRjvoim1FObLRgHIXxbW/iS9UW7EnKu
+POwxPs9GRTvhjXuKPFyHTQvg3L5tM4qnYjlvxLWHav6GStWC1bv+LlC9BlgIt+WwcI/EDZ8bVU3G
+5Z/PR7FKFl+wEMF7dXQNy6ZJ6P1N0CqP7yLHMJfyg0xMjuqKM5tXHFajtrb0Fr+GpX/5yhAscAL4
+caeKSZp7ctgNd3tjUZ9d3vNKN2KAK7jm507ehFtY6xRQpXM/S9rYW2Car5RF29IBAtMfNALvuYnx
+J3AudOumQGwbB13187O6Xt+wdR54Tqku3LdlR9Urxw/v6tXXrqcscKfWi9pY6tZBEjUw9Jq1zNOx
+FRAzhZjwqwZKHT3ncfdekPtzHVhAwMsGiv8cGDE+P4f4lxmn31awCOLr8Pn1nypPhzEluidt7qYH
+5kVlOU0EtppCkU4SOK0mlTHvguCL7yBj8kiBmUbykVi7I1wibdxGCZ5QNNXLnYAhqd17+DtIMTVC
+907wS5sUzQqAOGF0EGf07y1UzJCj/MJGXnvrhqH9+DCy8nDDv2G5r8QZnoQI87LetyvZKxxQu4Hm
+7Cm8KejetX4LpLuI/g6C78zami4/N3cfba+Fg5DAnZsKcE6Pl5mK8EvgBfESfrsYerHq/5JFCdbM
+uRusz82S4AN7PLI9GLn4VZxzqHPzgaH7Y4tYbSMNemY93x2O9LQh1Eq7alXOHe7ZlgqXgInRmHls
+ufk2+YS6uwiSuHAtyaLNlkHdtGBj93lv0XMIbXVpL6lwP/GiNxrbdBZcgkJ6osZbCjLTImZnYYWP
+4Ng/RLOjHHYdd9h73iFl42QFDI1EECiIoVJthRUqxlElZgSrh1QAJjq69+j0oFkVdZLtUnnw7vhG
+XeP+J2DWbrzzYPpZFKun6TOR4Yby7W5GPzVTdmemtYpuN01OQc5I6zDrX5ElZQLTmQyU8j5GmkpA
+9D04cRZ4a0bO1kjs+kaZU4rp95zU5JaznSG4IeK4u3+dZBHqAVLlGYKDrFJZyx28yZfMIItiRvKN
+YLlOKRhDq2lKxtGAuhPIRmJiNdH2q6RR5nUqZSjkIhsQsIEQTX7Mx9Xs3LShIVWdsZX+/ReUxkzx
+S2bkKsguVkyudnNlv/1qWMvfZ85KdsW4auHGZFgAlkxt35jO0f3dj0usscas2SSpMs9YFf5rI7Px
+a56ktgFozwpDSWhj3dbkr62Y/c2cdWKDw4YF2Oqgh2xafesA5wycOrm2pCfvIzqC96z1CrcI7peL
+/4dmH5XuImsH58OZREUmJ/1sfgoR9gHpZbig3CktDhqNd1A3mKTxyH5JiREIWCugViyrr3V5Z2s+
+Fgg2pHv/M8cQrLDDfzVvIB2W4Sx/5j6f+gjBflMV5dW3DRm3LpLCCX6kLTBJM6Mxv8IS8oD1l6DL
+X3D6uLS1WEMQNVz4xzQjqJ8yMfWj1walEJHjIVrcu8GJKnsKyI+2GOAYluAYrEa3ub4rxSuH1FNi
+y8Uz9bkwM8dY7ZtcxESWZDwUTUuf3XrgALaCmgjc/P55YMQW7hYgwvEtDwcfmD+CSJ05W1RqsgJl
+9V5miZh2YWN1UzFoCLRQE6T1XNplJaLj4Dt/NiuHqvF3/b6ufHRTuog+LE+j3dBI4YIJPKBonw7T
+wTwhL46iLwIKQwmojx4g+2efCfSy8Xr5IzCk6BFUzo7OAMDfanWTeEGzTlDWcH7Y5Ac9keR6AUdi
+Ee0EMhwjeX7IGL8KkplYYzBj5ZklyCtqtWtob2J5Fn7pXLEqXvxONNYqYlbF9eQOC14wpBKEzrwC
+N3IK1xIuiAFqG/p0vuJEFX0El7WgpTMF+T21XYluZBGcVDqfh0xI4aP27JgQaO0MwRFlUmAdyXwv
+kCntEyVGJzcdxNyDuIHql29A2d3LiNqwVYauKt6uL3Ukh0vQtl03trL4RJJAGYCaix4KPhciaKtk
+f/HRA1EdakbBQL8zcK98M+qzUnpHIMQbydQOaGFw3LJPtronM86UjAD9SeMl8hHWSuDx2UJsk2jF
+Mq0AdNb2SN5xXYYFRcT2S15u81OvEaE1fHSODzx9Pq71DcbQSAGiLU94IZDUT5FZwDMV5NkCuQyY
+BQehKm2xesL3XZp5WZ/6TjkzEywN3ZlwcndQ8Dom7vUBO5b/9lD82YT0IGjxrWHc/DPqdsORMYKs
+QcqD3Y/mjZUn4ljieDtn56lWSW0KhS+P/wqTwQj5bcbRG3G8L58ipkHCUkiK5+GfXxxAxAc/uwAQ
+u+qjgyWx2rXrV1m4j3PsCOLRAHqwAfE3zWm+1VRzfn1pdlaQQdj7f4QOKCeEtWtPO2NnofhZx1T6
+pgVchIVSNi+qup05eQmGr+sQkGjEIVCWq97ZKtmlYMmivag7wApLe8+1Wh0p1rO6oD09pWXOOilR
+Awb+kFiQM/FIAJ+x8JW6zioyvOyMlK7UpeZ1Qjzvd9zZQYs2zgwK+lB5/aYzXTJwWGR+1UjWfpU0
+URp79qtxGrtOcifQXnzDx5WUAjVC3YpBsQUIBxmlBOFWb3bp8ylbvNGRKmlLmLqjGOQvvJiGyQce
+rvRJ3fWROVpwdyr0wrCk4D4W/6HAIo2F0p4EHBQ3bNf2w3Z+bh6eYXJ+d4gaurj3NMaP91p8kBY8
+aKdN+Rr6CkRHW+bXvsGBY9XQmpFs4p3jgg2loZiuKNWkXXdFvq3Yi9hJKlNCc2VjgJi/U+Pa9zKr
+YFCKxMF7f7naywQYfzzg/sPq04xOnIaSF5ngk1Xp0RrQuGrTap4aOPGDWILskcyYpCZ5K3IK0yPl
+SXOVvkc8aHJJMmMR/FuR4LbTGorJ4E1xBDXary6Bf6yBuu6qiCKjoZ9mJOOKMYKcd3RwZaR9Od48
+NrR1k4MR9NJBjUrZnJEruJem3F2UyZB0pfaYuuVI1o28faK67UI4k6QdSxLBJ//5L4OgOdcQ8KdN
+jMBh9GKG/7iUEQvN/5UoRhDowoQxSHHwqKBQYMCqxKbQcCR2m5G4wmPXYDXs3p4Sl9diUU4aQUGp
+17DmZRa+r1wwTEr44VAXp9NjJgeaLiqpHySVo2ZhMqt7kY0jURdFfiWAQfP3PlhKFQkOPCef4cxp
++YeeKhKuCR2Cf+ji/tvZCvVMrLqQZDE0UjdxM66HCEG7dpdjJ1x5Af6VYBtLfT8ZCf53D7n0hxdO
++5PpnS+BRD4FhnIpCCfLY60Fp8NSsSGe6AhoSOdaLTo9uDRumZNwjC0dl8C0nQNFdlHMV4MNPARJ
+5i930NhWJS5cDxEaB3TF6uNfAfMPhhQnMB2hTNhQq9z88Hvbc6+n8Gi4C4XPYDGOA96VOHLHXIT/
+3MLtdg9N5L9vsK6Y1RaiC3r3Fj9XWlmsNVsLOmGXobUPgT/sl1wjCYQ/oU85SOtZA/8QzLiSX/Mi
+G+CP/MlgM94uEsztjG+eLqIUn7Y6J98atcxQlZgThEhnGTxVZwrXAex5j7P41iMueuzV4xCkdqz0
+Q3qQicbde36sHKtIWvBOB5l60v+ESBSVuJlxlb4xten3EWI/KxhAxC+p8npnM+tojqCs4ll2GKwb
+cabRWsgq0A2tk9jfT5dYOscFmBDTkxYbzrvXGvVJRPM0j045YPTURxi+PzP9D7j4lWXYLc+JDIp5
+oMF5TfzqzOTz3Aj8VLZG7/M+GQf8r0k/w8yUX36QPlMuUv7sbvymv1jKi1TngCDtlA214rpxaXmA
+fIDZWYJzQ/GF5FF/OqELO8RzEXVI8/Pv5EqHPrB6Y1G25oCbiz2cLQ5vvw+CixkGBD/kd7Q0MhH6
+F/BGF6x1ciSgVdIskOx9NeAi6XIc+qeU36AmvEEPkX/sp6ZO+NarJWujFjkvoQCgw/2naR2R0tOL
+0DbV9OaxsxXOjZ3ZDVWqZvbwlhn905X23B/2PUHV3EtXEnAKD8VSdVikCwg+w/TvSutuEFkpE+/l
+s85nzxj7jJT7Wm5Ouh0ZOYauCFXUIPV8C4nkeb+QKuoYV5h84IxUiwy3Ol3ozDm4aP1ELthUsBTR
+imlDrl0buEBz98T8rkGcczPHAGKnPPiCwgSVorUVwOWa4t7Be+6Dv1+19a99hzKAzRWGOeXMIalQ
+J+M8IzRhVj6+OTkLY+Px1OF/Udx6GHgjcbLd8UxXNmw0jCJxE+RN7LVdtfSboJfK/HBVRLCim9Hx
+U45J7Ux34MD9BMXBiUXzl9wxJ/uGCJHS3rZgc8jLG+bE4GH8cbQXrQPC3iV/Mabpd07nUOeSSdMP
+hE+amXmPjLrUHdF20sEZcwkWwz6fOo/P2rBwjBRIGBZoRyaYxMsijk9iK0rvsF2HOV2Sy0DcwKn7
+Ayl25mw2SkxAd3BW+s+t/7rUZ4MF9/Q5xchplFPLF79QW0BzS6TY4lBNHzlJ/Mae/Zt1mUsDh+vv
+aa9QEhH8pmGZ5nQXwQiQVDgEbRZ5LvJG95LyUPlGQCRN8iJtuo+q9lGA8PLzjw4aFXLrlTdrDM7G
+JL8LjXZ8YcS/+HtEEZDSKjYbVBIW2/Ra+QkQUIn3uuQzyEmLt6zSQI4RTU6pMQ4aHG9FE6mTijxN
+lqsgB0/qR4+m/Rx3cg82ZKS2YDrfaEUeyhbfm+XVxO1ePzPRgofn6+N5BQTMaP/zaobQ8M18+kUL
+v/jR2ZTdU1XjTExhtAtDGt9BZX9EctDbpAHJEQWw0muHzhPWIy5kicdztCpzshUT49lfmgPauwcB
+wODtVCPVaYqa88Mnq2vBwFS6PJirDwhSNLz6FJVJZX7eDARULgfOflxM+iWiCtokVL3aDtMlZREp
+v8ZS+4Jk1g4NcPgKXqqc8kIf846qjK776G8q28CfYjdveR3PNIAE9oa7r3XiaKBE95MG0EcrdY/V
+zm1lhEb9gVA/BEp4Y1f5twfN5tN+R6iQ4fklleND4dM8dVdaIigBkxsRuV60/Dcd7dJgpXqMnLjZ
+KtU1deLSyhK2HXizJn+ZgbxMQNgaDsAzkJ7EG1kItjary8VBqsaMsY9+BLCpzvKKOM3zKVrdXrce
+1IG0bY5c2/chfCGtmM97g1fvuX5M0KDnKs6MZdO9Uzq8410apwsYf5Iu6nvz2ABtKFteNYgThSFb
+4jRYnhXgpdsLdv6TjJbAJ8/ECwFZdC9JyXayAlrjWAClmatOxP8rCQRyZHS0y2QNP+MDU54rq1eZ
+eRcCYje9NfzTBQxZ9mlHJXOvBDcmPli/6DRn68x9BjSCkrpxpuIEO+Rb3oI54xw/HlO62JwfvvqI
+rrClZu2gXZCMeWNUpNyyTX0UrNJu5qIcGf5y8BtHqtwFFI00YqDvAps0f3/6H+vli9/GCEmX0TgZ
+eD18KSk6Lg85atlvJN8TegPnq5zJW+CDDZYY6ZUKhCYohAmWvqhiK6JO9kFtGJw4xZWKyuDIYqHo
+qw1rwM0r6UzuiCh6xgcP6gfUMQI1JPInPM1q3ZmCiF93V0jj7C9bAtKyOUzybKhh25YU882ldyuZ
+rPt1mz1kDZzysJ2oMAwNo6Kf6fURLFNc5OFzlI9FCu9E1ap6wsLXstkq9fe+InNOVUWnFC3Xm/Uz
+x+awulQeGMvo27pPNF72K8yo3gwx1ZygBqz0AyO6aIlRNlrKQRybEQgOeFAE8T1Q4xFpOGjFtY6D
+GHzO6aFxfRYmRCYquEQb6QrFRxPm129LNLP01s0xiJUoGWYJ1SP/tidlW3nMEOwH1BXLwss0vXob
+mN4MQOifPrR7gEUAf693QMIdZ9TWm8Otf+0GdPRinXNW2Y5pKKmacBP6nSGOjakwwMPsph6XmmOb
+QKdisyDpPFOCnyCKXLmDp1CG+aTm0AEEsya07SHp5xD70WD3mQ5ehS6cuhNiSxvmq/3Vvwsq39G3
+6SapNmUZFdrUmi/r8cyvqph+wNG8/r6aL8JIVmyWs7YaBJLMnfL8Agsglu/kftMc9vF4IcggunRq
+n80dvKAZu8MgbfRO7vZg4g4fIgYG0rXQF1yFN/RRqjeITOUy+zIJ9MCuXKhnzB+X9yUHW8sybJk7
+chVZmZJGHLkW0Z93zp93DySjUPYLaVvtvVwvZaq3yjf/KtEayBlXzEgJEHu4X3cn1CY5xFWj6pq2
+JqP3DkwomXGvQcqDhssEI2BmfslblclND63sRdg2SJiVbGRnWxxuK2Ht+pmH+y6kGP4bAcJW6gXc
+/AnHph6l6Ua329XZInvi5sHFrqNc/A8+mXRvfSkCCn/bevVZRY+etGBF8LtmZ84uewtwk88c8Yu3
+eP4YAxI2gIbAbx+F72hYoqU4JPYHalZsd6Xwh8cHBxTmGLowHc/BTFt3xUfsXR+aBzLcjWyESLAo
+VESYyS4rYxn76366Hqu8CozyJQaYAO3YyxScJvUvDjIwX1CUngN7rD7mbDa77CjLhdGVmn1zx+Id
+LcjspMQBXV1QGgApYZBwHvwabFxIVdXGQCyqvj69LrOSgMSSdZUNlcw4TNauCn4zH+R6yOXCWyAT
+vkOeqBCyYNSQ6JAk2vT0M9mYPrYyk1KopxHdbp4HZ6HM3mycnaA9mnjjr0Ue3WNWxiknqOszI3sf
+syCWLDl/QtFEQWDdgc3NsXbFeyP88qIXXZPWWxV9yfcAnXDSQGayiYEObjqCICeLqhIOmxDfqXVY
+MN8PzASJRsIlUgWGNlpeiHEiJ8sM8+zKSfGSSCVT1Syc3v/n3O+2CpGwA9P0v9KLnyfRF9R2UI6S
+XqKRE0nKH2DJPfrKBe9WIIpbND2yHc+C+1WXqaH8DmJ2U4bc4mCFfgcdRdhGQ8psJNv1unVgFa2y
+tnaL7V9Q2lIhFdbn585tPdTNToL/WQyB4eq5mMNdTG234nISW4V5YxNzQVqVzx5GkIgNcRg6dTEp
+4mWtPemC8sTaGTuxsMZOEeDx/VcuTjlHSvrphgLCLy2FoF/ZX+5Vi0WqEtfffyGBEgd/swDC98Oh
+8zQuchgLphQUyLCbhygpa+HSoOhCpXpPKKiMkSmQaDnE0CGO3IgwdjdnxzKSWQGjZiGoyJosRPyx
+Z9xeT0lfXmnOT4r1RfusTsQ20EphXmUI/78cjjnfVxvSH844IyhyqZh6Y5w+c1BesEBZ9iL+Oyak
+yfrqiwdvgFQmUVBDUYi17XlTWJDdUAmuKci6eT1DuhHlLNNkBkqhEG3xbAcb8cY+gH8H81E+2/H8
+ikwnUm6pjf4ZSg3Tl6IjqrUkbJM6wVLKME9LH9fLj8m75+Q4v/mrkhfpq3yNdiSHY2YfZ85S3T4A
+z0yb/gm20fRTT6UA7pZIAbRSF3/AoJO9Rwihsn4NTvPjKLPb3M3CLl5DmDz2jRWTU6KxwvxN69BR
+3vcnyhege0CAjnhlqpiRTmJbGMuQR8KbwGr4hv1nHU9WBHX4B2uDwVp38vkL+tFJ8jqfD88XyJVi
+FrgqguyjV57BaJMvtK3GxNMrxV6t/Ts3jIsIAe2QL7AKlnxM/0qIWrwClZaFZ2OqYDxC4rqsFkHk
+l0x4Yjrh657dtIDWiALINr5+6l846Zd1dibndR8mU0C2eNoWHg1y5Hpj9jISFHYACU/5gwFyl++4
+G2eezon3YFd5Ax4jMKPWy4BwaXKchdBVcute98PCUwLR3ZZqiElNrhK2N36uJexLfWb+b92uWHkU
+wUOphKQczII5KSuQKBJRLFnQ8scpB3bv1Zq0KpBQ7ZzruEhV7NPHirnh5CdUGxq3Zlm5NdL/6uFS
+SYFNJfJnm7UDuy0WMjVW57RLjfHzWcpCpRAGT6f6fpr7XlITiWDpw1F4237r6Xg1Ex1UdtgfZuOr
++/67AywG9KM9N3FsBPz94uATcc5kOGTrjzEVxt5PS2GhVNW5ddhl2IM5wvfMoM9zQbnmDKmvIevy
+ZlwZJP9uSwqLeN/L0fAFoopCzrRrFVr56FejiYOhkUChxvagqhAzK4DMwnMWirzFJMvE3Aqzj5/h
+43lDYyheiYV6JylDcunPjToNugzyqwvyoJkhwfakeENMSPA4bi6mPL4PxmWQxK5/6TeTbVZBHlWX
+MDxIsbGx2l/0AnmkVbSu3XcTFRg0AlilY++2pR5xEGrdNBj9HvrFWqrsg+q5fLoW4rfCaYlOw2Z/
+awYyQcfuwKXySX5uppV8032Swpi9nOLL9GsVIFVRz6qhgIpGfHp2gQM2fCzvBcgpfOtZgY3bmZtZ
+Iyu0Gu1H38G8S7yns+TYXomBUYc4eJuPWztGFvOcHveBlTLGK9aHaEywjo+sHn+zfoh7xJx7tDSE
+gJtDnJi3Rt5DqP15jiU7n4NGugDmC99xJDuSbcWdu4dBxUIzy1shN89N5HxO6x12853PHOAUN5Pu
+xaOgclYUZYWqpx4qlG2iCEXGApRL9s6w2OSjcN24rTS2p/pA9IGmMiIKfpP2LnK/sIcGo8KjwjjF
+2lIDWEw7PkdoWYtYIz6bs8CB4AycxMyAWgct/QjJczr91DH482Srl62E+eqY/m0+eHvOAtg8bGNj
+egBUf+p+zOWocWy31TtL8Xlx++hoM3O3FsTkIHVoYVQOsDgywmWL6cpY2Lfgjz50sY20V8jC6c0K
+G3A0nhk8g1mP6B/ggf2+nKECJT3wgqDGeqtGpBCRtlOv+H0or0u3t+dBj4i/HvE71TEZKOibIRtb
+AAAAAARx9JaYt1Y7AAGRjRGA0PcHAAAA/G7SThQXOzADAAAAAARZWg==
 """
 
 
 def _get_active_blztar() -> str:
     global blztar
-    if blztar and blztar.strip():
-        return blztar
+    # Once bootstrap has mounted a transformed VersionSpace, its BundleFinder
+    # is the authoritative payload.  Prefer it over this module's original
+    # embedded blztar, otherwise downstream commands such as `meta diff` see
+    # the pre-pipeline VersionSpace and lose included streams.
     for finder in sys.meta_path:
         if (
             hasattr(finder, "b64_string")
@@ -4632,6 +5085,8 @@ def _get_active_blztar() -> str:
             and getattr(finder, "_index", None)
         ):
             return finder.b64_string
+    if blztar and blztar.strip():
+        return blztar
     for cand in [
         getattr(sys.modules.get(__name__), "__file__", None),
         sys.argv[0] if sys.argv else None,
@@ -4680,7 +5135,7 @@ def get_bundle_version() -> str:
 
 def iter_tar_layers(raw_tar_bytes: bytes) -> List[Dict[str, bytes]]:
     """Parse concatenated TAR layers from raw bytes."""
-    if not raw_tar_bytes or all(b == 0 for b in raw_tar_bytes):
+    if not raw_tar_bytes or (raw_tar_bytes[:512] == b'\x00' * min(512, len(raw_tar_bytes)) and raw_tar_bytes.count(b'\x00') == len(raw_tar_bytes)):
         return []
 
     layers: List[Dict[str, bytes]] = []
@@ -4689,7 +5144,7 @@ def iter_tar_layers(raw_tar_bytes: bytes) -> List[Dict[str, bytes]]:
 
     while offset < total:
         remaining = raw_tar_bytes[offset:]
-        if not remaining or all(b == 0 for b in remaining):
+        if not remaining or (remaining[:512] == b'\x00' * min(512, len(remaining)) and remaining.count(b'\x00') == len(remaining)):
             break
 
         tar_bio = io.BytesIO(remaining)
@@ -4830,6 +5285,20 @@ def get_asset_text(
     return get_asset(filename, b64_string=b64_string).decode(encoding)
 
 
+def _timestamp_epoch(timestamp: Optional[str]) -> Optional[float]:
+    """Convert an ISO-8601 UTC timestamp to an epoch for filesystem mtimes."""
+    if not timestamp:
+        return None
+    import datetime
+
+    try:
+        return datetime.datetime.fromisoformat(
+            timestamp.replace("Z", "+00:00")
+        ).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
 def safe_unbundle(
     b64_string: Optional[str] = None,
     output_dir: str | Path = ".",
@@ -4841,6 +5310,7 @@ def safe_unbundle(
     stderr=None,
     target_version: Optional[str] = None,
     verbose: bool = False,
+    preserve_previous_history: bool = False,
 ) -> None:
     """Smart destination verification and delta unpacking engine adhering to Spec Section2.1, Section3, Section3.1."""
     stdout = stdout or sys.stdout
@@ -4858,6 +5328,14 @@ def safe_unbundle(
     target_version_tag: Optional[str] = None
     target_hash: Optional[str] = None
     target_timestamp: Optional[str] = None
+    # Explicit historical-version extraction may need to reconcile a clean,
+    # known VersionSpace state by removing files that exist only in the
+    # currently materialized state.  Delta layers already carry their own
+    # whiteout removals; this set is for whole-state historical rollback.
+    reconcile_removals: Set[str] = set()
+    rollback_is_destructive = False
+    history_preserved_elsewhere = False
+    history_b64 = effective_b64
 
     if target_version is not None:
         res_v = vspace.resolve_version_ref(target_version)
@@ -4920,90 +5398,216 @@ def safe_unbundle(
             if m:
                 target_version_tag = m.group(1).strip()
 
-    def _norm_file_bytes(k: str, b: bytes) -> bytes:
-        if k == "dwimsy/meta/unbundle.py":
-            try:
-                return elide_blztar_bytes(b)
-            except Exception:
-                pass
-        return b
+    from dwimsy.meta import integrity
+
+    def _safe_canonical_bytes(data: bytes, rel: str) -> bytes:
+        try:
+            return integrity._canonical_bytes(data, rel)
+        except Exception:
+            d = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+            if d and not d.endswith(b"\n"):
+                d = d + b"\n"
+            return d
 
     if out_path.is_dir() and any(out_path.iterdir()):
         disk_files: Dict[str, bytes] = {}
         for p in out_path.rglob("*"):
             if p.is_file():
                 rel = p.relative_to(out_path).as_posix()
-                if "__pycache__" not in rel and not rel.endswith(".pyc"):
+                if (
+                    not any(part == ".git" for part in p.parts)
+                    and "__pycache__" not in rel
+                    and not rel.endswith(".pyc")
+                    and not (
+                        p.parent == out_path
+                        and (rel.startswith("dwimsy_") or rel.startswith("_failed_"))
+                        and (rel.endswith(".py") or rel.endswith(".pyz"))
+                    )
+                ):
                     try:
                         disk_files[rel] = p.read_bytes()
                     except OSError:
                         pass
 
         clean_disk = {
-            k: _norm_file_bytes(k, v)
-            for k, v in disk_files.items()
-            if with_deps or not (k == "deps" or k.startswith("deps/"))
+            name: _safe_canonical_bytes(data, name)
+            for name, data in disk_files.items()
+            if with_deps or not (name == "deps" or name.startswith("deps/"))
         }
+
         clean_assets = {
-            k: _norm_file_bytes(k, v)
-            for k, v in assets.items()
-            if with_deps or not (k == "deps" or k.startswith("deps/"))
+            name: _safe_canonical_bytes(data, name)
+            for name, data in assets.items()
+            if (with_deps or not (name == "deps" or name.startswith("deps/")))
+            and not (
+                any(part == ".git" for part in Path(name).parts)
+                or any(part == "__pycache__" for part in Path(name).parts)
+                or name.endswith(".pyc")
+            )
         }
 
-        is_identical_subset = bool(clean_disk) and all(
-            k in clean_assets and clean_disk[k] == clean_assets[k] for k in clean_disk
-        )
-
-        if is_identical_subset:
-            previous_version_tag = target_version_tag
-        else:
-            matching_ver_tag = None
+        matching_ver_tag = None
+        if clean_disk:
             for s in vspace.streams:
                 for v in s.get_versions():
                     st = s.materialize_layer_state(v.ordinal)
-                    clean_st = {
-                        k: _norm_file_bytes(k, v_b)
-                        for k, v_b in st.items()
-                        if with_deps or not (k == "deps" or k.startswith("deps/"))
+                    st_canonical = {
+                        name: _safe_canonical_bytes(data, name)
+                        for name, data in st.items()
+                        if (with_deps or not (name == "deps" or name.startswith("deps/")))
+                        and not (
+                            any(part == ".git" for part in Path(name).parts)
+                            or any(part == "__pycache__" for part in Path(name).parts)
+                            or name.endswith(".pyc")
+                        )
                     }
-                    if clean_disk == clean_st:
+                    if clean_disk == st_canonical:
                         matching_ver_tag = v.tag
                         break
                 if matching_ver_tag is not None:
                     break
 
-            if matching_ver_tag is not None:
-                previous_version_tag = matching_ver_tag
-                if not force and (
-                    "dwimsy/meta/unbundle.py" in assets
-                    or (out_path / "dwimsy" / "meta" / "unbundle.py").exists()
-                ):
-                    if previous_version_tag != target_version_tag:
-                        res_prev = vspace.resolve_version_ref(previous_version_tag)
-                        if res_prev is None:
-                            msg = (
-                                f"error: unbundling would overwrite 'dwimsy/meta/unbundle.py' but the new bundle payload "
-                                f"does not contain previous on-disk version '{previous_version_tag}'. "
-                                f"Use --force / -f to overwrite."
-                            )
-                            raise RuntimeError(msg)
-            else:
-                if not force:
-                    msg = (
-                        f"error: unbundling to '{output_dir}' would overwrite modified on-disk state.\n"
-                        f"To protect uncommitted work, specify one of the following flags:\n"
-                        f"  --version-include-primary={output_dir}  (preserve local modifications in primary stream)\n"
-                        f"  --version-include-alt={output_dir}      (preserve alternate branches)\n"
-                        f"  --version-include={output_dir}          (preserve both modifications and branches)\n"
-                        f"Or use --force / -f to forcefully overwrite destination."
+        if matching_ver_tag is None:
+            try:
+                declared_v = integrity._version_values(out_path).get("__version__", "").split("+mod.")[0]
+                if declared_v:
+                    res_decl = vspace.resolve_version_ref(declared_v)
+                    if res_decl is not None:
+                        if not integrity.is_modified(out_path):
+                            matching_ver_tag = declared_v
+            except Exception:
+                pass
+
+        if matching_ver_tag is not None:
+            previous_version_tag = matching_ver_tag
+            if (
+                target_version is not None
+                and target_version_tag is not None
+                and previous_version_tag != target_version_tag
+            ):
+                # The destination is a verified clean state belonging to this
+                # VersionSpace.  A historical target is a complete state, so
+                # files absent from it are no longer part of the destination
+                # and must be removed.  Keep the same protected namespaces
+                # used by the normal disk-state scan.
+                target_names = set(clean_assets)
+                for name in disk_files:
+                    if name in target_names:
+                        continue
+                    if any(part == ".git" for part in Path(name).parts):
+                        continue
+                    if "__pycache__" in Path(name).parts or name.endswith(".pyc"):
+                        continue
+                    if (
+                        name == "deps"
+                        or name.startswith("deps/")
+                    ) and not with_deps:
+                        continue
+                    if (
+                        Path(name).parent == Path(".")
+                        and name.startswith("dwimsy_")
+                        and Path(name).suffix in (".py", ".pyz")
+                    ):
+                        continue
+                    if name.startswith("_failed_") and Path(name).suffix in (
+                        ".py",
+                        ".pyz",
+                    ):
+                        continue
+                    reconcile_removals.add(name)
+            if not force and (
+                "dwimsy/meta/unbundle.py" in assets
+                or (out_path / "dwimsy" / "meta" / "unbundle.py").exists()
+            ):
+                if previous_version_tag != target_version_tag:
+                    res_prev = vspace.resolve_version_ref(previous_version_tag)
+                    if res_prev is None:
+                        msg = (
+                            f"error: unbundling would overwrite 'dwimsy/meta/unbundle.py' but the new bundle payload "
+                            f"does not contain previous on-disk version '{previous_version_tag}'. "
+                            f"Use --force / -f to overwrite."
+                        )
+                        raise RuntimeError(msg)
+        elif bool(clean_disk) and all(
+            k in clean_assets and clean_disk[k] == clean_assets[k] for k in clean_disk
+        ):
+            previous_version_tag = target_version_tag
+        elif not clean_disk:
+            previous_version_tag = target_version_tag
+        else:
+            if not force:
+                msg = (
+                    f"error: unbundling to '{output_dir}' would overwrite modified on-disk state.\n"
+                    f"To protect uncommitted work, specify one of the following flags:\n"
+                    f"  --version-include-primary={output_dir}  (preserve local modifications in primary stream)\n"
+                    f"  --version-include-alt={output_dir}      (preserve alternate branches)\n"
+                    f"  --version-include={output_dir}          (preserve both modifications and branches)\n"
+                    f"Or use --force / -f to forcefully overwrite destination."
+                )
+                raise RuntimeError(msg)
+
+    if previous_version_tag and target_version_tag and previous_version_tag != target_version_tag:
+        try:
+            from dwimsy.meta.versions import parse_semver
+            rollback_is_destructive = parse_semver(target_version_tag) < parse_semver(previous_version_tag)
+        except Exception:
+            rollback_is_destructive = bool(reconcile_removals)
+
+        if rollback_is_destructive:
+            # A rollback is safe when the existing primary history has already
+            # been preserved in an alternate stream (the --version-alt case).
+            # Otherwise the later primary history is information that would be
+            # discarded and therefore requires --force.
+            def _base_tag(tag: str) -> str:
+                return tag.lower().split("+mod.", 1)[0]
+
+            history_preserved_elsewhere = any(
+                any(_base_tag(v.tag) == _base_tag(previous_version_tag) for v in stream.get_versions())
+                for stream in vspace.streams[1:]
+            )
+            # A --version-alt branch is itself the preservation mechanism.  If
+            # the caller has explicitly requested it, trust that topology even
+            # when the previous working-tree state is represented by a synthetic
+            # or +mod. tag that is not byte-for-byte named like the alternate head.
+            history_preserved_elsewhere = history_preserved_elsewhere or preserve_previous_history
+            if not history_preserved_elsewhere and len(vspace.streams) > 1:
+                try:
+                    prev_sem = parse_semver(previous_version_tag)
+                    history_preserved_elsewhere = any(
+                        stream.get_head_version() is not None
+                        and parse_semver(stream.get_head_version().tag) == prev_sem
+                        for stream in vspace.streams[1:]
                     )
-                    raise RuntimeError(msg)
+                except Exception:
+                    pass
+
+            if not history_preserved_elsewhere and not force:
+                removed = ", ".join(sorted(reconcile_removals))
+                detail = (
+                    f"; it would remove files from the verified clean state: {removed}"
+                    if removed
+                    else ""
+                )
+                raise RuntimeError(
+                    f"error: rollback to '{target_version_tag}' would discard information{detail}.\n"
+                    "Use --force / -f to commit this information-losing rollback, "
+                    "or use --version-alt to preserve the existing primary history."
+                )
+
+            if not history_preserved_elsewhere and force:
+                if target_version is not None:
+                    res_target = vspace.resolve_version_ref(target_version)
+                    if res_target is not None and res_target[0].index == 0:
+                        history_b64 = vspace.truncated_primary_to(res_target[1]).to_blztar()
 
     # 3. Compute manifest actions and perform extraction
+    removals.update(reconcile_removals)
     manifest_lines: List[str] = []
     import datetime
 
     now_ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    manifest_ts = target_timestamp or now_ts
+    target_epoch = _timestamp_epoch(target_timestamp)
 
     if not dry_run:
         out_path.mkdir(parents=True, exist_ok=True)
@@ -5012,6 +5616,8 @@ def safe_unbundle(
         if norm_name.startswith("<dwimsy-bundle>/"):
             norm_name = norm_name[len("<dwimsy-bundle>/") :]
         if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+            continue
+        if norm_name == "dwimsy/meta/unbundle.py":
             continue
 
         dest_file = out_path / norm_name
@@ -5025,6 +5631,11 @@ def safe_unbundle(
             existing_bytes = dest_file.read_bytes() if dest_file.is_file() else b""
             if existing_bytes == content:
                 if not force:
+                    if not dry_run and target_epoch is not None:
+                        try:
+                            os.utime(dest_file, (target_epoch, target_epoch))
+                        except OSError:
+                            pass
                     continue
                 action_char = "="
                 annotation = " [IDENTICAL]"
@@ -5033,7 +5644,7 @@ def safe_unbundle(
                 annotation = " [REPLACED]" if force else " [UPDATED]"
 
         manifest_lines.append(
-            f"[{action_char}] [F] {size_str}  {now_ts}  {norm_name}{annotation}"
+            f"[{action_char}] [F] {size_str}  {manifest_ts}  {norm_name}{annotation}"
         )
 
         if not dry_run:
@@ -5046,6 +5657,11 @@ def safe_unbundle(
                     dest_file.chmod(dest_file.stat().st_mode | 0o111 | 0o755)
                 except (OSError, PermissionError):
                     pass
+            if target_epoch is not None:
+                try:
+                    os.utime(dest_file, (target_epoch, target_epoch))
+                except OSError:
+                    pass
 
     for norm_name in sorted(removals):
         if norm_name.startswith("<dwimsy-bundle>/"):
@@ -5057,7 +5673,7 @@ def safe_unbundle(
             continue
         file_size = dest_file.stat().st_size if dest_file.is_file() else 0
         manifest_lines.append(
-            f"[-] [F] {file_size:>8} B  {now_ts}  {norm_name} [REMOVED]"
+            f"[-] [F] {file_size:>8} B  {manifest_ts}  {norm_name} [REMOVED]"
         )
         if not dry_run:
             if dest_file.is_file() or dest_file.is_symlink():
@@ -5068,25 +5684,48 @@ def safe_unbundle(
                 except OSError:
                     pass
 
-    if not dry_run:
-        target_unbundle = out_path / "dwimsy" / "meta" / "unbundle.py"
-        target_unbundle.parent.mkdir(parents=True, exist_ok=True)
+    # The self-carrier must contain the effective history, but identical
+    # bytes must never be rewritten merely to update its embedded payload.
+    target_unbundle = out_path / "dwimsy" / "meta" / "unbundle.py"
+    if "dwimsy/meta/unbundle.py" in assets or (not with_deps and "dwimsy/meta/unbundle.py" in assets):
         try:
-            template = elide_blztar_bytes(Path(__file__).read_bytes())
-            target_unbundle.write_bytes(inject_blztar_bytes(template, effective_b64))
-            try:
-                target_unbundle.chmod(0o755)
-            except OSError:
-                pass
-            try:
-                with _open_bundle_tar(effective_b64) as source_tar:
+            if "dwimsy/meta/unbundle.py" in assets:
+                template = elide_blztar_bytes(assets["dwimsy/meta/unbundle.py"])
+            else:
+                template = elide_blztar_bytes(Path(__file__).read_bytes())
+            expected = inject_blztar_bytes(template, history_b64)
+            unb_size_str = f"{len(expected):>8} B"
+
+            if not target_unbundle.exists():
+                action_char = "+"
+                annotation = ""
+                manifest_lines.append(
+                    f"[{action_char}] [F] {unb_size_str}  {manifest_ts}  dwimsy/meta/unbundle.py{annotation}"
+                )
+            elif target_unbundle.is_file() and target_unbundle.read_bytes() == expected:
+                if force:
+                    action_char = "="
+                    annotation = " [IDENTICAL]"
+                    manifest_lines.append(
+                        f"[{action_char}] [F] {unb_size_str}  {manifest_ts}  dwimsy/meta/unbundle.py{annotation}"
+                    )
+            else:
+                action_char = "~"
+                annotation = " [REPLACED]" if force else " [UPDATED]"
+                manifest_lines.append(
+                    f"[{action_char}] [F] {unb_size_str}  {manifest_ts}  dwimsy/meta/unbundle.py{annotation}"
+                )
+
+            if not dry_run:
+                target_unbundle.parent.mkdir(parents=True, exist_ok=True)
+                if not target_unbundle.is_file() or target_unbundle.read_bytes() != expected:
+                    target_unbundle.write_bytes(expected)
                     try:
-                        member = source_tar.getmember("dwimsy/meta/unbundle.py")
-                    except KeyError:
-                        member = source_tar.getmember("./dwimsy/meta/unbundle.py")
-                    os.utime(target_unbundle, (member.mtime, member.mtime))
-            except (KeyError, OSError, tarfile.TarError):
-                pass
+                        target_unbundle.chmod(0o755)
+                    except OSError:
+                        pass
+                if target_epoch is not None:
+                    os.utime(target_unbundle, (target_epoch, target_epoch))
         except Exception:
             pass
 
@@ -5123,11 +5762,33 @@ def safe_unbundle(
                     else "dwimsy/meta/unbundle.py"
                 )
                 out_arg = "." if str(output_dir) == "." else str(output_dir)
-                print(
-                    f"To return to previous version '{previous_version_tag}', run:\n"
-                    f"  python3 {unb_rel} --version={previous_version_tag} {out_arg}",
-                    file=stdout,
-                )
+                if rollback_is_destructive:
+                    if history_preserved_elsewhere:
+                        print(
+                            f"Previous state '{previous_version_tag}' is preserved in an alternate stream. "
+                            f"To roll forward to it, run: python3 {unb_rel} --version=alt1 --version-alt "
+                            f"--version-prune=alt1 {out_arg}",
+                            file=stdout,
+                        )
+                    elif force:
+                        print(
+                            "No undo command is available: this information-losing rollback discarded the later primary history.",
+                            file=stdout,
+                        )
+                else:
+                    res_prev = vspace.resolve_version_ref(previous_version_tag)
+                    if res_prev is not None:
+                        print(
+                            f"To roll back to previous version '{previous_version_tag}', run: "
+                            f"python3 {unb_rel} --version={previous_version_tag} {out_arg}",
+                            file=stdout,
+                        )
+                    else:
+                        print(
+                            f"No undo command is available: the new bundle payload does not contain previous version '{previous_version_tag}'.",
+                            file=stdout,
+                        )
+
 
 
 def extract_b64_lzma_tar(
@@ -5144,14 +5805,6 @@ def extract_b64_lzma_tar(
         force=True,
         quiet=True,
     )
-    target_unbundle = Path(output_dir).resolve() / "dwimsy" / "meta" / "unbundle.py"
-    if target_unbundle.is_file():
-        try:
-            with _open_bundle_tar(b64_string) as source_tar:
-                member = source_tar.getmember("dwimsy/meta/unbundle.py")
-                os.utime(target_unbundle, (member.mtime, member.mtime))
-        except (KeyError, OSError, tarfile.TarError):
-            pass
 
 
 def extract_deps(output_dir: str | Path, b64_string: Optional[str] = None) -> List[str]:
@@ -5438,6 +6091,10 @@ def parse_early_pipeline_flags(
     explicit_verbose_count = 0
     explicit_version_requested = False
     version_snapshots: List[str] = []
+    # --force is a safety override, not a version-space transformation.
+    # It may appear anywhere in the invocation and never changes semantic
+    # version allocation or topology by itself.
+    force_requested = any(a.lower() in ("--force", "-f") for a in args)
     test_mode = False
     test_pattern = None
     early_exit = None
@@ -5532,7 +6189,7 @@ def parse_early_pipeline_flags(
         # 3. --version-restrict-to
         if opt_key == "--version-restrict-to" and has_val:
             val = opt_val
-            vspace.restrict_to(val)
+            vspace.restrict_to(val, force=force_requested)
             operations.append(("restrict_to", val))
             i += 1
             continue
@@ -5540,7 +6197,7 @@ def parse_early_pipeline_flags(
         # 4. --version-prune
         if opt_key == "--version-prune" and has_val:
             val = opt_val
-            vspace.prune(val)
+            vspace.prune(val, force=force_requested)
             operations.append(("prune", val))
             i += 1
             continue
@@ -5548,7 +6205,7 @@ def parse_early_pipeline_flags(
         # 5. --version-splice
         if opt_key == "--version-splice" and has_val:
             val = opt_val
-            vspace.splice(val)
+            vspace.splice(val, force=force_requested)
             operations.append(("splice", val))
             i += 1
             continue
@@ -5724,6 +6381,7 @@ def parse_early_pipeline_flags(
         ),
         "list_versions": any(op == "version-list" for op, _ in operations),
         "version_help": any(op == "version-help" for op, _ in operations),
+        "force": force_requested,
     }
 
     return pipeline, remaining_args
@@ -5886,11 +6544,11 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
             idx, src = value
             vspace.include_source(src, stream_filter=f"alt{idx}")
         elif op == "restrict_to":
-            vspace.restrict_to(value)
+            vspace.restrict_to(value, force=pipeline.get("force", False))
         elif op == "prune":
-            vspace.prune(value)
+            vspace.prune(value, force=pipeline.get("force", False))
         elif op == "splice":
-            vspace.splice(value)
+            vspace.splice(value, force=pipeline.get("force", False))
         elif op == "alt":
             if value is None or value.lower() == "selected":
                 vspace.branch_selection(selected)
@@ -5926,7 +6584,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
         any(op == "version-help" for op, _ in pipeline["operations"])
         or pipeline.get("early_exit") == "version-help"
     ):
-        print(VERSION_SPACE_HELP)
+        safe_page(VERSION_SPACE_HELP)
         sys.exit(0)
     if (
         any(op == "version-list" for op, _ in pipeline["operations"])
@@ -5937,7 +6595,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
             selected=selected,
             verbose=pipeline.get("version_list_verbose", False),
         )
-        print(output)
+        safe_page(output)
         sys.exit(0)
     if pipeline.get("test_mode"):
         from dwimsy.tests import run_tests
@@ -5971,6 +6629,40 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
         rc = run_tests(pattern, verbose=test_verbose)
         sys.exit(rc)
 
+    # A version-selected `meta unbundle` must operate on the complete original
+    # VersionSpace, not the one-layer execution slice used for ordinary CLI
+    # dispatch.  Otherwise rollback loses the historical states needed for
+    # target resolution and reconciliation.
+    version_selector = pipeline.get("version")
+    positional = [a for a in remaining_args if not a.startswith("-")]
+    is_meta_unbundle = len(positional) >= 2 and positional[0] == "meta" and positional[1] == "unbundle"
+    is_direct = _is_unbundle_entrypoint(argv0_effective) and (bool(positional) or not is_meta_unbundle)
+    if version_selector and (is_meta_unbundle or is_direct):
+        target = positional[2] if is_meta_unbundle and len(positional) > 2 else (positional[0] if is_direct and positional else None)
+        with_deps = any(a in ("--deps", "-d") for a in remaining_args)
+        force = pipeline.get("force", False) or any(a in ("--force", "-f") for a in remaining_args)
+        dry_run = any(a == "--dry-run" for a in remaining_args)
+        quiet = any(a in ("--quiet", "-q") for a in remaining_args)
+        verbose = any(a in ("--verbose", "-v") for a in remaining_args) or bool(pipeline.get("verbosity", 0))
+        help_requested = any(a in ("--help", "-h", "--help-all") for a in remaining_args)
+        if target is not None and not help_requested:
+            try:
+                safe_unbundle(
+                    b64_string=vspace.to_blztar(),
+                    output_dir=target,
+                    with_deps=with_deps,
+                    force=force,
+                    dry_run=dry_run,
+                    quiet=quiet,
+                    target_version=version_selector,
+                    verbose=verbose,
+                    preserve_previous_history=any(op == "alt" for op, _ in pipeline["operations"]),
+                )
+            except RuntimeError as exc:
+                print(str(exc), file=sys.stderr)
+                sys.exit(1)
+            sys.exit(0)
+
     effective_blztar = vspace.to_blztar()
     ver_sel = None
     if selected and selected.first:
@@ -5980,7 +6672,6 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
             )
         ver_sel = selected.first.version.tag
 
-    version_selector = pipeline.get("version")
     if (
         ver_sel is None
         or (
@@ -6051,41 +6742,25 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
     if res is None:
         raise ValueError(f"Version selector '{ver_sel}' could not be resolved.")
 
-    st, ord_idx, v_ref = res
-    with tempfile.TemporaryDirectory() as tmpdir:
-        temp_bundle = Path(tmpdir) / f"dwimsy_{v_ref.tag}.py"
-        mat_state = st.materialize_layer_state(ord_idx)
-        template_bytes = elide_blztar_bytes(Path(__file__).read_bytes())
-
-        from dwimsy.meta.versions import Stream, Layer
-
-        clean_state = {}
-        for k, v in mat_state.items():
-            clean_k = (
-                k[len("<dwimsy-bundle>/") :] if k.startswith("<dwimsy-bundle>/") else k
-            )
-            clean_state[clean_k] = v
-
-        single_space = VersionSpace(
-            [
-                Stream(
-                    0,
-                    "primary",
-                    [Layer(clean_state, is_delta=False, version_tag=v_ref.tag)],
-                )
-            ]
-        )
-        temp_bundle.write_bytes(
-            inject_blztar_bytes(template_bytes, single_space.to_blztar())
-        )
-
-        cmd = [
-            sys.executable,
-            str(temp_bundle),
-            f"--argv0={argv0_effective}",
-        ] + remaining_args
-        res_proc = subprocess.run(cmd)
-        sys.exit(res_proc.returncode)
+    # Direct invocation of unbundle.py with an explicit version must use the
+    # same complete VersionSpace as the multicall path.  Constructing a one-layer
+    # temporary bundle here would erase the history needed to enforce rollback
+    # safety and would leave forced rollbacks with stale embedded history.
+    target_dir = next((a for a in remaining_args if not a.startswith("-")), None)
+    if target_dir is None:
+        raise ValueError("unbundle requires a target directory")
+    safe_unbundle(
+        b64_string=effective_blztar,
+        output_dir=target_dir,
+        with_deps=("--deps" in remaining_args or "-d" in remaining_args),
+        force=pipeline.get("force", False),
+        dry_run=("--dry-run" in remaining_args),
+        quiet=("--quiet" in remaining_args or "-q" in remaining_args),
+        target_version=ver_sel,
+        verbose=bool(pipeline.get("verbosity", 0)),
+        preserve_previous_history=any(op == "alt" for op, _ in pipeline["operations"]),
+    )
+    return
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -6113,15 +6788,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(banner)
         return 0
     if pipeline.get("version_help") or pipeline.get("early_exit") == "version-help":
-        print(VERSION_SPACE_HELP)
+        safe_page(VERSION_SPACE_HELP)
         return 0
     if pipeline.get("list_versions") or pipeline.get("early_exit") == "version-list":
         from dwimsy.meta.versions import VersionSpace
 
         raw_b64 = _get_active_blztar()
         vspace = VersionSpace.from_blztar(raw_b64)
-        print(
-            pipeline.get("version_list_snapshot")
+        safe_page(pipeline.get("version_list_snapshot")
             or vspace.format_list_versions(
                 on_disk_root=repo_root if is_checkout else None,
                 selected=pipeline.get("selected_ref"),
@@ -6129,6 +6803,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
         )
         return 0
+    if (
+        pipeline.get("version")
+        and pipeline["version"].lower() not in ("baseline", "primary", "unbundled")
+    ):
+        # Explicit version selections must use the same complete VersionSpace
+        # safety path as the multicall invocation.
+        bootstrap_in_memory_cli(effective)
+        return 0
+
     if pipeline.get("test_mode"):
         from dwimsy.tests import run_tests
 
@@ -6164,7 +6847,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog=prog_name,
         description="Extract dwimsy standalone bundle.\nHomepage: https://github.com/f-fix/dwimsy",
+        add_help=False,
     )
+    parser.add_argument("-h", "--help", action=PagedHelpAction)
     parser.add_argument(
         "-V", "--version", action=_LazyVersionAction, version_fn=get_bundle_version
     )
@@ -6241,10 +6926,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 
 if __name__ == "__main__":
-    pipeline, remaining = parse_early_pipeline_flags(sys.argv[1:])
-    raw_argv0 = pipeline["argv0"] or (sys.argv[0] if sys.argv and sys.argv[0] else "")
-    argv0_effective = get_invocation_path(raw_argv0) if raw_argv0 else ""
-    if _is_unbundle_entrypoint(argv0_effective):
-        sys.exit(main())
-    else:
-        bootstrap_in_memory_cli()
+    try:
+        pipeline, remaining = parse_early_pipeline_flags(sys.argv[1:])
+        raw_argv0 = pipeline["argv0"] or (sys.argv[0] if sys.argv and sys.argv[0] else "")
+        argv0_effective = get_invocation_path(raw_argv0) if raw_argv0 else ""
+        if _is_unbundle_entrypoint(argv0_effective):
+            sys.exit(main())
+        else:
+            bootstrap_in_memory_cli()
+    except (ValueError, RuntimeError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)

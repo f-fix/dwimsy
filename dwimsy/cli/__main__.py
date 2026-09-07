@@ -14,6 +14,16 @@ from pathlib import Path
 from typing import BinaryIO, List, Optional, Tuple
 
 from dwimsy.meta import unbundle
+from dwimsy.meta.unbundle import PagedHelpAction
+
+
+class PagedArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser whose subcommand help uses DWIMSY's terminal pager."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("add_help", False)
+        super().__init__(*args, **kwargs)
+        self.add_argument("-h", "--help", action=PagedHelpAction)
 
 is_checkout, repo_root = unbundle.detect_self_location()
 if is_checkout and repo_root and str(repo_root) not in sys.path:
@@ -573,9 +583,13 @@ def main(
         sys.argv[0] if sys.argv and sys.argv[0] else "dwimsy"
     )
 
-    pipeline, remaining = unbundle.parse_early_pipeline_flags(
-        effective_argv, initial_argv0=initial_argv0
-    )
+    try:
+        pipeline, remaining = unbundle.parse_early_pipeline_flags(
+            effective_argv, initial_argv0=initial_argv0
+        )
+    except (ValueError, RuntimeError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     argv0_effective = pipeline["argv0"] or initial_argv0
 
     if pipeline.get("print_version", False):
@@ -596,7 +610,7 @@ def main(
         return 0
 
     if pipeline.get("early_exit") == "version-help":
-        print(unbundle.VERSION_SPACE_HELP)
+        safe_page(unbundle.VERSION_SPACE_HELP)
         return 0
 
     if pipeline.get("early_exit") == "version-list":
@@ -608,7 +622,7 @@ def main(
             selected=pipeline["selected_ref"],
             verbose=pipeline.get("explicit_verbose_count", 0) > 0,
         )
-        print(output)
+        safe_page(output)
         return 0
 
     if pipeline.get("test_mode", False):
@@ -678,9 +692,11 @@ def main(
     parser = argparse.ArgumentParser(
         prog="dwimsy",
         description="dwimsy - retrocomputing media preservation, demodulation, and conversion.",
+        add_help=False,
         epilog="Project Homepage: https://github.com/f-fix/dwimsy\nTip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.\n\nUniversal pipeline options (also accepted by every CLI entry point): -a/--argv0 NAME, --version=TAG, --version-list, --version-include=PATH, --version-restrict-to=PATTERN, --version-prune=PATTERN, --version-splice=SPEC, --version-alt[=TAG].",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("-h", "--help", action=PagedHelpAction)
     parser.add_argument(
         "-V",
         "--version",
@@ -708,7 +724,7 @@ def main(
         help="Show full detailed help for all subcommands at once and exit",
     )
 
-    subparsers = parser.add_subparsers(dest="command", metavar="<command>")
+    subparsers = parser.add_subparsers(dest="command", metavar="<command>", parser_class=PagedArgumentParser)
 
     p_conv = subparsers.add_parser(
         "convert", help="Convert between media representations (WAV, T88, CMT)."
@@ -1235,6 +1251,9 @@ def main(
         "-q", "--quiet", action="store_true", help="Suppress output on clean status"
     )
     p_meta_integrity.add_argument(
+        "--baseline", action="store_true", help="Check the embedded clean baseline"
+    )
+    p_meta_integrity.add_argument(
         "--help-all", action="store_true", help="Show full help documentation and exit"
     )
 
@@ -1247,6 +1266,9 @@ def main(
         "-f", "--force", action="store_true", help="Overwrite existing deps/ files"
     )
     p_meta_fetch.add_argument(
+        "--baseline", action="store_true", help="Use bundled baseline dependency files"
+    )
+    p_meta_fetch.add_argument(
         "--help-all", action="store_true", help="Show full help documentation and exit"
     )
 
@@ -1256,6 +1278,9 @@ def main(
     )
     p_meta_bump.add_argument(
         "target_version", nargs="?", default=None, help="Explicit new version string"
+    )
+    p_meta_bump.add_argument(
+        "--set-version", dest="set_version", default=None, help="Explicit new version string (alias for positional target version)"
     )
     p_meta_bump.add_argument(
         "--patch", action="store_true", help="Increment patch component"
@@ -1298,19 +1323,19 @@ def main(
     )
 
     meta_subparsers.add_parser(
-        "bundle-fixtures", help="[TODO / Milestone 1.6] Package private test fixtures."
+        "bundle-fixtures", help="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures."
     )
 
     # Roadmap placeholders
     for pl, h in [
-        ("charset", "[TODO / Milestone 2.3] Streaming character set converter."),
-        ("extract", "[TODO / Milestone 2.3] Payload and filesystem extractor."),
-        ("package", "[TODO / Milestone 2.4] ROM cartridge compiler (cas2rom / mkrom)."),
-        ("bridge", "[TODO / Milestone 2.5] Real-time hardware transport gateway."),
-        ("archive", "[TODO / Milestone 2.5] Archival preservation bundle generator."),
-        ("recover", "[TODO / Milestone 4.0] Forensic bit/pulse recovery engine."),
+        ("charset", "[NOT IMPLEMENTED — Milestone 2.3] Streaming character set converter."),
+        ("extract", "[NOT IMPLEMENTED — Milestone 2.3] Payload and filesystem extractor."),
+        ("package", "[NOT IMPLEMENTED — Milestone 2.4] ROM cartridge compiler (cas2rom / mkrom)."),
+        ("bridge", "[NOT IMPLEMENTED — Milestone 2.5] Real-time hardware transport gateway."),
+        ("archive", "[NOT IMPLEMENTED — Milestone 2.5] Archival preservation bundle generator."),
+        ("recover", "Forensic bit/pulse recovery engine."),
     ]:
-        subparsers.add_parser(pl, help=h)
+        subparsers.add_parser(pl, help=h, description=h)
 
     if not remaining:
         parser.print_help(sys.stderr)

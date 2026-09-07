@@ -29,7 +29,8 @@ from tests.__main__ import main as tests_main
 
 
 @unittest.skipIf(
-    os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+    os.environ.get("DWIMSY_BUNDLE_BUILD") == "1"
+    or os.environ.get("DWIMSY_STANDALONE_TEST") == "1",
     "Excluded during bundle build verification",
 )
 class TestTestRunner(unittest.TestCase):
@@ -205,3 +206,17 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+class StandaloneListTestsTests(unittest.TestCase):
+    def test_list_tests_restores_meta_path_in_standalone_mode(self):
+        from dwimsy.meta import integrity
+
+        original_meta_path = list(sys.meta_path)
+        original_detector = integrity.is_standalone_bundle
+        integrity.is_standalone_bundle = lambda: True
+        try:
+            ids = dw_tests.list_tests(["test_test_runner.py"])
+            self.assertTrue(ids)
+            self.assertEqual(sys.meta_path, original_meta_path)
+        finally:
+            integrity.is_standalone_bundle = original_detector

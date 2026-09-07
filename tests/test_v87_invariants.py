@@ -297,6 +297,24 @@ class TestV87ScannerAndUnbundle(unittest.TestCase):
             safe_unbundle(output_dir=tmpdir, force=False, stdout=buf)
             self.assertNotIn("[IDENTICAL]", buf.getvalue())
 
+    def test_safe_unbundle_second_run_is_idempotent_including_unbundle_py(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            buf1 = io.StringIO()
+            safe_unbundle(output_dir=tmpdir, force=False, stdout=buf1)
+            out1 = buf1.getvalue()
+            self.assertIn("dwimsy/meta/unbundle.py", out1)
+            self.assertRegex(out1, r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
+
+            buf2 = io.StringIO()
+            safe_unbundle(output_dir=tmpdir, force=False, stdout=buf2)
+            out2 = buf2.getvalue()
+            # Second run should omit all identical files including unbundle.py
+            self.assertNotIn("[~]", out2)
+            self.assertNotIn("[+]", out2)
+            self.assertNotIn("dwimsy/meta/unbundle.py", out2)
+            self.assertIn("Successfully extracted", out2)
+
     def test_safe_unbundle_rejects_intermediate_symlink(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
             tmpdir = Path(tmp)
@@ -406,3 +424,55 @@ class TestVersionBumpChangelogFormatting(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestV91GitMetadataUnbundle(unittest.TestCase):
+    def test_safe_unbundle_ignores_git_metadata_in_target_tree(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # Simulate a checkout with a gitlink-style submodule marker.  This
+            # is repository metadata, not portable project state.
+            safe_unbundle(output_dir=root, force=True, quiet=True)
+            git_marker = root / "deps" / "example" / ".git"
+            git_marker.parent.mkdir(parents=True, exist_ok=True)
+            git_marker.write_text(
+                "gitdir: ../../.git/modules/example\n", encoding="utf-8"
+            )
+
+            # The current checkout may have a source-level unbundle.py change
+            # not yet sealed into the embedded payload.  For this focused safety
+            # test, make the materialized asset set exactly match the target and
+            # verify that the ignored .git marker is the only extra on-disk file.
+            import dwimsy.meta.unbundle as unbundle_mod
+
+            original = unbundle_mod.materialize_stream0_assets_with_removals
+            assets = {
+                p.relative_to(root).as_posix(): p.read_bytes()
+                for p in root.rglob("*")
+                if p.is_file() and ".git" not in p.relative_to(root).parts
+            }
+            unbundle_mod.materialize_stream0_assets_with_removals = (
+                lambda _b64: (assets, set())
+            )
+            try:
+                safe_unbundle(output_dir=root, force=False, quiet=True)
+            finally:
+                unbundle_mod.materialize_stream0_assets_with_removals = original
+            self.assertTrue(git_marker.is_file())
+            self.assertIn("gitdir:", git_marker.read_text(encoding="utf-8"))
+
+
+class TestV91VersionBumpAPI(unittest.TestCase):
+    def test_programmatic_bump_requires_explicit_part_when_no_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "dwimsy").mkdir()
+            (root / "dwimsy" / "_version.py").write_text(
+                '__version__ = "0.1.6.70-dev"\n__code_hash__ = ""\n',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "explicit bump tier"):
+                version_bump.bump_version(
+                    repo_root=root,
+                    message="must specify a tier",
+                    no_bundle=True,
+                )

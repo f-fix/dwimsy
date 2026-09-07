@@ -159,3 +159,17 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+
+class RecoverHelpTests(unittest.TestCase):
+    def test_recover_help_does_not_advertise_unimplemented_status(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "dwimsy", "recover", "--help"],
+            cwd=pkg_root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0)
+        self.assertNotIn("NOT IMPLEMENTED", proc.stdout + proc.stderr)
+        self.assertIn("Forensic bit/pulse recovery engine", proc.stdout + proc.stderr)

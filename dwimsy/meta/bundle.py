@@ -257,6 +257,7 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
     result: dict[str, bytes] = {}
     invalid_paths: list[tuple[str, str]] = []
     gitignore = GitIgnoreMatcher(repo_root)
+    manifest = integrity.canonical_manifest(repo_root)
     if (repo_root / "dwimsy").is_dir():
         for p in repo_root.rglob("*"):
             rel = p.relative_to(repo_root)
@@ -265,7 +266,10 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
                 continue
             if not with_deps and parts and parts[0] == "deps":
                 continue
-            if gitignore.matches(rel.as_posix(), is_dir=p.is_dir()):
+            rel_name = rel.as_posix()
+            if p.is_file() and not integrity._manifest_matches(rel_name, manifest):
+                continue
+            if gitignore.matches(rel_name, is_dir=p.is_dir()):
                 continue
             if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
                 continue
@@ -291,6 +295,8 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
             )
             if not with_deps and (clean_k == "deps" or clean_k.startswith("deps/")):
                 continue
+            if not integrity._manifest_matches(clean_k, manifest):
+                continue
             if gitignore.matches(clean_k, is_dir=False):
                 continue
             if clean_k == "dwimsy/meta/unbundle.py":
@@ -302,7 +308,9 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
             clean_k = (
                 k[len("<dwimsy-bundle>/") :] if k.startswith("<dwimsy-bundle>/") else k
             )
-            if clean_k.startswith("deps/"):
+            if clean_k.startswith("deps/") and integrity._manifest_matches(
+                clean_k, manifest
+            ):
                 result[clean_k] = v
 
     if invalid_paths:
@@ -346,6 +354,7 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
     """Create a deterministic in-memory TAR byte stream of the repository tree."""
     buf = io.BytesIO()
     gitignore = GitIgnoreMatcher(repo_root)
+    manifest = integrity.canonical_manifest(repo_root)
     with tarfile.open(fileobj=buf, mode="w") as tar:
         disk_entries = {}
         for p in repo_root.rglob("*"):
@@ -356,7 +365,10 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                 continue
             if not with_deps and parts and parts[0] == "deps":
                 continue
-            if gitignore.matches(rel.as_posix(), is_dir=p.is_dir()):
+            rel_name = rel.as_posix()
+            if p.is_file() and not integrity._manifest_matches(rel_name, manifest):
+                continue
+            if gitignore.matches(rel_name, is_dir=p.is_dir()):
                 continue
             if p.suffix in (".pyc", ".wav", ".t88", ".cmt") or p.name.endswith("~"):
                 continue
@@ -377,7 +389,9 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                 with unbundle._open_bundle_tar() as src_tar:
                     for m in src_tar.getmembers():
                         norm = m.name.removeprefix("./")
-                        if norm == "deps" or norm.startswith("deps/"):
+                        if (norm == "deps" or norm.startswith("deps/")) and (
+                            norm == "deps" or integrity._manifest_matches(norm, manifest)
+                        ):
                             arcname = "./" + norm
                             tarinfo = tarfile.TarInfo(name=arcname)
                             tarinfo.type = m.type
@@ -428,6 +442,27 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
                 fallback_data["./dwimsy/meta/unbundle.py"] = unbundle_template
             except Exception:
                 pass
+        # The canonical manifest is an allow-list, not merely an integrity/hash
+        # aid.  Reconstruct only parent directories needed by manifest-selected
+        # files so stray build artifacts can never enter the archive.
+        selected_entries = dict(disk_entries)
+        for arcname, path in list(disk_entries.items()):
+            if not path.is_file():
+                selected_entries.pop(arcname, None)
+        parent_dirs = {}
+        for arcname, path in selected_entries.items():
+            parent = Path(arcname).parent
+            while str(parent) not in (".", ""):
+                parent_arc = parent.as_posix()
+                if not parent_arc.startswith("./"):
+                    parent_arc = "./" + parent_arc
+                dir_path = repo_root / parent_arc[2:]
+                if dir_path.is_dir() and not gitignore.matches(
+                    parent_arc[2:], is_dir=True
+                ):
+                    parent_dirs[parent_arc] = dir_path
+                parent = parent.parent
+        disk_entries = {**parent_dirs, **selected_entries}
         all_arcnames = sorted(set(disk_entries.keys()) | set(fallback_entries.keys()))
 
         for arcname in all_arcnames:
@@ -600,6 +635,7 @@ def _set_layer_version_tag(
 ) -> dict[str, bytes]:
     """Return layer files with _version.py carrying the serialized layer tag."""
     result = dict(files)
+    updated = False
     for path in ("dwimsy/_version.py", "_version.py"):
         if path in result:
             text = result[path].decode("utf-8", errors="strict")
@@ -610,19 +646,17 @@ def _set_layer_version_tag(
                 count=1,
             )
             result[path] = text.encode("utf-8")
+            updated = True
             break
+    if not updated:
+        result["dwimsy/_version.py"] = f'"""dwimsy._version - Project version and sealed build identifier."""\n\n__version__ = "{version_tag}"\n__code_hash__ = ""\n'.encode("utf-8")
     return result
-
 
 def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     """Generate a bundle while preserving the current VersionSpace history."""
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
     cwd = Path.cwd().resolve()
-    # In standalone mode the Python package itself lives in the in-memory
-    # bundle, but `meta bundle` is a disk-facing preparation operation.  If
-    # the caller is standing in an extracted dwimsy tree, use that tree as
-    # the source rather than the virtual package root.
     if (cwd / "dwimsy" / "__init__.py").is_file():
         root = cwd
     else:
@@ -638,7 +672,6 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
 
     if getattr(args, "diff", False):
         from dwimsy.meta.diff import render_diff
-
         diff_text = render_diff(root)
         if diff_text:
             stdout.write(diff_text)
@@ -648,32 +681,63 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     primary = vspace.streams[0]
     head = primary.get_head_version()
     current_tag = integrity.version(root=root)
-    # §1.6.1: Only subsequent overlay layers (ordinal >= 1) may be replaced in place.
-    # Layer 0 is unconditionally the complete base snapshot (is_delta=False) and must not
-    # be overwritten by a partial delta.
-    is_replace = bool(
-        head
-        and head.ordinal > 0
-        and (
-            head.tag.split("+")[0].lower() == current_tag.split("+")[0].lower()
-            or "+mod." in head.tag.lower()
-        )
-    )
-    if is_replace and head and head.ordinal > 0:
-        old_state = primary.materialize_layer_state(head.ordinal - 1)
-    else:
-        old_state = primary.materialize_layer_state(head.ordinal) if head else {}
+    baseline = bool(getattr(args, "baseline", False))
     new_state = create_tree_state(root, with_deps=True)
-    delta = compute_tree_delta(old_state, new_state) if head else dict(new_state)
-    if "dwimsy/_version.py" in new_state:
-        delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
-    delta = _set_layer_version_tag(delta, current_tag)
-    if is_replace:
-        primary.append_layer(
-            Layer(delta, is_delta=True, version_tag=current_tag), allow_replacement=True
-        )
-    elif delta or not head:
-        primary.append_layer(Layer(delta, is_delta=True, version_tag=current_tag))
+
+    head_is_mod = bool(head and "+mod." in head.tag.lower())
+
+    if baseline:
+        if head_is_mod and len(primary.layers) > 1:
+            primary.layers.pop()
+            primary.mark_mutated()
+    elif head_is_mod and head and head.ordinal > 0:
+        base_state = primary.materialize_layer_state(head.ordinal - 1)
+        delta = compute_tree_delta(base_state, new_state)
+        if not delta:
+            primary.layers.pop()
+            primary.mark_mutated()
+        else:
+            d_mtimes = {}
+            for name in delta:
+                fp = root / name
+                if fp.is_file():
+                    try:
+                        d_mtimes[name] = int(fp.stat().st_mtime)
+                    except OSError:
+                        pass
+            d_layer_mtime = max(d_mtimes.values()) if d_mtimes else int(time.time())
+            d_mtimes = {name: d_layer_mtime for name in delta}
+            declared_base = current_tag.split("+")[0]
+            mod_hash = integrity.modification_hash(root)
+            mod_tag = f"{declared_base}+mod.{mod_hash}"
+            delta = _set_layer_version_tag(delta, mod_tag)
+            primary.append_layer(
+                Layer(delta, is_delta=True, version_tag=mod_tag, mtime=d_layer_mtime, file_mtimes=d_mtimes),
+                allow_replacement=True,
+            )
+    elif not head:
+        primary.append_layer(Layer(dict(new_state), is_delta=False, version_tag=current_tag))
+    else:
+        head_state = primary.materialize_layer_state(head.ordinal)
+        delta = compute_tree_delta(head_state, new_state)
+        if delta and integrity.is_modified(root):
+            d_mtimes = {}
+            for name in delta:
+                fp = root / name
+                if fp.is_file():
+                    try:
+                        d_mtimes[name] = int(fp.stat().st_mtime)
+                    except OSError:
+                        pass
+            d_layer_mtime = max(d_mtimes.values()) if d_mtimes else int(time.time())
+            d_mtimes = {name: d_layer_mtime for name in delta}
+            declared_base = current_tag.split("+")[0]
+            mod_hash = integrity.modification_hash(root)
+            mod_tag = f"{declared_base}+mod.{mod_hash}"
+            delta = _set_layer_version_tag(delta, mod_tag)
+            primary.append_layer(
+                Layer(delta, is_delta=True, version_tag=mod_tag, mtime=d_layer_mtime, file_mtimes=d_mtimes)
+            )
 
     script_text = build_bundle_script(root, with_deps=True, version_space=vspace)
     out_name = getattr(args, "output", None) or vspace.composite_bundle_name(".py")
@@ -719,8 +783,16 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     if out_name == "-":
         stdout.write(script_text)
         return 0
+    if getattr(args, "dry_run", False):
+        out_path = Path(out_name).resolve()
+        print("[DRY-RUN] Would generate bundle:", file=stderr)
+        print(f"  {out_path}", file=stderr)
+        if out_path.suffix == ".py":
+            print(f"  {out_path.with_suffix('.pyz')}", file=stderr)
+        return 0
     out_path = Path(out_name).resolve()
     is_default_out = not getattr(args, "output", None)
+    generated_paths = [out_path]
     if out_path.suffix == ".py":
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(script_text, encoding="utf-8")
@@ -728,11 +800,17 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
         if is_default_out:
             pyz_out = out_path.with_suffix(".pyz")
             write_pyz_bundle(script_text, pyz_out)
+            generated_paths.append(pyz_out)
     elif out_path.suffix == ".pyz":
         write_pyz_bundle(script_text, out_path)
     else:
         raise ValueError(f"Unsupported output extension '{out_path.suffix}'")
-    print(f"[SUCCESS] Generated bundle -> {out_path}", file=stderr)
+    if len(generated_paths) == 1:
+        print(f"[SUCCESS] Generated bundle -> {generated_paths[0]}", file=stderr)
+    else:
+        print("[SUCCESS] Generated bundles:", file=stderr)
+        for generated in generated_paths:
+            print(f"  {generated}", file=stderr)
     return 0
 
 
@@ -756,7 +834,7 @@ def run_meta_fetch_deps(args, stdout=None, stderr=None) -> int:
     # dispatcher before this handler runs.  Dependency materialization is
     # therefore based on the active embedded payload here; the selected
     # version has already determined that payload.
-    use_baseline = not (repo_root / ".git").exists()
+    use_baseline = bool(getattr(args, "baseline", False)) or not (repo_root / ".git").exists()
 
     if not use_baseline:
         res = subprocess.run(
@@ -831,12 +909,25 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument(
         "-o", "--output", default=None, help="Output bundle filepath (.py, .pyz, or -)"
     )
+    parser.add_argument("--baseline", action="store_true", help="Bundle clean baseline without working tree delta")
+    parser.add_argument("-t", "--tag", default=None, help="Optional short descriptive tag/label")
+    parser.add_argument("--with-deps", action="store_true", help="Include legacy submodule scaffolding from deps/")
+    parser.add_argument("--status", action="store_true", help="List uncommitted/modified and untracked files")
+    parser.add_argument("--diff", action="store_true", help="Display working tree diff before bundling")
+    parser.add_argument("-f", "--force", action="store_true", help="Force bundle emission, overwriting collisions")
+    parser.add_argument("--dry-run", action="store_true", help="Build bundle in memory/temp and display manifest without writing output")
+    parser.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
     parser.add_argument("--version-include", action="append", default=[])
     parser.add_argument("--version-restrict-to", default=None)
     parser.add_argument("--version-prune", default=None)
     parser.add_argument("--version-splice", default=None)
     parser.add_argument("--version-alt", nargs="?", const=True, default=False)
     args = parser.parse_args(effective)
+
+    # Keep the standalone maintainer entry point behaviorally aligned with
+    # `dwimsy meta bundle` for the shared baseline/dry-run modes.
+    if args.baseline or args.dry_run:
+        return run_meta_bundle(args)
 
     cwd = Path.cwd().resolve()
     if (cwd / "dwimsy" / "__init__.py").is_file():
@@ -867,12 +958,22 @@ def main(argv: Optional[List[str]] = None) -> int:
         if "dwimsy/_version.py" in new_state:
             delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
         delta = _set_layer_version_tag(delta, v_tag)
+        d_mtimes = {}
+        for name in delta:
+            fp = root / name
+            if fp.is_file():
+                try:
+                    d_mtimes[name] = int(fp.stat().st_mtime)
+                except OSError:
+                    pass
+        d_layer_mtime = max(d_mtimes.values()) if d_mtimes else int(time.time())
+        d_mtimes = {name: d_layer_mtime for name in delta}
         if is_replace:
             primary.append_layer(
-                Layer(delta, is_delta=True, version_tag=v_tag), allow_replacement=True
+                Layer(delta, is_delta=True, version_tag=v_tag, mtime=d_layer_mtime, file_mtimes=d_mtimes), allow_replacement=True
             )
         elif delta or not head:
-            primary.append_layer(Layer(delta, is_delta=True, version_tag=v_tag))
+            primary.append_layer(Layer(delta, is_delta=True, version_tag=v_tag, mtime=d_layer_mtime, file_mtimes=d_mtimes))
     alt_val = (
         (True, args.version_alt)
         if isinstance(args.version_alt, str)

@@ -104,7 +104,7 @@ class TestMetaSpliceSafety(unittest.TestCase):
         vspace.renumber_streams()
 
         vspace.splice("alt1_0.1.4.1")
-        vspace.prune("alt*")
+        vspace.prune("alt*", force=True)
 
         self.assertEqual(len(vspace.streams), 1)
         tags = [v.tag for v in vspace.streams[0].get_versions()]

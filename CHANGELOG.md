@@ -5,6 +5,151 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.99-dev] - 2026-09-07T09:08:56Z
+
+### Changed
+- Fix clean working tree bundle baseline generation, prohibit empty layers, and enforce no trailing whitespace linter
+
+## [0.1.6.98-dev] - 2026-09-07T06:34:10Z
+
+### Changed
+- Fix rollback history truncation and blztar preservation
+
+## [0.1.6.97-dev] - 2026-09-07T04:54:25Z
+
+### Changed
+- Fix unbundle manifest timestamp and unbundle.py idempotency
+
+## [0.1.6.96-dev] - 2026-09-07T03:49:19Z
+
+### Changed
+- Use second-exact changelog timestamps for version bundles
+
+## [0.1.6.95-dev] - 2026-09-07
+
+### Changed
+- Canonicalize layer timestamps during packing and unbundling; avoid rewriting identical unbundle.py
+
+## [0.1.6.94-dev] - 2026-09-07
+
+### Changed
+- Record 1-second resolution layer mtimes for newly created layers
+
+## [0.1.6.93-dev] - 2026-09-07
+
+### Changed
+- Fix --version-list timestamps and unbundle rollback instructions
+
+## [0.1.6.92-dev] - 2026-09-06
+
+### Changed
+- Honor canonical manifest during bundle creation and exclude unmanifested build artifacts.
+
+## [0.1.6.91-dev] - 2026-09-06
+
+### Changed
+- Honor canonical manifest during bundle creation and exclude unmanifested build artifacts.
+
+## [0.1.6.90-dev] - 2026-09-06
+
+### Changed
+- Fix information-loss safety and version-labelled diff output
+
+## [0.1.6.89-dev] - 2026-09-06
+
+### Changed
+- Require --force for information-losing rollback and version-space pruning; fix CLI help and dispatch consistency.
+
+## [0.1.6.88-dev] - 2026-09-06
+
+### Changed
+- Fix CLI entry-point consistency, historical rollback, and baseline bundle handling
+
+## [0.1.6.87-dev] - 2026-09-06
+
+### Changed
+- Fix historical rollback cleanup and baseline bundling
+
+## [0.1.6.86-dev] - 2026-09-06
+
+### Changed
+- Fix per-side VersionSpace formatting in meta diff
+
+## [0.1.6.85-dev] - 2026-09-06
+
+### Changed
+- Standardize $VERSION_SUMMARY diff normalization using active VersionSpace
+
+## [0.1.6.84-dev] - 2026-09-06
+
+### Changed
+- Fix $VERSION_SUMMARY multi-stream preservation in diff engine
+
+## [0.1.6.83-dev] - 2026-09-06
+
+### Changed
+- Fix $VERSION_SUMMARY target VersionSpace slicing in diff engine
+
+## [0.1.6.82-dev] - 2026-09-06
+
+### Changed
+- Fix $VERSION_SUMMARY diff substitution in cross-stream comparisons and preserve stream source in slicing
+
+## [0.1.6.81-dev] - 2026-09-06
+
+### Changed
+- Fix $VERSION_SUMMARY diff slicing, is_modified declared version check, and PagedHelpAction on --help
+
+## [0.1.6.80-dev] - 2026-09-06
+
+### Changed
+- Fix $VERSION_SUMMARY diff substitution, PagedHelpAction on --help, and unbundle upgrade detection
+
+## [0.1.6.79-dev] - 2026-09-06
+
+### Changed
+- Fix diff $VERSION_SUMMARY normalization, meta diff paging, and standalone hermeticity
+
+## [0.1.6.78-dev] - 2026-09-05
+
+### Changed
+- Fix live-tree inclusion and portable diff selectors
+
+## [0.1.6.77-dev] - 2026-09-04
+
+### Changed
+- Fix bundle delta layer tag injection and unbundle rollback banner
+
+## [0.1.6.76-dev] - 2026-09-04
+
+### Changed
+- Harden standalone test discovery and runner state isolation
+
+## [0.1.6.75-dev] - 2026-09-03
+
+### Changed
+- Polish hermetic test runner and finalize v9.1 implementation fixes
+
+## [0.1.6.74-dev] - 2026-09-03
+
+### Changed
+- Complete hermetic standalone test discovery and preserve fixture and metadata coverage
+
+## [0.1.6.73-dev] - 2026-09-03
+
+### Changed
+- Make standalone self-tests hermetic and avoid surrounding checkout test discovery
+
+## [0.1.6.72-dev] - 2026-09-03
+
+### Changed
+- Harden standalone test isolation, diff checkout boundaries, and unbundle git metadata handling
+
+## [0.1.6.71-dev] - 2026-09-03
+
+### Changed
+- Fix version-bump silently defaulting to --patch when no explicit bump tier is given; require an explicit --major/--minor/--patch/--rev (matching the existing non-empty message requirement). Fix stray extra blank lines in README.md before the Project Homepage line.
+
 ## [0.1.6.70-dev] - 2026-09-02
 
 ### Changed

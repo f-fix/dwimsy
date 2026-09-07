@@ -318,6 +318,9 @@ class VersionRef:
         return f"VersionRef(stream={self.stream_name}, tag={self.tag}, sealed={self.sealed}, ordinal={self.ordinal}, hash={self.content_hash[:8]})"
 
 
+LEGACY_BOGUS_MTIME = 1700000000
+
+
 class Layer:
     """A single TAR archive layer (base snapshot, delta overlay, or sealed historical release)."""
 
@@ -328,6 +331,8 @@ class Layer:
         is_delta: bool = False,
         version_tag: Optional[str] = None,
         code_hash: Optional[str] = None,
+        mtime: Optional[int] = None,
+        file_mtimes: Optional[Dict[str, int]] = None,
     ):
         self.files = {}
         for k, v in files.items():
@@ -375,6 +380,9 @@ class Layer:
             code_hash if code_hash is not None else self._extract_code_hash()
         )
         self.sealed = bool(self.code_hash and self.code_hash.strip())
+        self.mtime = int(mtime) if mtime is not None else None
+        self.file_mtimes = {k: int(v) for k, v in file_mtimes.items()} if file_mtimes else {}
+        self.mtime = int(mtime) if mtime is not None else None
 
     def _extract_version_tag(self) -> str:
         v_data = self.files.get("dwimsy/_version.py") or self.files.get("_version.py")
@@ -398,12 +406,14 @@ class Layer:
         if self.tar_bytes is not None:
             return self.tar_bytes
         bio = io.BytesIO()
+        layer_mtime = int(self.mtime) if getattr(self, "mtime", None) is not None else LEGACY_BOGUS_MTIME
+        file_mtimes = getattr(self, "file_mtimes", {}) or {}
         with tarfile.open(fileobj=bio, mode="w:") as tar:
             for name in sorted(self.files.keys()):
                 data = self.files[name]
                 ti = tarfile.TarInfo(name=name)
                 ti.size = len(data)
-                ti.mtime = 1700000000
+                ti.mtime = int(file_mtimes.get(name, layer_mtime))
                 ti.mode = (
                     0o755
                     if (name.endswith(".py") and data.startswith(b"#!"))
@@ -441,6 +451,8 @@ class Stream:
                 lyr.is_delta,
                 lyr.version_tag,
                 lyr.code_hash,
+                lyr.mtime,
+                dict(lyr.file_mtimes),
             )
             for lyr in self.layers
         ]
@@ -706,6 +718,8 @@ class Stream:
 
     def append_layer(self, layer: Layer, allow_replacement: bool = False) -> None:
         """Append layer enforcing writing invariants (Section1.1.1, Section1.4)."""
+        if layer.is_delta and not layer.files and not allow_replacement:
+            raise ValueError(f"Cannot append empty delta layer to stream '{self.name}'.")
         if not self.layers:
             if layer.is_delta:
                 raise ValueError(
@@ -756,10 +770,16 @@ class Stream:
             tip_layers = [
                 l for l in self.layers if parse_semver(l.version_tag) >= initial_semver
             ]
-            if tip_layers and curr_semver <= parse_semver(tip_layers[-1].version_tag):
-                raise ValueError(
-                    f"Tip sequence layer semver '{layer.version_tag}' must be strictly greater than preceding layer '{tip_layers[-1].version_tag}'."
-                )
+            if "+mod." in layer.version_tag.lower():
+                if tip_layers and parse_semver(base_new) < parse_semver(tip_layers[-1].version_tag.split("+")[0]):
+                    raise ValueError(
+                        f"Tip sequence +mod layer semver '{layer.version_tag}' must be greater than or equal to preceding layer '{tip_layers[-1].version_tag}'."
+                    )
+            else:
+                if tip_layers and curr_semver <= parse_semver(tip_layers[-1].version_tag):
+                    raise ValueError(
+                        f"Tip sequence layer semver '{layer.version_tag}' must be strictly greater than preceding layer '{tip_layers[-1].version_tag}'."
+                    )
         else:
             if not layer.code_hash:
                 raise ValueError(
@@ -887,18 +907,23 @@ def parse_tar_layers_from_bytes(
 
     while offset < total:
         remaining = raw_tar_bytes[offset:]
-        if not remaining or all(b == 0 for b in remaining):
+        if not remaining or (remaining[:512] == b'\x00' * min(512, len(remaining)) and remaining.count(b'\x00') == len(remaining)):
             break
 
         tar_bio = io.BytesIO(remaining)
         try:
             with tarfile.open(fileobj=tar_bio, mode="r:") as tar:
                 files: Dict[str, bytes] = {}
+                file_mtimes: Dict[str, int] = {}
                 for m in tar:
                     if m.isfile():
                         norm_name = m.name[2:] if m.name.startswith("./") else m.name
                         f = tar.extractfile(m)
                         files[norm_name] = f.read() if f is not None else b""
+                        if m.mtime > 0 and m.mtime != LEGACY_BOGUS_MTIME:
+                            file_mtimes[norm_name] = int(m.mtime)
+                valid_mtimes = list(file_mtimes.values())
+                layer_mtime = max(valid_mtimes) if valid_mtimes else None
 
                 consumed = tar_bio.tell()
                 if consumed % 512 != 0:
@@ -976,6 +1001,8 @@ def parse_tar_layers_from_bytes(
                         code_hash=(
                             m2.group(1).strip() if (v_data and m2 and sealed) else ""
                         ),
+                        mtime=layer_mtime,
+                        file_mtimes=file_mtimes,
                     )
                     layers.append(lyr)
                     continue
@@ -994,16 +1021,28 @@ def parse_tar_layers_from_bytes(
                             return []
 
                     # Invariant 2: Strict Monotonic Increasing Semver Check in Tip Sequence
-                    if curr_semver <= last_tip_semver or curr_semver in seen_semvers:
-                        reason = f"semver '{tag_str}' is not strictly greater than preceding tip semver (duplicate or decreasing order)."
-                        if stream_name == "primary":
-                            raise RuntimeError(
-                                f"Primary stream tip sequence constraint violation at layer {l_idx}: {reason}"
-                            )
-                        else:
-                            warn_msg = f"warning: alternate stream '{stream_name}' invalidated: {reason}"
-                            warnings.warn(warn_msg, UserWarning, stacklevel=2)
-                            return []
+                    if is_mod_layer:
+                        if curr_semver < last_tip_semver:
+                            reason = f"semver '{tag_str}' is not greater than or equal to preceding tip semver."
+                            if stream_name == "primary":
+                                raise RuntimeError(
+                                    f"Primary stream tip sequence constraint violation at layer {l_idx}: {reason}"
+                                )
+                            else:
+                                warn_msg = f"warning: alternate stream '{stream_name}' invalidated: {reason}"
+                                warnings.warn(warn_msg, UserWarning, stacklevel=2)
+                                return []
+                    else:
+                        if curr_semver <= last_tip_semver or curr_semver in seen_semvers:
+                            reason = f"semver '{tag_str}' is not strictly greater than preceding tip semver (duplicate or decreasing order)."
+                            if stream_name == "primary":
+                                raise RuntimeError(
+                                    f"Primary stream tip sequence constraint violation at layer {l_idx}: {reason}"
+                                )
+                            else:
+                                warn_msg = f"warning: alternate stream '{stream_name}' invalidated: {reason}"
+                                warnings.warn(warn_msg, UserWarning, stacklevel=2)
+                                return []
 
                     # Invariant 3: Only the LAST tar in the tip sequence is allowed to be +mod
                     if has_mod_in_tip:
@@ -1021,7 +1060,12 @@ def parse_tar_layers_from_bytes(
                     has_mod_in_tip = is_mod_layer
                     seen_semvers.add(curr_semver)
                     lyr = Layer(
-                        files, tar_bytes=layer_bytes, is_delta=True, version_tag=tag_str
+                        files,
+                        tar_bytes=layer_bytes,
+                        is_delta=True,
+                        version_tag=tag_str,
+                        mtime=layer_mtime,
+                        file_mtimes=file_mtimes,
                     )
                     layers.append(lyr)
                     continue
@@ -1076,6 +1120,8 @@ def parse_tar_layers_from_bytes(
                         is_delta=False,
                         version_tag=tag_str,
                         code_hash=(m2.group(1).strip() if (v_data and m2) else ""),
+                        mtime=layer_mtime,
+                        file_mtimes=file_mtimes,
                     )
                     layers.append(lyr)
                     continue
@@ -1494,11 +1540,26 @@ class VersionSpace:
             self.streams.append(new_s)
         self.renumber_streams()
 
-    def restrict_to(self, pattern: str) -> None:
-        """Allow-list filter: retain only versions/streams matching pattern."""
+    def restrict_to(self, pattern: str, force: bool = False) -> None:
+        """Allow-list filter: retain only versions/streams matching pattern.
+
+        Filtering is information-losing when it removes any version or stream;
+        callers must explicitly opt into that loss with ``force=True``.
+        """
         matches = self.match_versions(pattern)
         if not matches:
             raise ValueError(f"No versions matched '--restrict-to={pattern}'")
+        matched_keys = {(id(s), o) for s, o, _v in matches}
+        removes_any = any(
+            (id(s), i) not in matched_keys
+            for s in self.streams
+            for i in range(len(s.layers))
+        )
+        if removes_any and not force:
+            raise RuntimeError(
+                f"--version-restrict-to={pattern} would discard version history. "
+                "Use --force / -f to permit this information-losing operation."
+            )
 
         retained_by_stream: Dict[int, Set[int]] = {}
         for s, ord_idx, v in matches:
@@ -1560,11 +1621,29 @@ class VersionSpace:
         self.streams = new_streams
         self.renumber_streams()
 
-    def prune(self, pattern: str) -> None:
-        """Deny-list filter: discard versions/streams matching pattern."""
+    def prune(self, pattern: str, force: bool = False) -> None:
+        """Deny-list filter: discard versions/streams matching pattern.
+
+        Pruning is inherently information-losing, so it requires ``force``.
+        """
         matches = self.match_versions(pattern)
         if not matches:
             return
+        if not force:
+            matched_ids = {(v.stream_index, v.ordinal) for _s, _o, v in matches}
+            preserved_hashes = {
+                v.content_hash
+                for v in self.get_all_versions()
+                if (v.stream_index, v.ordinal) not in matched_ids
+            }
+            unique_loss = [
+                v for _s, _o, v in matches if v.content_hash not in preserved_hashes
+            ]
+            if unique_loss:
+                raise RuntimeError(
+                    f"--version-prune={pattern} would discard version history. "
+                    "Use --force / -f to permit this information-losing operation."
+                )
 
         pruned_by_stream: Dict[int, Set[int]] = {}
         for s, ord_idx, v in matches:
@@ -1680,8 +1759,8 @@ class VersionSpace:
         self.streams = shifted_streams
         self.renumber_streams()
 
-    def splice(self, pattern: str) -> None:
-        """Splice layers into historical sequence with dry-run safety hash verification."""
+    def splice(self, pattern: str, force: bool = False) -> None:
+        """Splice layers into history, requiring force when existing content is replaced."""
         matches = self.match_versions(pattern)
         if not matches:
             raise ValueError(f"No version matched splice pattern '{pattern}'")
@@ -1741,19 +1820,102 @@ class VersionSpace:
         prune: Optional[str] = None,
         splice: Optional[str] = None,
         alt: Optional[Tuple[bool, Optional[str]]] = None,
+        force: bool = False,
     ) -> None:
         """Run the sequential transformation pipeline strictly left-to-right."""
         if includes:
             for inc in includes:
                 self.include_source(inc)
         if restrict_to:
-            self.restrict_to(restrict_to)
+            self.restrict_to(restrict_to, force=force)
         if prune:
-            self.prune(prune)
+            self.prune(prune, force=force)
         if splice:
-            self.splice(splice)
+            self.splice(splice, force=force)
         if alt and alt[0]:
             self.branch_alt(alt[1])
+
+    def truncated_primary_to(self, ordinal: int) -> "VersionSpace":
+        """Return a copy with primary history truncated at *ordinal*.
+
+        If *ordinal* is within the open development layers (0 <= ordinal <= open_count),
+        layers 0..ordinal are retained along with any sealed historical releases.
+        If *ordinal* is a sealed historical layer (ordinal > open_count), the selected
+        historical snapshot becomes the new base snapshot, and older historical
+        releases are retained. Later primary history is discarded.
+        Alternate streams are preserved.
+        """
+        if not self.streams or ordinal < 0 or ordinal >= len(self.streams[0].layers):
+            raise ValueError(f"Invalid primary history ordinal: {ordinal}")
+        primary = self.streams[0]
+        open_count = primary.get_open_dev_layer_count()
+
+        if ordinal <= open_count:
+            new_layers = [
+                Layer(
+                    dict(lyr.files),
+                    lyr.tar_bytes,
+                    lyr.is_delta,
+                    lyr.version_tag,
+                    lyr.code_hash,
+                    lyr.mtime,
+                    dict(lyr.file_mtimes),
+                )
+                for lyr in primary.layers[: ordinal + 1]
+            ]
+            if open_count + 1 < len(primary.layers):
+                new_layers.extend(
+                    [
+                        Layer(
+                            dict(lyr.files),
+                            lyr.tar_bytes,
+                            lyr.is_delta,
+                            lyr.version_tag,
+                            lyr.code_hash,
+                            lyr.mtime,
+                            dict(lyr.file_mtimes),
+                        )
+                        for lyr in primary.layers[open_count + 1 :]
+                    ]
+                )
+        else:
+            selected = primary.layers[ordinal]
+            new_layers = [
+                Layer(
+                    dict(selected.files),
+                    selected.tar_bytes,
+                    is_delta=False,
+                    version_tag=selected.version_tag,
+                    code_hash=selected.code_hash,
+                    mtime=selected.mtime,
+                    file_mtimes=dict(selected.file_mtimes),
+                )
+            ]
+            if ordinal + 1 < len(primary.layers):
+                new_layers.extend(
+                    [
+                        Layer(
+                            dict(lyr.files),
+                            lyr.tar_bytes,
+                            lyr.is_delta,
+                            lyr.version_tag,
+                            lyr.code_hash,
+                            lyr.mtime,
+                            dict(lyr.file_mtimes),
+                        )
+                        for lyr in primary.layers[ordinal + 1 :]
+                    ]
+                )
+
+        new_primary = Stream(
+            0,
+            "primary",
+            new_layers,
+            source=primary.source,
+        )
+        result = VersionSpace([new_primary] + [stream.copy() for stream in self.streams[1:]])
+        result.renumber_streams()
+        return result
 
     def composite_bundle_name(self, extension: str = ".py") -> str:
         """Generate multi-stream composite bundle name with uniform ,altN notation."""
@@ -1784,42 +1946,75 @@ class VersionSpace:
     def get_layer_timestamp(
         self, layer: Layer, default_time: Optional[str] = None
     ) -> str:
-        """Derive ISO 8601 UTC timestamp for a layer from TAR mtime or CHANGELOG.md."""
+        """Return the canonical UTC timestamp for a layer.
+
+        Member mtimes are authoritative: for older heterogeneous layers we use
+        the newest meaningful member timestamp.  The stored layer mtime is only
+        consulted when no usable member timestamp exists.  Finally, the
+        version's CHANGELOG entry is used as the historical fallback when every
+        member has the legacy fixed timestamp.
+        """
         import datetime
+
+        meaningful = []
+        for value in (getattr(layer, "file_mtimes", {}) or {}).values():
+            if int(value) > 0 and int(value) != LEGACY_BOGUS_MTIME:
+                meaningful.append(int(value))
 
         if getattr(layer, "tar_bytes", None):
             try:
-                import tarfile, io
+                import io
+                import tarfile
 
                 with tarfile.open(
                     fileobj=io.BytesIO(layer.tar_bytes), mode="r:"
                 ) as tar:
-                    mtimes = [
-                        m.mtime for m in tar if m.mtime > 0 and m.mtime != 1700000000
-                    ]
-                    if mtimes:
-                        return datetime.datetime.fromtimestamp(
-                            max(mtimes), tz=datetime.timezone.utc
-                        ).strftime("%Y-%m-%dT%H:%M:%SZ")
-            except Exception:
-                pass
-        c_data = layer.files.get("CHANGELOG.md")
-        if c_data:
-            try:
-                c_text = c_data.decode("utf-8", errors="ignore")
-                tag_escaped = re.escape(layer.version_tag or "")
-                m = re.search(
-                    rf"## \[{tag_escaped}\] - (\d{{4}}-\d{{2}}-\d{{2}})", c_text
-                )
-                if not m:
-                    m = re.search(
-                        r"## \[([^\]]+)\] - (\d{{4}}-\d{{2}}-\d{{2}})", c_text
+                    meaningful.extend(
+                        int(m.mtime)
+                        for m in tar
+                        if m.isfile()
+                        and int(m.mtime) > 0
+                        and int(m.mtime) != LEGACY_BOGUS_MTIME
                     )
-                if m:
-                    dt = m.group(1 if not m.group(2) else 2)
-                    return f"{dt}T00:00:00Z"
             except Exception:
                 pass
+
+        if meaningful:
+            return datetime.datetime.fromtimestamp(
+                max(meaningful), tz=datetime.timezone.utc
+            ).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        layer_mtime = getattr(layer, "mtime", None)
+        if layer_mtime and int(layer_mtime) != LEGACY_BOGUS_MTIME:
+            return datetime.datetime.fromtimestamp(
+                int(layer_mtime), tz=datetime.timezone.utc
+            ).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        tag = layer.version_tag
+        if tag:
+            c_candidates = []
+            if "CHANGELOG.md" in layer.files:
+                c_candidates.append(layer.files["CHANGELOG.md"])
+            for stream in getattr(self, "streams", []):
+                for lyr in reversed(stream.layers):
+                    if "CHANGELOG.md" in lyr.files:
+                        c_candidates.append(lyr.files["CHANGELOG.md"])
+                        break
+            tag_escaped = re.escape(tag)
+            for c_data in c_candidates:
+                try:
+                    c_text = c_data.decode("utf-8", errors="ignore")
+                    match = re.search(
+                        rf"##\s*\[{tag_escaped}\]\s*-\s*(\d{{4}}-\d{{2}}-\d{{2}}(?:T\d{{2}}:\d{{2}}:\d{{2}}Z)?)",
+                        c_text,
+                    )
+                    if match:
+                        stamp = match.group(1)
+                        if "T" not in stamp:
+                            stamp += "T00:00:00Z"
+                        return stamp
+                except Exception:
+                    pass
         return default_time or "2026-08-30T00:00:00Z"
 
     def format_list_versions(

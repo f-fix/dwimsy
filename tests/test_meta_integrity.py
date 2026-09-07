@@ -357,3 +357,27 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+class GitMetadataTests(unittest.TestCase):
+    def test_source_files_ignores_git_metadata_at_any_depth(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pkg = root / "dwimsy"
+            pkg.mkdir()
+            (pkg / "__init__.py").write_text("\n", encoding="utf-8")
+            (pkg / "_version.py").write_text(
+                '__version__ = "0.1.6.0-dev"\n__code_hash__ = ""\n',
+                encoding="utf-8",
+            )
+            (root / "README.md").write_text("# test\n", encoding="utf-8")
+            (root / ".git").mkdir()
+            (root / ".git" / "config").write_text("private\n", encoding="utf-8")
+            (root / "deps" / "example" / ".git").mkdir(parents=True)
+            (root / "deps" / "example" / ".git" / "HEAD").write_text(
+                "ref: refs/heads/main\n", encoding="utf-8"
+            )
+            files = {
+                p.relative_to(root).as_posix() for p in integrity.source_files(root)
+            }
+            self.assertNotIn(".git/config", files)
+            self.assertNotIn("deps/example/.git/HEAD", files)

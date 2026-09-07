@@ -333,6 +333,45 @@ class TestMetaVersions(unittest.TestCase):
             st.append_layer(Layer(f0, is_delta=True, version_tag="0.1.6.0"))
         self.assertIn("Cannot add duplicate version tag '0.1.6.0'", str(cm.exception))
 
+
+    def test_prune_requires_force(self):
+        space = VersionSpace([
+            Stream(0, "primary", [
+                Layer({"a.txt": b"a"}, is_delta=False, version_tag="0.1.6.0-dev"),
+                Layer({"a.txt": b"b"}, is_delta=True, version_tag="0.1.6.1-dev"),
+            ])
+        ])
+        with self.assertRaises(RuntimeError) as ctx:
+            space.prune("0.1.6.1-dev")
+        self.assertIn("--force", str(ctx.exception))
+        space.prune("0.1.6.1-dev", force=True)
+        self.assertEqual([v.tag for v in space.streams[0].get_versions()], ["0.1.6.0-dev"])
+
+    def test_force_does_not_change_result_beyond_permitting_prune(self):
+        def make_space():
+            return VersionSpace([
+                Stream(0, "primary", [
+                    Layer({"a.txt": b"a"}, is_delta=False, version_tag="0.1.6.0-dev"),
+                    Layer({"a.txt": b"b"}, is_delta=True, version_tag="0.1.6.1-dev"),
+                ])
+            ])
+        forced = make_space()
+        forced.prune("0.1.6.1-dev", force=True)
+        self.assertEqual(
+            [v.tag for v in forced.streams[0].get_versions()], ["0.1.6.0-dev"]
+        )
+
+    def test_restrict_to_requires_force_when_it_discards_history(self):
+        space = VersionSpace([
+            Stream(0, "primary", [
+                Layer({"a.txt": b"a"}, is_delta=False, version_tag="0.1.6.0-dev"),
+                Layer({"a.txt": b"b"}, is_delta=True, version_tag="0.1.6.1-dev"),
+            ])
+        ])
+        with self.assertRaises(RuntimeError) as ctx:
+            space.restrict_to("0.1.6.1-dev")
+        self.assertIn("--force", str(ctx.exception))
+
     def test_duplicate_version_in_alt_stream_invalidates_stream(self):
         """Spec §1.1.1: duplicate version tag in alt stream invalidates remainder with warning."""
         f0 = {
@@ -548,3 +587,29 @@ class TestSetValuedSemanticSelectors(unittest.TestCase):
         self.assertTrue(sv.is_valid)
         self.assertEqual(sv.suffix, "dev")
         self.assertEqual(sv.build, "mod.abc")
+
+
+    def test_truncated_primary_to_preserves_history_up_to_target(self):
+        from dwimsy.meta import unbundle, versions
+        raw_b64 = unbundle._get_active_blztar()
+        space = versions.VersionSpace.from_blztar(raw_b64)
+        head = space.streams[0].get_head_version()
+        self.assertIsNotNone(head)
+
+        # Find 0.1.6.70-dev
+        res_70 = space.resolve_version_ref("0.1.6.70-dev")
+        self.assertIsNotNone(res_70)
+        s_70, ord_70, ref_70 = res_70
+
+        trunc_space = space.truncated_primary_to(ord_70)
+        trunc_p = trunc_space.streams[0]
+        self.assertEqual(len(trunc_p.layers), ord_70 + 1)
+        self.assertEqual(trunc_p.get_head_version().tag, "0.1.6.70-dev")
+
+        # Re-encode to blztar and reload to verify LZMA/TAR serialization
+        trunc_b64 = trunc_space.to_blztar()
+        reloaded = versions.VersionSpace.from_blztar(trunc_b64)
+        reloaded_versions = reloaded.streams[0].get_versions()
+        self.assertEqual(len(reloaded_versions), ord_70 + 1)
+        self.assertEqual(reloaded_versions[-1].tag, "0.1.6.70-dev")
+        self.assertEqual(reloaded_versions[0].tag, "0.1.6.49-dev")

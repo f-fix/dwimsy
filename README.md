@@ -1,7 +1,7 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation
 
-**Version: 0.1.6.70-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-02)
+**Version: 0.1.6.99-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-07)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
@@ -215,25 +215,23 @@ Any `dwimsy` bundle or installed command can be forced into a maintainer persona
 | **Extract Source** | `python3 dwimsy_bundle.py -a dwimsy-meta-unbundle ./src --deps` |
 | **Reconstruct Bundle** | `python3 dwimsy_bundle.py --version=V --version-restrict-to=V -a dwimsy meta bundle --baseline -o out.py` |
 
-
-
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.70-dev (2026-09-02)
+Version: 0.1.6.99-dev (2026-09-07)
 
-`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.70-dev.py`).
+`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.99-dev.py`).
 
 To use the embedded dwimsy CLI directly from the bundle:
 ```bash
-python3 dwimsy_0.1.6.70-dev.py dwimsy --help
-python3 dwimsy_0.1.6.70-dev.py dwimsy --version
-python3 dwimsy_0.1.6.70-dev.py dwimsy readme
-python3 dwimsy_0.1.6.70-dev.py dwimsy license
-python3 dwimsy_0.1.6.70-dev.py dwimsy changelog
+python3 dwimsy_0.1.6.99-dev.py dwimsy --help
+python3 dwimsy_0.1.6.99-dev.py dwimsy --version
+python3 dwimsy_0.1.6.99-dev.py dwimsy readme
+python3 dwimsy_0.1.6.99-dev.py dwimsy license
+python3 dwimsy_0.1.6.99-dev.py dwimsy changelog
 ```
 
 To extract the repository tree to disk:
 ```bash
-python3 dwimsy_0.1.6.70-dev.py meta unbundle /path/to/target --deps
+python3 dwimsy_0.1.6.99-dev.py meta unbundle /path/to/target --deps
 ```
 
 
@@ -638,19 +636,22 @@ options:
   * `dwimsy meta bundle --baseline`: Reconstructs the baseline standalone unpacker from the embedded baseline `blztar` payload and its canonical, blztar-elided `unbundle.py` template.
 
 ```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.70-dev.py
+# Bundle live working tree -> generates dwimsy_0.1.6.99-dev.py
 dwimsy meta bundle
 
 # Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.70-dev.py
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.99-dev.py
 ```
 
 ##### `dwimsy meta unbundle`
 Extracts a portable bundle to a normal source tree. The `unbundle.py` written to disk is reconstituted from the canonical blztar-elided template stored inside the bundle, with the bundle payload substituted back in. Its timestamp is preserved from that canonical template.
 
-Safe unbundling features:
-* **Safe In-Place Upgrades**: Unbundling into an existing clean checkout of an older release in `VersionSpace` performs an in-place version upgrade without requiring `--force`.
-* **Rollback Command**: When unbundling changes the on-disk version, a notice prints the exact command to revert to the previous version (`python3 dwimsy/meta/unbundle.py --version=<prev_version> <target_directory>`).
+**Information Loss & Safety Rule**:
+> In `dwimsy`, any operation that will lose information is automatically prevented with an error message, and `--force` (`-f`) is the method to bypass that check and proceed with the information-losing operation. Serious violations of format integrity (such as an incorrect or corrupted version slice) remain impossible even with `--force`.
+
+Safe unbundling and version-space change features:
+* **Safe In-Place Upgrades & Rollback Instructions**: Unbundling into an existing clean checkout of an older release in `VersionSpace` performs an in-place version upgrade without requiring `--force`, and prints exact rollback instructions to return to the previous version (`python3 dwimsy/meta/unbundle.py --version=<prev_version> <target_directory>`).
+* **Rollback Protection & Alternate Streams**: Any change to version space (such as unpacking a newer bundle) includes rollback instructions to return to the previous version, or alternatively requires `--force` if such a rollback is not possible from the resulting version space. If rolling back a change would itself lose version space (such as newly added primary layers), a safe alternative that preserves those layers by branching them into an alternate stream (`--version-alt`) is provided, while the unsafe version requires `--force`.
 * **Overwrite Protection**: Refuses without `--force` if `dwimsy/meta/unbundle.py` would be overwritten and the incoming bundle payload does not contain the previous on-disk version in its history.
 * **Extraction Banner**: On completion, reports the extracted version banner (`Successfully extracted dwimsy <version> (<timestamp> <hash>) to <target_directory>`).
 
@@ -696,7 +697,7 @@ dwimsy meta diff
 dwimsy meta diff 0.1.6.55-dev 0.1.6.56-dev
 
 # Compare on-disk checkout against bundle baseline from an external directory
-python3 dwimsy_0.1.6.70-dev.py --version-include-primary=. dwimsy meta diff baseline alt
+python3 dwimsy_0.1.6.99-dev.py --version-include-primary=. dwimsy meta diff baseline alt
 ```
 
 ##### `dwimsy meta integrity`
@@ -839,6 +840,16 @@ options:
 Note: --mode accepts tape, acoustic, shaped, ideal, cassette, motor, spinup,
 pc, square.
 ```
+
+### Developer Formatting
+
+Python code under `dwimsy/` and `tests/` is formatted with [Black](https://github.com/psf/black). When Black is available in the development environment, run:
+
+```bash
+black dwimsy tests
+```
+
+Black is a developer-time formatting tool, not a runtime dependency. If it is unavailable, the formatting step is skipped rather than making Black a requirement for running dwimsy itself.
 
 ### Developer Workflow
 
@@ -2087,7 +2098,7 @@ Multi-stream bundles delimit stream versions using comma `,` with uniform `,altN
 - Timestamps: ISO 8601 UTC timestamps (`YYYY-MM-DDTHH:MM:SSZ`) derived from layer metadata.
 - Hashes: 12-character short hashes by default for easy visual correlation with `--version` and `+mod.<short_hash>` tails. Specifying `--verbose` (`dwimsy --version-list --verbose`) expands hashes to full 64-character SHA-256 strings.
 - Single Shared Entry: When an on-disk checkout is content-identical to the baseline, the redundant top `[unbundled]` row is omitted, and the primary baseline row includes `=unbundled` in its annotations (`[=baseline, =primary, =unbundled, =selected]`).
-- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.70-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
+- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.99-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
 
 ### Execution Model & The Three Paths
 - Path A: Default in-memory virtual mount via `BundleFinder` (zero disk writes).

@@ -505,13 +505,25 @@ class FixturePool:
                 candidate_dirs.append(p)
 
         pkg_root = Path(__file__).resolve().parent.parent.parent
-        for default_rel in [
-            pkg_root / "tests" / "fixtures",
-            pkg_root / "fixtures",
-            Path.cwd() / "tests" / "fixtures",
-            Path.cwd() / "fixtures",
-            Path.home() / ".local" / "share" / "dwimsy" / "fixtures",
-        ]:
+        test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
+        if test_root:
+            # A test runner-created root is authoritative.  In particular, a
+            # portable bundle must not silently discover private fixtures from
+            # the caller's checkout or home directory.
+            constrained_root = Path(test_root).resolve()
+            default_dirs = [
+                constrained_root / "tests" / "fixtures",
+                constrained_root / "fixtures",
+            ]
+        else:
+            default_dirs = [
+                pkg_root / "tests" / "fixtures",
+                pkg_root / "fixtures",
+                Path.cwd() / "tests" / "fixtures",
+                Path.cwd() / "fixtures",
+                Path.home() / ".local" / "share" / "dwimsy" / "fixtures",
+            ]
+        for default_rel in default_dirs:
             if default_rel.exists() and default_rel not in candidate_dirs:
                 candidate_dirs.append(default_rel)
 

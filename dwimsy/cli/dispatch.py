@@ -43,7 +43,8 @@ def early_dispatch(
         return True, remaining
 
     if pipeline.get("early_exit") == "version-help":
-        print(VERSION_SPACE_HELP)
+        from dwimsy.meta.unbundle import safe_page
+        safe_page(VERSION_SPACE_HELP)
         return True, remaining
 
     if pipeline.get("early_exit") == "version-list" or pipeline.get("list_versions"):
@@ -57,7 +58,8 @@ def early_dispatch(
             selected=pipeline["selected_ref"],
             verbose=pipeline.get("version_list_verbose", False),
         )
-        print(output)
+        from dwimsy.meta.unbundle import safe_page
+        safe_page(output)
         return True, remaining
 
     if pipeline.get("test_mode"):

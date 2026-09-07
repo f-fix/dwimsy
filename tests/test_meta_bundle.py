@@ -20,7 +20,8 @@ from dwimsy.meta import bundle, integrity, unbundle
 
 
 @unittest.skipIf(
-    os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+    os.environ.get("DWIMSY_BUNDLE_BUILD") == "1"
+    or os.environ.get("DWIMSY_STANDALONE_TEST") == "1",
     "Excluded during bundle build verification",
 )
 class TestMetaBundle(unittest.TestCase):
@@ -289,6 +290,61 @@ class TestMetaBundle(unittest.TestCase):
             )
             self.assertEqual(int(restored.stat().st_mtime), int(mtime))
 
+    def test_cli_meta_bundle_baseline_emits_clean_pair_and_reports_both(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            root = tmp_path / "tree"
+            root.mkdir()
+            for rel in (
+                "dwimsy/__init__.py",
+                "dwimsy/_version.py",
+                "dwimsy/meta/__init__.py",
+                "dwimsy/meta/unbundle.py",
+            ):
+                src = pkg_root / rel
+                dst = root / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(src.read_bytes())
+            (root / "tests").mkdir()
+            old = Path.cwd()
+            buf = io.StringIO()
+            err = io.StringIO()
+            try:
+                os.chdir(root)
+                with redirect_stdout(buf), redirect_stderr(err):
+                    rc = dwimsy_cli_main(["meta", "bundle", "--baseline"])
+            finally:
+                os.chdir(old)
+            self.assertEqual(rc, 0)
+            py = next(root.glob("dwimsy_*.py"))
+            pyz = py.with_suffix(".pyz")
+            self.assertTrue(pyz.is_file())
+            self.assertNotIn("+mod.", py.name)
+            self.assertNotIn("+mod.", py.read_text(encoding="utf-8"))
+            output = err.getvalue()
+            self.assertIn("Generated bundles:", output)
+            self.assertIn(str(py), output)
+            self.assertIn(str(pyz), output)
+
+
+    def test_direct_bundle_baseline_parser_and_dry_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "planned.py"
+            buf = io.StringIO()
+            err = io.StringIO()
+            old = Path.cwd()
+            try:
+                os.chdir(pkg_root)
+                with redirect_stdout(buf), redirect_stderr(err):
+                    rc = bundle.main(["--baseline", "--dry-run", "-o", str(out)])
+            finally:
+                os.chdir(old)
+            self.assertEqual(rc, 0)
+            self.assertFalse(out.exists())
+            self.assertIn("DRY-RUN", err.getvalue())
+            self.assertIn("planned.py", err.getvalue())
+            self.assertIn("planned.pyz", err.getvalue())
+
     def test_cli_meta_bundle_verbose(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -362,6 +418,11 @@ dwimsy/ignored_file.py
             (root / "ignored_dir").mkdir()
             (root / "ignored_dir" / "file.txt").write_text("ignored")
             (root / "dwimsy" / "ignored_file.py").write_text("# ignored")
+            # These are not gitignored, but are deliberately outside the
+            # canonical manifest.  Bundling must treat the manifest as an
+            # allow-list rather than relying on .gitignore alone.
+            (root / "out.txt").write_text("build output")
+            (root / "bump.txt").write_text("version-bump output")
 
             state = bundle.create_tree_state(root, with_deps=False)
             self.assertIn("dwimsy/__init__.py", state)
@@ -369,6 +430,8 @@ dwimsy/ignored_file.py
             self.assertNotIn("dwimsy/test.tmp", state)
             self.assertNotIn("ignored_dir/file.txt", state)
             self.assertNotIn("dwimsy/ignored_file.py", state)
+            self.assertNotIn("out.txt", state)
+            self.assertNotIn("bump.txt", state)
 
             tar_bytes = bundle.create_tar_archive(root, with_deps=False)
             import tarfile, io
@@ -379,6 +442,8 @@ dwimsy/ignored_file.py
             self.assertNotIn("./dwimsy/test.tmp", names)
             self.assertNotIn("./ignored_dir/file.txt", names)
             self.assertNotIn("./dwimsy/ignored_file.py", names)
+            self.assertNotIn("./out.txt", names)
+            self.assertNotIn("./bump.txt", names)
 
     def test_safe_unbundle_upgrade_known_version_prints_rollback_command(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -387,21 +452,134 @@ dwimsy/ignored_file.py
             from dwimsy.meta import versions
 
             vspace = versions.VersionSpace.from_blztar(raw_b64)
-
-            # Setup an older known layer (ordinal 0)
             st0 = vspace.streams[0].materialize_layer_state(0)
-            v0_tag = vspace.streams[0].get_versions()[0].tag
-            for name, content in st0.items():
+            v0_tag = "0.1.6.0-test"
+            st0_tagged = dict(st0)
+            if "dwimsy/_version.py" in st0_tagged:
+                st0_tagged["dwimsy/_version.py"] = re.sub(
+                    r'__version__\s*=\s*["\x27][^"\x27]*["\x27]',
+                    f'__version__ = "{v0_tag}"',
+                    st0_tagged["dwimsy/_version.py"].decode("utf-8"),
+                ).encode("utf-8")
+
+            head_tag = vspace.streams[0].get_head_version().tag
+            delta_layer = {"README.md": st0.get("README.md", b"") + b"\n# updated\n"}
+            if "dwimsy/_version.py" in st0:
+                delta_layer["dwimsy/_version.py"] = re.sub(
+                    r'__version__\s*=\s*["\x27][^"\x27]*["\x27]',
+                    f'__version__ = "{head_tag}"',
+                    st0["dwimsy/_version.py"].decode("utf-8"),
+                ).encode("utf-8")
+
+            two_layer_space = versions.VersionSpace([
+                versions.Stream(0, "primary", [
+                    versions.Layer(st0_tagged, is_delta=False, version_tag=v0_tag),
+                    versions.Layer(delta_layer, is_delta=True, version_tag=head_tag),
+                ])
+            ])
+            two_layer_b64 = two_layer_space.to_blztar()
+
+            for name, content in st0_tagged.items():
                 p = target_dir / name
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_bytes(content)
 
             buf = io.StringIO()
-            # Unbundle head version into target_dir without force
-            unbundle.safe_unbundle(output_dir=target_dir, force=False, stdout=buf)
+            unbundle.safe_unbundle(b64_string=two_layer_b64, output_dir=target_dir, force=False, stdout=buf)
             out_str = buf.getvalue()
             self.assertIn("Successfully extracted", out_str)
             self.assertIn(f"To return to previous version '{v0_tag}', run:", out_str)
+
+
+    def test_clean_historical_rollback_requires_force_for_removals(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target_dir = Path(tmp)
+            older = {
+                "dwimsy/_version.py": b'__version__ = "0.1.6.70-dev"\n__code_hash__ = ""\n',
+                "keep.txt": b"keep\n",
+            }
+            newer = dict(older)
+            newer["dwimsy/_version.py"] = b'__version__ = "0.1.6.71-dev"\n__code_hash__ = ""\n'
+            newer["newer.txt"] = b"newer\n"
+            from dwimsy.meta import versions
+            space = versions.VersionSpace([
+                versions.Stream(0, "primary", [
+                    versions.Layer(older, is_delta=False, version_tag="0.1.6.70-dev"),
+                    versions.Layer(
+                        {"dwimsy/_version.py": newer["dwimsy/_version.py"], "newer.txt": b"newer\n"},
+                        is_delta=True, version_tag="0.1.6.71-dev",
+                    ),
+                ])
+            ])
+            b64 = space.to_blztar()
+            for name, content in newer.items():
+                p = target_dir / name
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(content)
+            with self.assertRaises(RuntimeError) as ctx:
+                unbundle.safe_unbundle(
+                    b64_string=b64, output_dir=target_dir,
+                    target_version="0.1.6.70-dev", force=False, quiet=True,
+                )
+            self.assertIn("--force", str(ctx.exception))
+            self.assertTrue((target_dir / "newer.txt").exists())
+
+    def test_safe_unbundle_historical_rollback_removes_files_added_by_newer_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target_dir = Path(tmp)
+            raw_b64 = unbundle._get_active_blztar()
+            from dwimsy.meta import versions
+
+            vspace = versions.VersionSpace.from_blztar(raw_b64)
+            base = vspace.streams[0].materialize_layer_state(0)
+            older = dict(base)
+            older["dwimsy/_version.py"] = re.sub(
+                r'__version__\s*=\s*["\x27][^"\x27]*["\x27]',
+                '__version__ = "0.1.6.70-dev"',
+                older["dwimsy/_version.py"].decode("utf-8"),
+            ).encode("utf-8")
+            newer = dict(older)
+            newer["dwimsy/_version.py"] = re.sub(
+                r'__version__\s*=\s*["\x27][^"\x27]*["\x27]',
+                '__version__ = "0.1.6.71-dev"',
+                newer["dwimsy/_version.py"].decode("utf-8"),
+            ).encode("utf-8")
+            newer["added_only_in_newer.txt"] = b"newer\n"
+            two_layer = versions.VersionSpace([
+                versions.Stream(
+                    0,
+                    "primary",
+                    [
+                        versions.Layer(older, is_delta=False, version_tag="0.1.6.70-dev"),
+                        versions.Layer(
+                            {
+                                "dwimsy/_version.py": newer["dwimsy/_version.py"],
+                                "added_only_in_newer.txt": b"newer\n",
+                            },
+                            is_delta=True,
+                            version_tag="0.1.6.71-dev",
+                        ),
+                    ],
+                )
+            ])
+            b64 = two_layer.to_blztar()
+
+            for name, content in newer.items():
+                p = target_dir / name
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(content)
+
+            self.assertTrue((target_dir / "added_only_in_newer.txt").is_file())
+            unbundle.safe_unbundle(
+                b64_string=b64,
+                output_dir=target_dir,
+                target_version="0.1.6.70-dev",
+                force=True,
+                quiet=True,
+            )
+            self.assertFalse((target_dir / "added_only_in_newer.txt").exists())
+            version_text = (target_dir / "dwimsy/_version.py").read_text(encoding="utf-8")
+            self.assertIn('__version__ = "0.1.6.70-dev"', version_text)
 
     def test_safe_unbundle_refuses_overwrite_unbundle_when_previous_version_missing(
         self,

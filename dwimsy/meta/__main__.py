@@ -16,13 +16,25 @@ if len(here.parts) >= 3 and here.parts[-3] == "dwimsy" and here.parts[-2] == "me
         sys.path.insert(0, str(p))
 
 from dwimsy.meta import bundle, diff, integrity, lint, unbundle, version_bump
+from dwimsy.meta.unbundle import PagedHelpAction
+
+
+class PagedArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser whose subcommand help uses DWIMSY's terminal pager."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("add_help", False)
+        super().__init__(*args, **kwargs)
+        self.add_argument("-h", "--help", action=PagedHelpAction)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="dwimsy meta",
         description="dwimsy meta - Maintainer tools and repository lifecycle management.",
+        add_help=False,
     )
+    parser.add_argument("-h", "--help", action=PagedHelpAction)
     parser.add_argument(
         "-V",
         "--version",
@@ -50,7 +62,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show full detailed help for all meta subcommands and exit",
     )
 
-    subparsers = parser.add_subparsers(dest="meta_command", metavar="<meta-command>")
+    subparsers = parser.add_subparsers(dest="meta_command", metavar="<meta-command>", parser_class=PagedArgumentParser)
 
     # bundle
     p_bundle = subparsers.add_parser(
@@ -146,6 +158,9 @@ def build_parser() -> argparse.ArgumentParser:
         "-q", "--quiet", action="store_true", help="Suppress output on clean status"
     )
     p_integrity.add_argument(
+        "--baseline", action="store_true", help="Check the embedded clean baseline"
+    )
+    p_integrity.add_argument(
         "--help-all", action="store_true", help="Show full help documentation and exit"
     )
 
@@ -158,6 +173,9 @@ def build_parser() -> argparse.ArgumentParser:
         "-f", "--force", action="store_true", help="Overwrite existing deps/ files"
     )
     p_fetch.add_argument(
+        "--baseline", action="store_true", help="Use bundled baseline dependency files"
+    )
+    p_fetch.add_argument(
         "--help-all", action="store_true", help="Show full help documentation and exit"
     )
 
@@ -168,6 +186,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_bump.add_argument(
         "target_version", nargs="?", default=None, help="Explicit new version string"
+    )
+    p_bump.add_argument(
+        "--set-version", dest="set_version", default=None, help="Explicit new version string (alias for positional target version)"
     )
     p_bump.add_argument(
         "--patch", action="store_true", help="Increment patch component"
@@ -199,6 +220,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Verify repository headers, docstrings, markdown syntax, and dash policy.",
     )
     p_lint.add_argument(
+        "repo_root", nargs="?", default=None, help="Target repository root"
+    )
+    p_lint.add_argument(
         "-q", "--quiet", action="store_true", help="Suppress output on success"
     )
     p_lint.add_argument(
@@ -208,7 +232,7 @@ def build_parser() -> argparse.ArgumentParser:
     # bundle-fixtures (placeholder)
     subparsers.add_parser(
         "bundle-fixtures",
-        help="[TODO / Milestone 1.6] Package private test fixtures.",
+        help="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
     )
 
     return parser
@@ -233,13 +257,6 @@ def format_meta_help_all(parser: argparse.ArgumentParser) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     effective = sys.argv[1:] if argv is None else list(argv)
-    from dwimsy.cli.dispatch import early_dispatch
-
-    handled, effective = early_dispatch(
-        effective, ["meta"], use_process_argv0=(argv is None)
-    )
-    if handled:
-        return 0
     from dwimsy.cli.dispatch import early_dispatch
 
     handled, effective = early_dispatch(
@@ -350,15 +367,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         try:
             out = diff.render_diff(root=root_path, v1_sel=v1, v2_sel=v2)
             if out:
-                sys.stdout.write(out)
+                from dwimsy.meta.unbundle import safe_page
+                safe_page(out)
             return 0
         except (ValueError, RuntimeError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
     elif args.meta_command == "integrity":
-        current = integrity.canonical_code_hash()
+        baseline = bool(getattr(args, "baseline", False))
+        current = integrity.canonical_code_hash(baseline=baseline)
         sealed = integrity.sealed_code_hash()
-        modified = integrity.is_modified()
+        modified = integrity.is_modified(baseline=baseline)
         ver_str = integrity.version()
         if not getattr(args, "quiet", False):
             print(f"Canonical hash : {current}")
@@ -369,26 +388,49 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.meta_command == "fetch-deps":
         return bundle.run_meta_fetch_deps(args)
     elif args.meta_command == "version-bump":
-        part = "patch"
+        part = None
+        tier_flags = [
+            getattr(args, "major", False),
+            getattr(args, "minor", False),
+            getattr(args, "patch", False),
+            getattr(args, "rev", False),
+        ]
+        if sum(bool(x) for x in tier_flags) > 1:
+            print("error: bump tiers are mutually exclusive", file=sys.stderr)
+            return 1
+        explicit_version = getattr(args, "set_version", None) or getattr(args, "target_version", None)
+        if getattr(args, "set_version", None) is not None and getattr(args, "target_version", None) is not None:
+            print("error: target_version and --set-version are mutually exclusive", file=sys.stderr)
+            return 1
+        if explicit_version is None and not any(tier_flags):
+            print("error: specify an explicit target version or a bump tier (--major, --minor, --patch, or --rev)", file=sys.stderr)
+            return 1
         if getattr(args, "major", False):
             part = "major"
         elif getattr(args, "minor", False):
             part = "minor"
+        elif getattr(args, "patch", False):
+            part = "patch"
         elif getattr(args, "rev", False):
             part = "rev"
-        new_v = version_bump.bump_version(
-            version_str=getattr(args, "target_version", None),
-            part=part,
-            release=getattr(args, "release", False),
-            dev=getattr(args, "dev", False),
-            message=getattr(args, "message", None),
-            no_bundle=getattr(args, "no_bundle", False),
-            verbose=getattr(args, "verbose", 0) > 0,
-        )
+        try:
+            new_v = version_bump.bump_version(
+                version_str=(getattr(args, "set_version", None) or getattr(args, "target_version", None)),
+                part=part,
+                release=getattr(args, "release", False),
+                dev=getattr(args, "dev", False),
+                message=getattr(args, "message", None),
+                no_bundle=getattr(args, "no_bundle", False),
+                verbose=getattr(args, "verbose", 0) > 0,
+            )
+        except ValueError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
         print(f"Version bumped to {new_v}")
         return 0
     elif args.meta_command == "lint":
-        errs = lint.run_all_lints()
+        lint_root = Path(args.repo_root).resolve() if getattr(args, "repo_root", None) else None
+        errs = lint.run_all_lints(lint_root)
         if errs:
             for e in errs:
                 print(f"[FAIL] {e}", file=sys.stderr)

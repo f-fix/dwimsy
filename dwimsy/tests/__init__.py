@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from dwimsy.meta import unbundle
+from dwimsy.meta import integrity, unbundle
 
 
 def find_repo_root(start: Optional[Path] = None) -> Optional[Path]:
@@ -46,7 +46,13 @@ def find_repo_root(start: Optional[Path] = None) -> Optional[Path]:
 
 
 def find_disk_tests_dir(start: Optional[Path] = None) -> Optional[Path]:
-    """Locate the tests/ directory on disk if present."""
+    """Locate the tests/ directory on disk if present.
+
+    A standalone bundle is hermetic: a surrounding checkout must not become
+    its test suite merely because the bundle was launched from that directory.
+    """
+    if start is None and integrity.is_standalone_bundle():
+        return None
     if start is not None:
         p = Path(start).resolve()
         if (p / "tests").is_dir():
@@ -173,6 +179,7 @@ def list_tests(
 
     loader = unittest.defaultTestLoader
     test_ids = []
+    original_meta_path = list(sys.meta_path)
 
     def _collect_ids(item):
         if isinstance(item, unittest.TestCase):
@@ -206,10 +213,12 @@ def list_tests(
             tests_dir = _extract_tests_from_bundle(tmp_path)
             orig_sys_path = list(sys.path)
             old_test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
+            old_standalone_test = os.environ.get("DWIMSY_STANDALONE_TEST")
             if str(tests_dir) in sys.path:
                 sys.path.remove(str(tests_dir))
             sys.path.insert(0, str(tests_dir))
             os.environ["DWIMSY_TEST_REPO_ROOT"] = str(tmp_path)
+            os.environ["DWIMSY_STANDALONE_TEST"] = "1"
             try:
                 for pat in expanded_patterns:
                     suite = loader.discover(
@@ -225,6 +234,10 @@ def list_tests(
                     os.environ.pop("DWIMSY_TEST_REPO_ROOT", None)
                 else:
                     os.environ["DWIMSY_TEST_REPO_ROOT"] = old_test_root
+                if old_standalone_test is None:
+                    os.environ.pop("DWIMSY_STANDALONE_TEST", None)
+                else:
+                    os.environ["DWIMSY_STANDALONE_TEST"] = old_standalone_test
 
     return sorted(dict.fromkeys(test_ids))
 
@@ -299,10 +312,12 @@ def run_tests(
             tests_dir = _extract_tests_from_bundle(tmp_path)
             orig_sys_path = list(sys.path)
             old_test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
+            old_standalone_test = os.environ.get("DWIMSY_STANDALONE_TEST")
             if str(tests_dir) in sys.path:
                 sys.path.remove(str(tests_dir))
             sys.path.insert(0, str(tests_dir))
             os.environ["DWIMSY_TEST_REPO_ROOT"] = str(tmp_path)
+            os.environ["DWIMSY_STANDALONE_TEST"] = "1"
             try:
                 for pat in expanded_patterns:
                     suite.addTests(
@@ -326,3 +341,7 @@ def run_tests(
                     os.environ.pop("DWIMSY_TEST_REPO_ROOT", None)
                 else:
                     os.environ["DWIMSY_TEST_REPO_ROOT"] = old_test_root
+                if old_standalone_test is None:
+                    os.environ.pop("DWIMSY_STANDALONE_TEST", None)
+                else:
+                    os.environ["DWIMSY_STANDALONE_TEST"] = old_standalone_test

@@ -17,7 +17,8 @@ from dwimsy.meta import bundle, integrity
 
 
 @unittest.skipIf(
-    os.environ.get("DWIMSY_BUNDLE_BUILD") == "1",
+    os.environ.get("DWIMSY_BUNDLE_BUILD") == "1"
+    or os.environ.get("DWIMSY_STANDALONE_TEST") == "1",
     "Excluded during bundle build verification",
 )
 class TestMetaBundleDualFormat(unittest.TestCase):

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import io
 import re
 import sys
 from pathlib import Path
@@ -16,6 +17,7 @@ for p in Path(__file__).resolve().parents:
         break
 
 from dwimsy.meta import integrity, unbundle
+from dwimsy.meta.unbundle import safe_page, PagedHelpAction
 from dwimsy.meta.versions import VersionSpace, VersionRef
 
 
@@ -28,6 +30,8 @@ def render_diff(
     cwd = Path.cwd().resolve()
     if root is not None:
         repo = Path(root).resolve()
+    elif integrity.is_standalone_bundle():
+        repo = None
     elif (cwd / "dwimsy" / "__init__.py").is_file():
         repo = cwd
     else:
@@ -36,10 +40,55 @@ def render_diff(
     raw_b64 = unbundle._get_active_blztar()
     vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
 
-    target1 = v1_sel or "baseline"
-    target2 = v2_sel or "unbundled"
+    def _is_dir_target(target: Optional[str]) -> bool:
+        if not target:
+            return False
+        if target in (".", "./"):
+            return True
+        try:
+            p = Path(target)
+            return p.is_dir() and (p / "dwimsy").is_dir()
+        except Exception:
+            return False
 
-    def _resolve_target(target: str) -> Tuple[Dict[str, bytes], str]:
+    if _is_dir_target(v1_sel) and v2_sel is None:
+        target1 = "primary"
+        target2 = v1_sel
+    else:
+        target1 = v1_sel or "baseline"
+        target2 = v2_sel or "unbundled"
+
+    def _resolve_target(target: str) -> Tuple[Dict[str, bytes], str, Optional[VersionSpace]]:
+        if _is_dir_target(target):
+            if target in (".", "./") and repo is not None:
+                explicit_root = Path(repo).resolve()
+            else:
+                explicit_root = Path(target).resolve()
+            is_checkout = (
+                (explicit_root / "dwimsy").is_dir()
+                and (explicit_root / "dwimsy" / "__init__.py").is_file()
+            )
+            if not is_checkout:
+                raise ValueError(
+                    f"Version selector '{target}' could not be resolved: directory is not a dwimsy checkout."
+                )
+            assets = integrity.canonical_assets(explicit_root, baseline=False)
+            chk_ver = integrity.version(root=explicit_root)
+            tag = f"dwimsy_{chk_ver}"
+
+            vsp = None
+            unb_data = assets.get("dwimsy/meta/unbundle.py")
+            if unb_data:
+                m = re.search(r'blztar\s*=\s*"""([\s\S]*?)"""', unb_data.decode("utf-8", errors="replace"))
+                if m and m.group(1).strip():
+                    try:
+                        vsp = VersionSpace.from_blztar(m.group(1).strip())
+                    except Exception:
+                        vsp = None
+            if vsp is None:
+                vsp = vspace
+            return assets, tag, vsp
+
         if target == "unbundled":
             is_checkout = bool(
                 repo
@@ -47,27 +96,45 @@ def render_diff(
                 and (repo / "dwimsy" / "__init__.py").is_file()
             )
             if not is_checkout or (
-                integrity.is_standalone_bundle() and "<dwimsy-bundle>" in str(repo)
+                integrity.is_standalone_bundle() and (repo is None or "<dwimsy-bundle>" in str(repo))
             ):
                 raise ValueError(
-                    "Version selector 'unbundled' could not be resolved: current working directory is not inside a dwimsy checkout.\n"
-                    "To compare an unbundled directory with the bundle version, use universal flags:\n"
-                    "  --version-include-primary=. --version=alt\n"
-                    "or specify explicit versions to compare (e.g. 'dwimsy meta diff [VER1] [VER2]')."
+                    "Version selector 'unbundled' could not be resolved: standalone bundle does not implicitly compare with the current working directory.\n"
+                    "To compare the portable bundle version with an on-disk checkout, explicitly specify the target:\n"
+                    "  dwimsy meta diff primary .\n"
+                    "  dwimsy meta diff [VERSION] /path/to/checkout\n"
+                    "or explicitly import the checkout as an alternate stream with:\n"
+                    "  --version-include-primary=. primary alt1"
                 )
             assets = integrity.canonical_assets(repo, baseline=False)
             tag = f"dwimsy_{integrity.version(root=repo)}"
-            return assets, tag
+            return assets, tag, vspace
         elif target == "baseline":
             b_ref = vspace.resolve_version_ref("baseline")
             if b_ref is not None:
                 s_b, ord_b, ref_b = b_ref
                 assets = s_b.materialize_layer_state(ord_b)
                 tag = f"dwimsy_{ref_b.tag}"
+                from dwimsy.meta.versions import Stream
+                vsp_b = VersionSpace([Stream(s_b.index, s_b.name, s_b.layers[: ord_b + 1], source=s_b.source)])
             else:
                 assets = integrity.canonical_assets(repo, baseline=True)
                 tag = f"dwimsy_{integrity._version_values(repo, baseline=True).get('__version__', '0.1.6.0')}"
-            return assets, tag
+                vsp_b = vspace
+            return assets, tag, vsp_b
+        elif target == "primary":
+            p_ref = vspace.resolve_version_ref("primary")
+            if p_ref is not None:
+                s_p, ord_p, ref_p = p_ref
+                assets = s_p.materialize_layer_state(ord_p)
+                tag = f"dwimsy_{ref_p.tag}"
+                from dwimsy.meta.versions import Stream
+                vsp_p = VersionSpace([Stream(s_p.index, s_p.name, s_p.layers[: ord_p + 1], source=s_p.source)])
+            else:
+                assets = integrity.canonical_assets(repo, baseline=False)
+                tag = f"dwimsy_{integrity._version_values(repo, baseline=False).get('__version__', '0.1.6.0')}"
+                vsp_p = vspace
+            return assets, tag, vsp_p
         else:
             res = vspace.resolve_version_ref(target)
             if res is None:
@@ -76,10 +143,33 @@ def render_diff(
             assets = s.materialize_layer_state(ord_idx)
             stream_prefix = f"alt{s.index}_" if s.index > 0 else ""
             tag = f"dwimsy_{stream_prefix}{ref.tag}"
-            return assets, tag
+            from dwimsy.meta.versions import Stream
+            streams_sliced = []
+            for st_i in vspace.streams:
+                if st_i.index == s.index:
+                    streams_sliced.append(Stream(st_i.index, st_i.name, st_i.layers[: ord_idx + 1], source=st_i.source))
+                else:
+                    # Slice other streams to matching semver if available, else full
+                    streams_sliced.append(Stream(st_i.index, st_i.name, list(st_i.layers), source=st_i.source))
+            vsp_t = VersionSpace(streams_sliced)
+            return assets, tag, vsp_t
 
-    old_assets, v1_tag = _resolve_target(target1)
-    new_assets, v2_tag = _resolve_target(target2)
+    old_assets, v1_tag, vsp1 = _resolve_target(target1)
+    new_assets, v2_tag, vsp2 = _resolve_target(target2)
+
+    def _canonical_tree(assets: Dict[str, bytes]) -> Dict[str, bytes]:
+        return {
+            name: data
+            for name, data in assets.items()
+            if not (
+                any(part == ".git" for part in Path(name).parts)
+                or any(part == "__pycache__" for part in Path(name).parts)
+                or name.endswith(".pyc")
+            )
+        }
+
+    old_assets = _canonical_tree(old_assets)
+    new_assets = _canonical_tree(new_assets)
 
     lines: List[str] = []
     all_files = sorted(set(old_assets) | set(new_assets))
@@ -87,17 +177,21 @@ def render_diff(
     for name in all_files:
         a = old_assets.get(name)
         b = new_assets.get(name)
-        old_bytes = None if a is None else integrity._canonical_bytes(a, name)
-        new_bytes = None if b is None else integrity._canonical_bytes(b, name)
 
-        def _sub_version_summary_bytes(data):
-            if data is None or not name.endswith("unbundle.py"):
-                return data
-            text = data.decode("utf-8", errors="replace")
-            m = re.search(r'blztar = """([\s\S]*?)"""', text)
-            if not m or not m.group(1).strip():
-                return data
-            summary = vspace.format_list_versions(on_disk_root=repo if repo else None)
+        def _format_file_bytes(data: Optional[bytes], side_vspace: Optional[VersionSpace]) -> Optional[bytes]:
+            if data is None:
+                return None
+            if not name.endswith("unbundle.py"):
+                return integrity._canonical_bytes(data, name)
+            text = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n").decode("utf-8", errors="replace")
+            m = re.search(r'blztar\s*=\s*"""([\s\S]*?)"""', text)
+            if not m:
+                return integrity._canonical_bytes(data, name)
+            summary = (
+                side_vspace.format_list_versions(on_disk_root=None, selected=None)
+                if side_vspace is not None
+                else vspace.format_list_versions(on_disk_root=None, selected=None)
+            )
             ph = (
                 'blztar = """\n'
                 "<- actual omitted base64 lzma tar sequence(s) would start here\n\n"
@@ -105,12 +199,12 @@ def render_diff(
                 "actual omitted base64 lzma tar sequence(s) would end here ->\n"
                 '"""'
             )
-            return (text[: m.start()] + ph + text[m.end() :]).encode("utf-8")
-
-        # Normalize the generated blztar payload before equality testing; otherwise
-        # canonical bundle elision can bypass the intended $VERSION_SUMMARY view.
-        old_bytes = _sub_version_summary_bytes(old_bytes)
-        new_bytes = _sub_version_summary_bytes(new_bytes)
+            res_text = text[: m.start()] + ph + text[m.end() :]
+            if not res_text.endswith("\n"):
+                res_text += "\n"
+            return res_text.encode("utf-8")
+        old_bytes = _format_file_bytes(a, vsp1)
+        new_bytes = _format_file_bytes(b, vsp2)
 
         if old_bytes == new_bytes:
             continue
@@ -138,12 +232,10 @@ def render_diff(
             )
         )
         if diff:
-            lines.append(f"diff --git a/{name} b/{name}\n")
+            lines.append(f"diff --git {old_label} {new_label}\n")
             lines.extend(diff)
 
     return "".join(lines)
-
-
 def main(argv: Optional[List[str]] = None) -> int:
     """CLI entrypoint for running dwimsy.meta.diff directly."""
     effective = sys.argv[1:] if argv is None else list(argv)
@@ -184,6 +276,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog="dwimsy-diff",
         description="Version-labeled unified diff engine.",
+        add_help=False,
+    )
+    parser.add_argument(
+        "-h",
+        "--help",
+        action=PagedHelpAction,
     )
     parser.add_argument(
         "-V",
@@ -231,7 +329,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     try:
         diff_text = render_diff(root=getattr(args, "root", None), v1_sel=v1, v2_sel=v2)
-        sys.stdout.write(diff_text)
+        safe_page(diff_text)
         return 0
     except (ValueError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
