@@ -2023,7 +2023,8 @@ class VersionSpace:
                 for stream in getattr(self, "streams", []):
                     try:
                         ordinal = next(
-                            i for i, candidate in enumerate(stream.layers)
+                            i
+                            for i, candidate in enumerate(stream.layers)
                             if candidate is layer
                         )
                     except StopIteration:

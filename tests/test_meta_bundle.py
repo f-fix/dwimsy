@@ -324,9 +324,7 @@ class TestMetaBundle(unittest.TestCase):
             # "+mod."; inspect the generated VersionSpace rather than source
             # text to verify that the baseline contains no modification layer.
             source = py.read_bytes()
-            match = re.search(
-                rb'(?ms)^\s*blztar\s*=\s*"""(.*?)"""', source
-            )
+            match = re.search(rb'(?ms)^\s*blztar\s*=\s*"""(.*?)"""', source)
             self.assertIsNotNone(match)
             generated_space = versions.VersionSpace.from_blztar(
                 match.group(1).decode("ascii")
