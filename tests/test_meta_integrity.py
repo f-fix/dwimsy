@@ -355,6 +355,40 @@ def main(argv=None):
     return 0
 
 
+
+    def test_gitignore_parent_dir_exclusion_prevents_descendant_negation(self):
+        from dwimsy.meta.integrity import GitIgnoreMatcher
+        gi_content = "foo/\n!foo/bar.txt\n"
+        matcher = GitIgnoreMatcher(files={".gitignore": gi_content.encode("utf-8")})
+        self.assertTrue(matcher.matches("foo/bar.txt"))
+        self.assertTrue(matcher.matches("foo/baz.txt"))
+        self.assertTrue(matcher.matches("foo", is_dir=True))
+        self.assertFalse(matcher.matches("other.txt"))
+
+    def test_gitignore_unexcluded_parent_wildcard_permits_descendant_negation(self):
+        from dwimsy.meta.integrity import GitIgnoreMatcher
+        gi_content = "foo/*\n!foo/bar.txt\n"
+        matcher = GitIgnoreMatcher(files={".gitignore": gi_content.encode("utf-8")})
+        self.assertFalse(matcher.matches("foo/bar.txt"))
+        self.assertTrue(matcher.matches("foo/baz.txt"))
+        self.assertFalse(matcher.matches("other.txt"))
+
+    def test_gitignore_nested_dir_parent_exclusion(self):
+        from dwimsy.meta.integrity import GitIgnoreMatcher
+        gi_content = "a/\n!a/b/\n!a/b/c.txt\n"
+        matcher = GitIgnoreMatcher(files={".gitignore": gi_content.encode("utf-8")})
+        self.assertTrue(matcher.matches("a/b/c.txt"))
+        self.assertTrue(matcher.matches("a/other.txt"))
+
+    def test_gitignore_unignored_parent_chain(self):
+        from dwimsy.meta.integrity import GitIgnoreMatcher
+        gi_content = "a/*\n!a/b\na/b/*\n!a/b/c.txt\n"
+        matcher = GitIgnoreMatcher(files={".gitignore": gi_content.encode("utf-8")})
+        self.assertFalse(matcher.matches("a/b/c.txt"))
+        self.assertTrue(matcher.matches("a/b/d.txt"))
+        self.assertTrue(matcher.matches("a/other.txt"))
+
+
 if __name__ == "__main__":
     main()
 

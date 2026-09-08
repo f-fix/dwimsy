@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.109-dev (2026-09-08)
+Version: 0.1.6.110-dev (2026-09-08)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.109-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.110-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.109-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.109-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.109-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.109-dev.py dwimsy license
-  python3 dwimsy_0.1.6.109-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.110-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.110-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.110-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.110-dev.py dwimsy license
+  python3 dwimsy_0.1.6.110-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.109-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.110-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -5248,7 +5248,7 @@ YOe2kL+GaMSHyu2T1qMxQA28799dlzDZvKbc6ymxCG8CFmjs9z7HgvcFvePCQUF4JqQuBjoy/ytl
 R9QeTxKK3gOKeAl0e7DByKudVnDl/akZ/Bi3mzhg6u5ywQOHoQ5kzr7nGMA/HO2EIjgau14xreI0
 xP/k06REOwP+vlzip5EK+l2cgnwwTzbVWjIborXreaYz3z/BqWCRqUvCMc7c00WRcPCk3umWjjh+
 4TGUa+UIOpM0hy9jod9FtC3Zp6SOSKjfWNtn1qwXFMYVVIDMo1Fo3NNxsZr2t32ynfR7eKFrUUYJ
-w4ZSBDRPjUwdMQYxKYWELQG6AAdbjbrBP+xmunilYIR+b7i5PGBNwMfoKHXbnD0/KrxcFjOD03kZ
+w4ZSBDRPjUwdMQYxKYskLQgqAAdbjbrBP+xmunilYIR+b7i5PGBNwMfoKHXbnD0/KrxcFjOD03kZ
 sPngCXuXH30Q/2g9JuOUNOP/7XVoWG3TLxjanXSpGS0nO4oE1RzCE2bLIuVrZRhwzYjncO9iXd99
 h6FRLHVtITMhR0VQlO4PeEgszcrHK622/j2dqHWkBM3l3RUZF4hpF8GjT+gD07qh1VOtyE/oEz23
 4jZsldHJw3HhnwWrV2zR171cNG2/LTbcJKvSXPBfrVZYJPYrMR73H9qhbf+Mkuv+BCIFQAKm/lsE
@@ -5256,7 +5256,36 @@ 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
-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
+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
 """
 
 
@@ -5686,18 +5715,7 @@ class GitIgnoreMatcher:
             except re.error:
                 pass
 
-    def matches(self, rel_path: str | Path, is_dir: bool = False) -> bool:
-        path_obj = Path(rel_path)
-        parts = path_obj.parts
-        if (
-            any(p == ".git" or p == "__pycache__" for p in parts)
-            or path_obj.suffix == ".pyc"
-        ):
-            return True
-        posix_path = path_obj.as_posix().strip("/")
-        if not posix_path:
-            return False
-
+    def _match_single(self, posix_path: str, is_dir: bool) -> bool:
         matched = False
         for rule in self.rules:
             if is_dir:
@@ -5714,8 +5732,28 @@ class GitIgnoreMatcher:
                         posix_path
                     ):
                         matched = not rule.is_negation
-
         return matched
+
+    def matches(self, rel_path: str | Path, is_dir: bool = False) -> bool:
+        path_obj = Path(rel_path)
+        parts = path_obj.parts
+        if (
+            any(p == ".git" or p == "__pycache__" for p in parts)
+            or path_obj.suffix == ".pyc"
+        ):
+            return True
+        posix_path = path_obj.as_posix().strip("/")
+        if not posix_path:
+            return False
+
+        parent_parts = parts[:-1]
+        cur_parent = ""
+        for part in parent_parts:
+            cur_parent = f"{cur_parent}/{part}" if cur_parent else part
+            if self._match_single(cur_parent, is_dir=True):
+                return True
+
+        return self._match_single(posix_path, is_dir=is_dir)
 
 
 def get_git_command(args: Optional[Any] = None) -> Optional[str]:
@@ -5775,11 +5813,14 @@ def safe_unbundle(
     effective_b64 = (
         b64_string if (b64_string and b64_string.strip()) else _get_active_blztar()
     )
-    from dwimsy.meta.versions import VersionSpace
+    try:
+        from dwimsy.meta.versions import VersionSpace
 
-    vspace = (
-        VersionSpace.from_blztar(effective_b64) if effective_b64 else VersionSpace()
-    )
+        vspace = (
+            VersionSpace.from_blztar(effective_b64) if effective_b64 else VersionSpace()
+        )
+    except (ImportError, ModuleNotFoundError):
+        vspace = None
     target_version_tag: Optional[str] = None
     target_hash: Optional[str] = None
     target_timestamp: Optional[str] = None
@@ -5814,7 +5855,10 @@ def safe_unbundle(
                     vspace.streams[0].layers[head_v.ordinal]
                 )
 
-    from dwimsy.meta.versions import portable_path_error
+    try:
+        from dwimsy.meta.versions import portable_path_error
+    except (ImportError, ModuleNotFoundError):
+        portable_path_error = lambda name: None
 
     # Treat Git-ignored target paths as external/private state.  They must not
     # participate in cleanliness matching, rollback-removal planning, collision
@@ -6581,9 +6625,12 @@ def parse_early_pipeline_flags(
                     raw_b64, self_mod=this_mod, on_disk_root=r_root if is_chk else None
                 ),
             )
-    from dwimsy.meta.versions import VersionSpace
+    try:
+        from dwimsy.meta.versions import VersionSpace
 
-    vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
+        vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
+    except (ImportError, ModuleNotFoundError):
+        vspace = None
     argv0_overridden = False
 
     active_selection = vspace.resolve_selection("primary")
@@ -7174,7 +7221,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
     is_direct = _is_unbundle_entrypoint(argv0_effective) and (
         bool(positional) or not is_meta_unbundle
     )
-    if version_selector and (is_meta_unbundle or is_direct):
+    if is_meta_unbundle or (version_selector and is_direct):
         target = (
             positional[2]
             if is_meta_unbundle and len(positional) > 2

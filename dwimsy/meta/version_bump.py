@@ -24,11 +24,15 @@ from dwimsy.meta import bundle, diff, integrity, unbundle, versions
 
 def parse_and_bump_version(
     current: str,
-    part: str = "patch",
+    part: Optional[str] = None,
     release: bool = False,
     dev: bool = False,
 ) -> str:
     """Derive next version string based on current and increment rules."""
+    if part not in ("major", "minor", "patch", "rev", "build"):
+        raise ValueError(
+            "An explicit bump tier ('major', 'minor', 'patch', or 'rev') is required."
+        )
     m = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-zA-Z0-9_.+-]+))?$", current)
     if not m:
         raise ValueError(f"Cannot parse version string: {current}")
@@ -336,17 +340,45 @@ def bump_version(
         )
         versions.validate_version_tag(new_ver)
 
-    update_version_files(new_ver, repo_root=root, message=message)
+    if no_bundle:
+        update_version_files(new_ver, repo_root=root, message=message)
+        if verbose:
+            print(
+                f"[SUCCESS] Advanced version files to {new_ver} (bundle sync skipped)",
+                file=sys.stderr,
+            )
+        return new_ver
 
-    if not no_bundle:
-        from dwimsy.tests import run_tests
-        import io
+    # Transactional staging: perform update, test suite run, and bundle generation
+    # in an isolated temporary directory. Only publish changes to root if all steps succeed.
+    import tempfile
+    import shutil
+    import io
+    from dwimsy.tests import run_tests
 
+    with tempfile.TemporaryDirectory(prefix="dwimsy_bump_stage_") as tmp_dir:
+        tmp_stage = Path(tmp_dir) / "stage"
+
+        def _ignore_staging(src, names):
+            ignored = set()
+            for name in names:
+                if name in ("__pycache__", ".pytest_cache") or name.endswith(".pyc") or name.endswith("~"):
+                    ignored.add(name)
+                elif (name.startswith("dwimsy_") or name.startswith("_failed_")) and (name.endswith(".py") or name.endswith(".pyz")):
+                    ignored.add(name)
+            return ignored
+
+        shutil.copytree(root, tmp_stage, symlinks=True, ignore=_ignore_staging)
+
+        # 1. Update version files in staging copy
+        update_version_files(new_ver, repo_root=tmp_stage, message=message)
+
+        # 2. Run test suite against staging copy
         test_buf = io.StringIO()
         old_env = os.environ.get("DWIMSY_BUNDLE_BUILD")
         os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
         try:
-            rc = run_tests(repo_root=root, stream=test_buf)
+            rc = run_tests(repo_root=tmp_stage, stream=test_buf)
         finally:
             if old_env is None:
                 os.environ.pop("DWIMSY_BUNDLE_BUILD", None)
@@ -357,14 +389,56 @@ def bump_version(
                 f"Cannot bump version: test suite failed with {rc} error(s).\n{test_buf.getvalue()}"
             )
 
-    if not no_bundle:
-        _, changelog_timestamp = integrity.get_latest_release_info(root)
-        bundle_path = sync_bundle_baseline(
-            repo_root=root,
+        # 3. Synchronize bundle baseline in staging copy
+        _, changelog_timestamp = integrity.get_latest_release_info(tmp_stage)
+        staged_bundle_path = sync_bundle_baseline(
+            repo_root=tmp_stage,
             verbose=verbose,
             release=release,
             layer_timestamp=changelog_timestamp,
         )
+
+        # 4. All gates succeeded — atomically publish changes back to root
+        for meta_file in (
+            Path("dwimsy/_version.py"),
+            Path("CHANGELOG.md"),
+            Path("README.md"),
+            Path("dwimsy/meta/unbundle.py"),
+        ):
+            src_f = tmp_stage / meta_file
+            dst_f = root / meta_file
+            if src_f.is_file():
+                dst_f.parent.mkdir(parents=True, exist_ok=True)
+                dst_f.write_bytes(src_f.read_bytes())
+                if meta_file.suffix == ".py" and src_f.read_bytes().startswith(b"#!"):
+                    try:
+                        dst_f.chmod(0o755)
+                    except OSError:
+                        pass
+
+        unb_script = (root / "dwimsy" / "meta" / "unbundle.py").read_text(encoding="utf-8")
+        m_b = re.search(r'blztar = """\n([\s\S]*?)\n"""', unb_script)
+        if m_b:
+            unbundle.blztar = m_b.group(1)
+        integrity.clear_integrity_cache()
+
+        space = versions.VersionSpace.from_blztar(unbundle.blztar)
+        bundle_py_name = space.composite_bundle_name(".py")
+        bundle_pyz_name = space.composite_bundle_name(".pyz")
+
+        for b_name in (bundle_py_name, bundle_pyz_name):
+            b_src = tmp_stage / b_name
+            b_dst = root / b_name
+            if b_src.is_file():
+                b_dst.write_bytes(b_src.read_bytes())
+                if b_name.endswith(".py"):
+                    try:
+                        b_dst.chmod(0o755)
+                    except OSError:
+                        pass
+
+        bundle_path = root / bundle_py_name
+
         if verbose:
             print(
                 f"[SUCCESS] Advanced version: {current_ver} -> {new_ver}",
@@ -374,11 +448,6 @@ def bump_version(
                 f"[SUCCESS] Reconstituted unbundle.py and generated {bundle_path.name}",
                 file=sys.stderr,
             )
-    elif verbose:
-        print(
-            f"[SUCCESS] Advanced version files to {new_ver} (bundle sync skipped)",
-            file=sys.stderr,
-        )
 
     return new_ver
 

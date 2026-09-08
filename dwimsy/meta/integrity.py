@@ -373,18 +373,7 @@ class GitIgnoreMatcher:
             except re.error:
                 pass
 
-    def matches(self, rel_path: str | Path, is_dir: bool = False) -> bool:
-        path_obj = Path(rel_path)
-        parts = path_obj.parts
-        if (
-            any(p == ".git" or p == "__pycache__" for p in parts)
-            or path_obj.suffix == ".pyc"
-        ):
-            return True
-        posix_path = path_obj.as_posix().strip("/")
-        if not posix_path:
-            return False
-
+    def _match_single(self, posix_path: str, is_dir: bool) -> bool:
         matched = False
         for rule in self.rules:
             if is_dir:
@@ -401,8 +390,28 @@ class GitIgnoreMatcher:
                         posix_path
                     ):
                         matched = not rule.is_negation
-
         return matched
+
+    def matches(self, rel_path: str | Path, is_dir: bool = False) -> bool:
+        path_obj = Path(rel_path)
+        parts = path_obj.parts
+        if (
+            any(p == ".git" or p == "__pycache__" for p in parts)
+            or path_obj.suffix == ".pyc"
+        ):
+            return True
+        posix_path = path_obj.as_posix().strip("/")
+        if not posix_path:
+            return False
+
+        parent_parts = parts[:-1]
+        cur_parent = ""
+        for part in parent_parts:
+            cur_parent = f"{cur_parent}/{part}" if cur_parent else part
+            if self._match_single(cur_parent, is_dir=True):
+                return True
+
+        return self._match_single(posix_path, is_dir=is_dir)
 
 
 def get_git_command(args: Optional[Any] = None) -> Optional[str]:
