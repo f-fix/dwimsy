@@ -161,8 +161,8 @@ if __name__ == "__main__":
     main()
 
 
-class RecoverHelpTests(unittest.TestCase):
-    def test_recover_help_does_not_advertise_unimplemented_status(self):
+class PlaceholderHelpTests(unittest.TestCase):
+    def test_recover_help_advertises_unimplemented_status_and_milestone(self):
         proc = subprocess.run(
             [sys.executable, "-m", "dwimsy", "recover", "--help"],
             cwd=pkg_root,
@@ -171,5 +171,36 @@ class RecoverHelpTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(proc.returncode, 0)
-        self.assertNotIn("NOT IMPLEMENTED", proc.stdout + proc.stderr)
-        self.assertIn("Forensic bit/pulse recovery engine", proc.stdout + proc.stderr)
+        out = proc.stdout + proc.stderr
+        self.assertIn("NOT IMPLEMENTED", out)
+        self.assertIn("Milestone 4.0", out)
+        self.assertIn("Forensic bit/pulse recovery engine", out)
+
+    def test_bundle_fixtures_help_advertises_unimplemented_status_and_milestone(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "dwimsy", "meta", "bundle-fixtures", "--help"],
+            cwd=pkg_root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0)
+        out = proc.stdout + proc.stderr
+        self.assertIn("NOT IMPLEMENTED", out)
+        self.assertIn("Milestone 1.6", out)
+        self.assertIn("Package private test fixtures", out)
+
+    def test_top_level_help_lists_unimplemented_placeholders(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "dwimsy", "--help"],
+            cwd=pkg_root,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(proc.returncode, 0)
+        out = proc.stdout + proc.stderr
+        self.assertIn("recover", out)
+        self.assertIn("Milestone 4.0", out)
+        self.assertIn("charset", out)
+        self.assertIn("Milestone 2.3", out)

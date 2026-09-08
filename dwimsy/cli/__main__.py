@@ -1353,6 +1353,7 @@ def main(
     meta_subparsers.add_parser(
         "bundle-fixtures",
         help="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
+        description="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
     )
 
     # Roadmap placeholders
@@ -1377,7 +1378,10 @@ def main(
             "archive",
             "[NOT IMPLEMENTED — Milestone 2.5] Archival preservation bundle generator.",
         ),
-        ("recover", "Forensic bit/pulse recovery engine."),
+        (
+            "recover",
+            "[NOT IMPLEMENTED — Milestone 4.0] Forensic bit/pulse recovery engine.",
+        ),
     ]:
         subparsers.add_parser(pl, help=h, description=h)
 

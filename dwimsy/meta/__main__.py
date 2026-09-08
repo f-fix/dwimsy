@@ -238,6 +238,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "bundle-fixtures",
         help="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
+        description="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
     )
 
     return parser
