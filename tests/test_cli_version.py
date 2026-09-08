@@ -156,16 +156,16 @@ def main(argv=None):
     unittest.main(argv=[sys.argv[0]] + effective)
     return 0
 
-
-
     def test_bump_version_programmatic_api_requires_explicit_tier_or_target(self):
         from dwimsy.meta.version_bump import bump_version
+
         with self.assertRaises(ValueError) as ctx:
             bump_version(message="Valid message")
         self.assertIn("explicit bump tier", str(ctx.exception))
 
     def test_bump_version_programmatic_api_requires_non_empty_message(self):
         from dwimsy.meta.version_bump import bump_version
+
         with self.assertRaises(ValueError) as ctx:
             bump_version(part="patch", message="")
         self.assertIn("non-empty changelog message", str(ctx.exception))
@@ -176,6 +176,7 @@ def main(argv=None):
 
     def test_parse_and_bump_version_requires_explicit_part(self):
         from dwimsy.meta.version_bump import parse_and_bump_version
+
         with self.assertRaises(ValueError) as ctx:
             parse_and_bump_version("0.1.6.0-dev")
         self.assertIn("explicit bump tier", str(ctx.exception))
@@ -184,6 +185,7 @@ def main(argv=None):
         import tempfile
         import shutil
         from dwimsy.meta import unbundle, version_bump
+
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp) / "checkout"
             unbundle.extract_b64_lzma_tar(unbundle.blztar, tmp_path, with_deps=True)
@@ -194,16 +196,25 @@ def main(argv=None):
             orig_unbundle = (tmp_path / "dwimsy" / "meta" / "unbundle.py").read_bytes()
 
             broken_test = tmp_path / "tests" / "test_broken_synthetic.py"
-            broken_test.write_text("import unittest\nclass BrokenTest(unittest.TestCase):\n    def test_fail(self):\n        self.fail('intentional failure')\n")
+            broken_test.write_text(
+                "import unittest\nclass BrokenTest(unittest.TestCase):\n    def test_fail(self):\n        self.fail('intentional failure')\n"
+            )
 
             with self.assertRaises(RuntimeError) as ctx:
-                version_bump.bump_version(part="patch", message="Test failing bump", repo_root=tmp_path)
+                version_bump.bump_version(
+                    part="patch", message="Test failing bump", repo_root=tmp_path
+                )
             self.assertIn("test suite failed", str(ctx.exception))
 
-            self.assertEqual((tmp_path / "dwimsy" / "_version.py").read_bytes(), orig_version)
+            self.assertEqual(
+                (tmp_path / "dwimsy" / "_version.py").read_bytes(), orig_version
+            )
             self.assertEqual((tmp_path / "CHANGELOG.md").read_bytes(), orig_changelog)
             self.assertEqual((tmp_path / "README.md").read_bytes(), orig_readme)
-            self.assertEqual((tmp_path / "dwimsy" / "meta" / "unbundle.py").read_bytes(), orig_unbundle)
+            self.assertEqual(
+                (tmp_path / "dwimsy" / "meta" / "unbundle.py").read_bytes(),
+                orig_unbundle,
+            )
 
 
 if __name__ == "__main__":

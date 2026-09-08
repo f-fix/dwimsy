@@ -362,9 +362,15 @@ def bump_version(
         def _ignore_staging(src, names):
             ignored = set()
             for name in names:
-                if name in ("__pycache__", ".pytest_cache") or name.endswith(".pyc") or name.endswith("~"):
+                if (
+                    name in ("__pycache__", ".pytest_cache")
+                    or name.endswith(".pyc")
+                    or name.endswith("~")
+                ):
                     ignored.add(name)
-                elif (name.startswith("dwimsy_") or name.startswith("_failed_")) and (name.endswith(".py") or name.endswith(".pyz")):
+                elif (name.startswith("dwimsy_") or name.startswith("_failed_")) and (
+                    name.endswith(".py") or name.endswith(".pyz")
+                ):
                     ignored.add(name)
             return ignored
 
@@ -416,7 +422,9 @@ def bump_version(
                     except OSError:
                         pass
 
-        unb_script = (root / "dwimsy" / "meta" / "unbundle.py").read_text(encoding="utf-8")
+        unb_script = (root / "dwimsy" / "meta" / "unbundle.py").read_text(
+            encoding="utf-8"
+        )
         m_b = re.search(r'blztar = """\n([\s\S]*?)\n"""', unb_script)
         if m_b:
             unbundle.blztar = m_b.group(1)

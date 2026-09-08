@@ -354,10 +354,9 @@ def main(argv=None):
     unittest.main(argv=[sys.argv[0]] + effective)
     return 0
 
-
-
     def test_gitignore_parent_dir_exclusion_prevents_descendant_negation(self):
         from dwimsy.meta.integrity import GitIgnoreMatcher
+
         gi_content = "foo/\n!foo/bar.txt\n"
         matcher = GitIgnoreMatcher(files={".gitignore": gi_content.encode("utf-8")})
         self.assertTrue(matcher.matches("foo/bar.txt"))
@@ -367,6 +366,7 @@ def main(argv=None):
 
     def test_gitignore_unexcluded_parent_wildcard_permits_descendant_negation(self):
         from dwimsy.meta.integrity import GitIgnoreMatcher
+
         gi_content = "foo/*\n!foo/bar.txt\n"
         matcher = GitIgnoreMatcher(files={".gitignore": gi_content.encode("utf-8")})
         self.assertFalse(matcher.matches("foo/bar.txt"))
@@ -375,6 +375,7 @@ def main(argv=None):
 
     def test_gitignore_nested_dir_parent_exclusion(self):
         from dwimsy.meta.integrity import GitIgnoreMatcher
+
         gi_content = "a/\n!a/b/\n!a/b/c.txt\n"
         matcher = GitIgnoreMatcher(files={".gitignore": gi_content.encode("utf-8")})
         self.assertTrue(matcher.matches("a/b/c.txt"))
@@ -382,6 +383,7 @@ def main(argv=None):
 
     def test_gitignore_unignored_parent_chain(self):
         from dwimsy.meta.integrity import GitIgnoreMatcher
+
         gi_content = "a/*\n!a/b\na/b/*\n!a/b/c.txt\n"
         matcher = GitIgnoreMatcher(files={".gitignore": gi_content.encode("utf-8")})
         self.assertFalse(matcher.matches("a/b/c.txt"))
