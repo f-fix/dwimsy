@@ -1,7 +1,7 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation
 
-**Version: 0.1.6.103-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-07)
+**Version: 0.1.6.107-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-08)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
@@ -216,22 +216,22 @@ Any `dwimsy` bundle or installed command can be forced into a maintainer persona
 | **Reconstruct Bundle** | `python3 dwimsy_bundle.py --version=V --version-restrict-to=V -a dwimsy meta bundle --baseline -o out.py` |
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.103-dev (2026-09-07)
+Version: 0.1.6.107-dev (2026-09-08)
 
-`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.103-dev.py`).
+`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.107-dev.py`).
 
 To use the embedded dwimsy CLI directly from the bundle:
 ```bash
-python3 dwimsy_0.1.6.103-dev.py dwimsy --help
-python3 dwimsy_0.1.6.103-dev.py dwimsy --version
-python3 dwimsy_0.1.6.103-dev.py dwimsy readme
-python3 dwimsy_0.1.6.103-dev.py dwimsy license
-python3 dwimsy_0.1.6.103-dev.py dwimsy changelog
+python3 dwimsy_0.1.6.107-dev.py dwimsy --help
+python3 dwimsy_0.1.6.107-dev.py dwimsy --version
+python3 dwimsy_0.1.6.107-dev.py dwimsy readme
+python3 dwimsy_0.1.6.107-dev.py dwimsy license
+python3 dwimsy_0.1.6.107-dev.py dwimsy changelog
 ```
 
 To extract the repository tree to disk:
 ```bash
-python3 dwimsy_0.1.6.103-dev.py meta unbundle /path/to/target --deps
+python3 dwimsy_0.1.6.107-dev.py meta unbundle /path/to/target --deps
 ```
 
 
@@ -636,11 +636,11 @@ options:
   * `dwimsy meta bundle --baseline`: Reconstructs the baseline standalone unpacker from the embedded baseline `blztar` payload and its canonical, blztar-elided `unbundle.py` template.
 
 ```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.103-dev.py
+# Bundle live working tree -> generates dwimsy_0.1.6.107-dev.py
 dwimsy meta bundle
 
 # Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.103-dev.py
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.107-dev.py
 ```
 
 ##### `dwimsy meta unbundle`
@@ -697,7 +697,7 @@ dwimsy meta diff
 dwimsy meta diff 0.1.6.55-dev 0.1.6.56-dev
 
 # Compare on-disk checkout against bundle baseline from an external directory
-python3 dwimsy_0.1.6.103-dev.py --version-include-primary=. dwimsy meta diff baseline alt
+python3 dwimsy_0.1.6.107-dev.py --version-include-primary=. dwimsy meta diff baseline alt
 ```
 
 ##### `dwimsy meta integrity`
@@ -850,6 +850,21 @@ black dwimsy tests
 ```
 
 Black is a developer-time formatting tool, not a runtime dependency. If it is unavailable, the formatting step is skipped rather than making Black a requirement for running dwimsy itself.
+
+### Canonical Manifest, .gitignore & Dependency Boundaries
+
+DWIMSY operates as an airgapped, self-contained toolkit with zero runtime dependency on `git` or external version-control binaries. Repository boundaries and project contents are defined by two complementary mechanisms:
+
+1. **Canonical Manifest Window**: `dwimsy.meta.integrity.canonical_manifest()` explicitly defines the managed project window (`dwimsy/**/*.py`, `tests/**/*.py`, `tests/**/*.md`, `.gitignore`, `.gitmodules`, `LICENSE`, `README.md`, `CHANGELOG.md`, plus subproject paths declared in `.gitmodules`). Only manifest-selected files belong to DWIMSY's managed state and canonical code hash.
+2. **Pure-Python `.gitignore` Policy**: `.gitignore` (including the root `.gitignore` and all nested `.gitignore` files across subdirectories) is parsed and enforced in 100% pure Python. Any path matching `.gitignore` rules is strictly excluded from DWIMSY's managed state, hashing, diffing, modification tracking, bundling, and unbundle rollback/reconciliation. Ignored files are inviolate: they are never deleted, overwritten, or tracked as uncommitted changes.
+3. **`.git` Metadata & Cache Exclusion**: Any filesystem path containing a `.git` path component (whether a `.git/` directory or a submodule `.git` pointer file at any depth) and `__pycache__` / `*.pyc` files are unconditionally excluded from DWIMSY state across all operations.
+4. **Git Execution Control (`--without-git` / `--with-git[=GIT]`)**: All core operations are pure Python and do not invoke external binaries. Maintainer helper commands that can optionally query git (such as `dwimsy meta bundle --status` or `dwimsy meta fetch-deps`) accept `--without-git` to inhibit all git subprocess invocations or `--with-git[=GIT]` to specify a custom git executable path. Setting `DWIMSY_WITHOUT_GIT=1` or `DWIMSY_GIT=PATH` in the environment provides the same control.
+
+**Developer Instructions for Adding / Excluding Files:**
+- **To add new source packages or tests:** Place them within `dwimsy/` or `tests/`. They automatically fall within the canonical manifest globs.
+- **To add subprojects or dependencies:** Declare their directory paths in `.gitmodules` so `canonical_manifest()` incorporates them.
+- **To exclude private test fixtures, scratch captures, or local outputs:** Add ignore rules to `.gitignore` (or a nested `.gitignore` in a subdirectory). They are immediately respected by `dwimsy integrity`, `bundle`, `unbundle`, `diff`, `lint`, and `versions` across both git and gitless environments.
+- **VersionSpace Historical Consistency:** As `.gitignore`, `.gitmodules`, or manifest files evolve across versions, each historical layer in the VersionSpace is evaluated using its own recorded ignore rules and dependency declarations.
 
 ### Developer Workflow
 
@@ -2098,7 +2113,7 @@ Multi-stream bundles delimit stream versions using comma `,` with uniform `,altN
 - Timestamps: ISO 8601 UTC timestamps (`YYYY-MM-DDTHH:MM:SSZ`) derived from layer metadata.
 - Hashes: 12-character short hashes by default for easy visual correlation with `--version` and `+mod.<short_hash>` tails. Specifying `--verbose` (`dwimsy --version-list --verbose`) expands hashes to full 64-character SHA-256 strings.
 - Single Shared Entry: When an on-disk checkout is content-identical to the baseline, the redundant top `[unbundled]` row is omitted, and the primary baseline row includes `=unbundled` in its annotations (`[=baseline, =primary, =unbundled, =selected]`).
-- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.103-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
+- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.107-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
 
 ### Execution Model & The Three Paths
 - Path A: Default in-memory virtual mount via `BundleFinder` (zero disk writes).

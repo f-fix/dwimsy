@@ -59,6 +59,9 @@ def find_disk_tests_dir(start: Optional[Path] = None) -> Optional[Path]:
             return p / "tests"
         if p.is_dir() and p.name == "tests":
             return p
+        # An explicit repository root with no tests means "no disk tests"; do
+        # not silently substitute the caller's unrelated current checkout.
+        return None
     root = find_repo_root(start)
     if root is not None and (root / "tests").is_dir():
         return root / "tests"
@@ -167,15 +170,8 @@ def list_tests(
     expanded_patterns = expand_test_patterns(patterns)
     disk_tests = find_disk_tests_dir(repo_root)
 
-    for mod_name in list(sys.modules.keys()):
-        if (
-            mod_name.startswith("test_")
-            or mod_name == "tests"
-            or mod_name.startswith("tests.")
-            or mod_name == "dwimsy"
-            or mod_name.startswith("dwimsy.")
-        ):
-            del sys.modules[mod_name]
+    # Discovery is side-effect free with respect to imported modules.
+
 
     loader = unittest.defaultTestLoader
     test_ids = []
@@ -191,6 +187,13 @@ def list_tests(
     if disk_tests is not None and any(disk_tests.glob("test_*.py")):
         root = disk_tests.parent
         orig_sys_path = list(sys.path)
+        saved_test_modules = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "tests" or name.startswith("tests.") or name.startswith("test_")
+        }
+        for name in list(saved_test_modules):
+            sys.modules.pop(name, None)
         if str(disk_tests) in sys.path:
             sys.path.remove(str(disk_tests))
         if str(root) in sys.path:
@@ -207,37 +210,60 @@ def list_tests(
                 _collect_ids(suite)
         finally:
             sys.path[:] = orig_sys_path
+            for name in list(sys.modules):
+                if name == "tests" or name.startswith("tests.") or name.startswith("test_"):
+                    sys.modules.pop(name, None)
+            sys.modules.update(saved_test_modules)
     else:
-        with tempfile.TemporaryDirectory(prefix="dwimsy_test_list_") as tmp:
-            tmp_path = Path(tmp)
-            tests_dir = _extract_tests_from_bundle(tmp_path)
-            orig_sys_path = list(sys.path)
-            old_test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
-            old_standalone_test = os.environ.get("DWIMSY_STANDALONE_TEST")
-            if str(tests_dir) in sys.path:
-                sys.path.remove(str(tests_dir))
-            sys.path.insert(0, str(tests_dir))
-            os.environ["DWIMSY_TEST_REPO_ROOT"] = str(tmp_path)
-            os.environ["DWIMSY_STANDALONE_TEST"] = "1"
-            try:
-                for pat in expanded_patterns:
-                    suite = loader.discover(
-                        start_dir=str(tests_dir),
-                        pattern=pat,
-                        top_level_dir=str(tmp_path),
-                    )
-                    _collect_ids(suite)
-            finally:
-                sys.path[:] = orig_sys_path
-                sys.meta_path[:] = original_meta_path
-                if old_test_root is None:
-                    os.environ.pop("DWIMSY_TEST_REPO_ROOT", None)
-                else:
-                    os.environ["DWIMSY_TEST_REPO_ROOT"] = old_test_root
-                if old_standalone_test is None:
-                    os.environ.pop("DWIMSY_STANDALONE_TEST", None)
-                else:
-                    os.environ["DWIMSY_STANDALONE_TEST"] = old_standalone_test
+        saved_test_modules = {
+            name: module
+            for name, module in sys.modules.items()
+            if name == "tests"
+            or name.startswith("tests.")
+            or name.startswith("test_")
+        }
+        for name in list(saved_test_modules):
+            sys.modules.pop(name, None)
+        try:
+            with tempfile.TemporaryDirectory(prefix="dwimsy_test_list_") as tmp:
+                tmp_path = Path(tmp)
+                tests_dir = _extract_tests_from_bundle(tmp_path)
+                orig_sys_path = list(sys.path)
+                old_test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
+                old_standalone_test = os.environ.get("DWIMSY_STANDALONE_TEST")
+                if str(tests_dir) in sys.path:
+                    sys.path.remove(str(tests_dir))
+                sys.path.insert(0, str(tests_dir))
+                os.environ["DWIMSY_TEST_REPO_ROOT"] = str(tmp_path)
+                os.environ["DWIMSY_STANDALONE_TEST"] = "1"
+                try:
+                    for pat in expanded_patterns:
+                        suite = loader.discover(
+                            start_dir=str(tests_dir),
+                            pattern=pat,
+                            top_level_dir=str(tmp_path),
+                        )
+                        _collect_ids(suite)
+                finally:
+                    sys.path[:] = orig_sys_path
+                    sys.meta_path[:] = original_meta_path
+                    if old_test_root is None:
+                        os.environ.pop("DWIMSY_TEST_REPO_ROOT", None)
+                    else:
+                        os.environ["DWIMSY_TEST_REPO_ROOT"] = old_test_root
+                    if old_standalone_test is None:
+                        os.environ.pop("DWIMSY_STANDALONE_TEST", None)
+                    else:
+                        os.environ["DWIMSY_STANDALONE_TEST"] = old_standalone_test
+        finally:
+            for name in list(sys.modules):
+                if (
+                    name == "tests"
+                    or name.startswith("tests.")
+                    or name.startswith("test_")
+                ):
+                    sys.modules.pop(name, None)
+            sys.modules.update(saved_test_modules)
 
     return sorted(dict.fromkeys(test_ids))
 
@@ -256,15 +282,24 @@ def run_tests(
     expanded_patterns = expand_test_patterns(patterns)
     disk_tests = find_disk_tests_dir(repo_root)
 
+    # Checkout runs execute tests in-process. If any modules were loaded from
+    # <dwimsy-bundle>/ (e.g. during standalone bootstrap before checkout
+    # detection), unload them so they are imported cleanly from the checkout.
     for mod_name in list(sys.modules.keys()):
+        mod = sys.modules.get(mod_name)
+        origin = getattr(mod, "__file__", "") or ""
         if (
-            mod_name.startswith("test_")
+            origin.startswith("<dwimsy-bundle>/")
+            or mod_name.startswith("test_")
             or mod_name == "tests"
             or mod_name.startswith("tests.")
-            or mod_name == "dwimsy"
-            or mod_name.startswith("dwimsy.")
+            or (
+                disk_tests is None
+                and (mod_name == "dwimsy" or mod_name.startswith("dwimsy."))
+            )
         ):
-            del sys.modules[mod_name]
+            sys.modules.pop(mod_name, None)
+
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
@@ -280,12 +315,15 @@ def run_tests(
     if disk_tests is not None and any(disk_tests.glob("test_*.py")):
         root = disk_tests.parent
         orig_sys_path = list(sys.path)
+        orig_cwd = Path.cwd()
         if str(disk_tests) in sys.path:
             sys.path.remove(str(disk_tests))
         if str(root) in sys.path:
             sys.path.remove(str(root))
         sys.path.insert(0, str(disk_tests))
         sys.path.insert(0, str(root))
+        old_test_mode = os.environ.get("DWIMSY_TEST_MODE")
+        os.environ["DWIMSY_TEST_MODE"] = "1"
         try:
             for pat in expanded_patterns:
                 suite.addTests(
@@ -295,6 +333,7 @@ def run_tests(
                         top_level_dir=str(root),
                     )
                 )
+            os.chdir(root)
             runner = unittest.TextTestRunner(verbosity=verbose, stream=stream)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
@@ -304,8 +343,13 @@ def run_tests(
                 0 if result.wasSuccessful() else (num_failed if num_failed > 0 else 1)
             )
         finally:
+            os.chdir(orig_cwd)
             sys.path[:] = orig_sys_path
             sys.meta_path[:] = original_meta_path
+            if old_test_mode is None:
+                os.environ.pop("DWIMSY_TEST_MODE", None)
+            else:
+                os.environ["DWIMSY_TEST_MODE"] = old_test_mode
     else:
         with tempfile.TemporaryDirectory(prefix="dwimsy_test_") as tmp:
             tmp_path = Path(tmp)
@@ -313,11 +357,13 @@ def run_tests(
             orig_sys_path = list(sys.path)
             old_test_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
             old_standalone_test = os.environ.get("DWIMSY_STANDALONE_TEST")
+            old_test_mode = os.environ.get("DWIMSY_TEST_MODE")
             if str(tests_dir) in sys.path:
                 sys.path.remove(str(tests_dir))
             sys.path.insert(0, str(tests_dir))
             os.environ["DWIMSY_TEST_REPO_ROOT"] = str(tmp_path)
             os.environ["DWIMSY_STANDALONE_TEST"] = "1"
+            os.environ["DWIMSY_TEST_MODE"] = "1"
             try:
                 for pat in expanded_patterns:
                     suite.addTests(
@@ -345,3 +391,7 @@ def run_tests(
                     os.environ.pop("DWIMSY_STANDALONE_TEST", None)
                 else:
                     os.environ["DWIMSY_STANDALONE_TEST"] = old_standalone_test
+                if old_test_mode is None:
+                    os.environ.pop("DWIMSY_TEST_MODE", None)
+                else:
+                    os.environ["DWIMSY_TEST_MODE"] = old_test_mode

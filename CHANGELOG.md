@@ -5,6 +5,26 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.107-dev] - 2026-09-08T05:20:33Z
+
+### Changed
+- Implement pure-Python airgapped .gitignore matching, boundary isolation, and universal --with-git/--without-git CLI flags.
+
+## [0.1.6.106-dev] - 2026-09-08T01:51:41Z
+
+### Changed
+- Protect Git-ignored target files during unbundle and rollback.
+
+## [0.1.6.105-dev] - 2026-09-07T23:53:13Z
+
+### Changed
+- Fix unbundle docstring synchronization and version resolution performance.
+
+## [0.1.6.104-dev] - 2026-09-07T19:57:44Z
+
+### Changed
+- Improve test runner isolation, discovery, and version resolution performance.
+
 ## [0.1.6.103-dev] - 2026-09-07T18:08:17Z
 
 ### Changed

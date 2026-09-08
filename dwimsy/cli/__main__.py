@@ -1167,6 +1167,18 @@ def main(
         help="Include legacy submodule scaffolding from deps/",
     )
     p_meta_bundle.add_argument(
+        "--without-git",
+        action="store_true",
+        help="Do not invoke external git binary across all operations",
+    )
+    p_meta_bundle.add_argument(
+        "--with-git",
+        nargs="?",
+        const="git",
+        default=None,
+        help="Specify custom git binary path",
+    )
+    p_meta_bundle.add_argument(
         "--status",
         action="store_true",
         help="List uncommitted/modified and untracked files",
@@ -1267,6 +1279,12 @@ def main(
 
     p_meta_fetch.add_argument(
         "-f", "--force", action="store_true", help="Overwrite existing deps/ files"
+    )
+    p_meta_fetch.add_argument(
+        "--without-git", action="store_true", help="Do not invoke external git binary"
+    )
+    p_meta_fetch.add_argument(
+        "--with-git", nargs="?", const="git", default=None, help="Specify custom git binary path"
     )
     p_meta_fetch.add_argument(
         "--baseline", action="store_true", help="Use bundled baseline dependency files"

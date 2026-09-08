@@ -19,7 +19,7 @@ import re
 import sys
 import os
 from pathlib import Path
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Optional, Tuple, List, Set, Dict, Any
 
 for p in Path(__file__).resolve().parents:
     if (p / "dwimsy").is_dir() and str(p) not in sys.path:
@@ -193,6 +193,234 @@ def version_file_path(root: Optional[Path] = None) -> Path:
     return _VERSION_FILE
 
 
+class GitIgnoreRule:
+    def __init__(
+        self,
+        is_negation: bool,
+        directory_only: bool,
+        exact_regex: re.Pattern,
+        prefix_regex: re.Pattern,
+    ):
+        self.is_negation = is_negation
+        self.directory_only = directory_only
+        self.exact_regex = exact_regex
+        self.prefix_regex = prefix_regex
+
+
+class GitIgnoreMatcher:
+    """Evaluates relative paths against repo .gitignore rules in pure Python."""
+
+    def __init__(
+        self,
+        repo_root: Optional[Path] = None,
+        files: Optional[dict[str, bytes]] = None,
+    ):
+        self.repo_root = Path(repo_root).resolve() if repo_root is not None else None
+        self.rules: List[GitIgnoreRule] = []
+        if files is not None:
+            self._load_rules_from_files(files)
+        elif self.repo_root is not None:
+            self._load_rules_from_disk()
+
+    def _load_rules_from_files(self, files: dict[str, bytes]) -> None:
+        gi_keys = [
+            k
+            for k in files
+            if Path(k).name == ".gitignore"
+            and not any(part == ".git" for part in Path(k).parts)
+        ]
+        gi_keys.sort(key=lambda k: len(Path(k).parts))
+        for k in gi_keys:
+            rel_dir = Path(k).parent.as_posix()
+            if rel_dir == ".":
+                rel_dir = ""
+            text = files[k].decode("utf-8", errors="replace")
+            self._parse_gitignore_text(text, rel_dir)
+
+    def _load_rules_from_disk(self) -> None:
+        if self.repo_root is None or not self.repo_root.is_dir():
+            try:
+                from dwimsy.meta import unbundle
+
+                text = unbundle.get_asset_text(".gitignore")
+                self._parse_gitignore_text(text, "")
+            except Exception:
+                pass
+            return
+
+        gitignore_files: List[Path] = []
+        for p in self.repo_root.rglob(".gitignore"):
+            if any(part == ".git" for part in p.parts):
+                continue
+            gitignore_files.append(p)
+
+        gitignore_files.sort(key=lambda p: len(p.parts))
+
+        if not gitignore_files:
+            try:
+                from dwimsy.meta import unbundle
+
+                text = unbundle.get_asset_text(".gitignore")
+                self._parse_gitignore_text(text, "")
+            except Exception:
+                pass
+            return
+
+        for gf in gitignore_files:
+            try:
+                rel_dir = gf.parent.relative_to(self.repo_root).as_posix()
+                if rel_dir == ".":
+                    rel_dir = ""
+                text = gf.read_text(encoding="utf-8", errors="replace")
+                self._parse_gitignore_text(text, rel_dir)
+            except Exception:
+                pass
+
+    def _parse_gitignore_text(self, text: str, base_dir_rel: str) -> None:
+        for raw_line in text.splitlines():
+            line = raw_line.rstrip("\r\n")
+            if not line or line.startswith("#"):
+                continue
+
+            is_negation = False
+            if line.startswith("!"):
+                is_negation = True
+                line = line[1:]
+
+            if line.startswith(r"\#") or line.startswith(r"\!"):
+                line = line[1:]
+
+            line = re.sub(r"(?<!\\)(?:\\\\)*\s+$", "", line)
+            line = line.replace(r"\ ", " ")
+            if not line:
+                continue
+
+            directory_only = False
+            if line.endswith("/"):
+                directory_only = True
+                line = line[:-1]
+
+            anchored = line.startswith("/")
+            has_slash = "/" in line.lstrip("/")
+            line = line.lstrip("/")
+
+            i = 0
+            n = len(line)
+            res: List[str] = []
+            while i < n:
+                c = line[i]
+                if c == "*":
+                    if i + 1 < n and line[i + 1] == "*":
+                        if i + 2 < n and line[i + 2] == "/":
+                            res.append(r"(?:.+/)?")
+                            i += 3
+                        elif i > 0 and line[i - 1] == "/":
+                            res.append(r".*")
+                            i += 2
+                        else:
+                            res.append(r".*")
+                            i += 2
+                    else:
+                        res.append(r"[^/]*")
+                        i += 1
+                elif c == "?":
+                    res.append(r"[^/]")
+                    i += 1
+                elif c == "[":
+                    j = i + 1
+                    if j < n and line[j] in ("!", "^"):
+                        j += 1
+                    if j < n and line[j] == "]":
+                        j += 1
+                    while j < n and line[j] != "]":
+                        j += 1
+                    if j < n:
+                        class_content = line[i + 1 : j]
+                        if class_content.startswith("!"):
+                            class_content = "^" + class_content[1:]
+                        res.append(f"[{class_content}]")
+                        i = j + 1
+                    else:
+                        res.append(r"\[")
+                        i += 1
+                else:
+                    res.append(re.escape(c))
+                    i += 1
+
+            pattern_re = "".join(res)
+            base_prefix = re.escape(base_dir_rel.strip("/"))
+            if base_prefix:
+                base_prefix += "/"
+
+            if anchored or has_slash:
+                exact_re = f"^{base_prefix}{pattern_re}$"
+                prefix_re = f"^{base_prefix}{pattern_re}/.*$"
+            else:
+                exact_re = f"^{base_prefix}(?:.+/)?{pattern_re}$"
+                prefix_re = f"^{base_prefix}(?:.+/)?{pattern_re}/.*$"
+
+            try:
+                compiled_exact = re.compile(exact_re)
+                compiled_prefix = re.compile(prefix_re)
+                self.rules.append(
+                    GitIgnoreRule(
+                        is_negation=is_negation,
+                        directory_only=directory_only,
+                        exact_regex=compiled_exact,
+                        prefix_regex=compiled_prefix,
+                    )
+                )
+            except re.error:
+                pass
+
+    def matches(self, rel_path: str | Path, is_dir: bool = False) -> bool:
+        path_obj = Path(rel_path)
+        parts = path_obj.parts
+        if (
+            any(p == ".git" or p == "__pycache__" for p in parts)
+            or path_obj.suffix == ".pyc"
+        ):
+            return True
+        posix_path = path_obj.as_posix().strip("/")
+        if not posix_path:
+            return False
+
+        matched = False
+        for rule in self.rules:
+            if is_dir:
+                if rule.exact_regex.match(posix_path) or rule.prefix_regex.match(
+                    posix_path + "/"
+                ):
+                    matched = not rule.is_negation
+            else:
+                if rule.directory_only:
+                    if rule.prefix_regex.match(posix_path):
+                        matched = not rule.is_negation
+                else:
+                    if rule.exact_regex.match(posix_path) or rule.prefix_regex.match(
+                        posix_path
+                    ):
+                        matched = not rule.is_negation
+
+        return matched
+
+
+def get_git_command(args: Optional[Any] = None) -> Optional[str]:
+    """Return the configured git executable command, or None if git is disabled."""
+    if args is not None:
+        if getattr(args, "without_git", False):
+            return None
+        with_git = getattr(args, "with_git", None)
+        if with_git is not None and with_git is not False:
+            return with_git if isinstance(with_git, str) and with_git else "git"
+    if os.environ.get("DWIMSY_WITHOUT_GIT") == "1":
+        return None
+    env_git = os.environ.get("DWIMSY_GIT")
+    if env_git:
+        return env_git
+    return "git"
+
+
 def canonical_manifest(
     root: Optional[Path] = None, baseline: bool = False
 ) -> Tuple[str, ...]:
@@ -254,12 +482,15 @@ def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
     patterns = canonical_manifest(repo)
     if not ((repo / "dwimsy").is_dir() and (repo / "dwimsy" / "__init__.py").is_file()):
         return ()
+    gitignore = GitIgnoreMatcher(repo)
     files = []
     for p in repo.rglob("*"):
         if not p.is_file():
             continue
         rel = p.relative_to(repo).as_posix()
-        if ".git" in p.parts or "__pycache__" in p.parts or p.suffix == ".pyc":
+        if any(part == ".git" for part in p.parts) or "__pycache__" in p.parts or p.suffix == ".pyc":
+            continue
+        if gitignore.matches(rel, is_dir=False):
             continue
         if _manifest_matches(rel, patterns):
             files.append(p)

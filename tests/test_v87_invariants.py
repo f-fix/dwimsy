@@ -443,24 +443,146 @@ class TestV91GitMetadataUnbundle(unittest.TestCase):
             # not yet sealed into the embedded payload.  For this focused safety
             # test, make the materialized asset set exactly match the target and
             # verify that the ignored .git marker is the only extra on-disk file.
-            import dwimsy.meta.unbundle as unbundle_mod
-
-            original = unbundle_mod.materialize_stream0_assets_with_removals
+            # In standalone-bundle execution, `dwimsy.meta.unbundle` may be
+            # resolved through __main__.  Patch the defining globals instead of
+            # assuming the imported module object is the function namespace.
+            unbundle_globals = safe_unbundle.__globals__
+            original = unbundle_globals["materialize_stream0_assets_with_removals"]
             assets = {
                 p.relative_to(root).as_posix(): p.read_bytes()
                 for p in root.rglob("*")
                 if p.is_file() and ".git" not in p.relative_to(root).parts
             }
-            unbundle_mod.materialize_stream0_assets_with_removals = lambda _b64: (
+            unbundle_globals["materialize_stream0_assets_with_removals"] = lambda _b64: (
                 assets,
                 set(),
             )
             try:
                 safe_unbundle(output_dir=root, force=False, quiet=True)
             finally:
-                unbundle_mod.materialize_stream0_assets_with_removals = original
+                unbundle_globals["materialize_stream0_assets_with_removals"] = original
             self.assertTrue(git_marker.is_file())
             self.assertIn("gitdir:", git_marker.read_text(encoding="utf-8"))
+
+
+class TestV91GitIgnoreUnbundle(unittest.TestCase):
+    def test_safe_unbundle_ignores_gitignore_files_during_rollback_safety(self):
+        """Ignored working-tree files are neither bundle state nor removable data in pure Python."""
+        old_tag = "0.1.6.70-dev"
+        new_tag = "0.1.6.71-dev"
+        old = {
+            "dwimsy/__init__.py": b"\n",
+            "dwimsy/_version.py": (
+                f'__version__ = "{old_tag}"\n__code_hash__ = ""\n'
+            ).encode(),
+            "tracked.txt": b"old\n",
+            ".gitignore": b"tests/fixtures/**\n*.wav\n",
+        }
+        new = {
+            "tracked.txt": b"new\n",
+            ".gitignore": b"tests/fixtures/**\n*.wav\n",
+            "dwimsy/_version.py": (
+                f'__version__ = "{new_tag}"\n__code_hash__ = ""\n'
+            ).encode(),
+        }
+        space = VersionSpace(
+            [
+                Stream(
+                    0,
+                    "primary",
+                    [
+                        Layer(old, is_delta=False, version_tag=old_tag),
+                        Layer(new, is_delta=True, version_tag=new_tag),
+                    ],
+                )
+            ]
+        )
+        b64 = space.to_blztar()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".gitignore").write_text(
+                "tests/fixtures/**\n*.wav\n",
+                encoding="utf-8",
+            )
+            (root / "tracked.txt").write_bytes(b"new\n")
+            (root / "dwimsy").mkdir()
+            (root / "dwimsy" / "__init__.py").write_bytes(b"\n")
+            (root / "dwimsy" / "_version.py").write_bytes(new["dwimsy/_version.py"])
+            fixture = root / "tests" / "fixtures" / "private.t88"
+            fixture.parent.mkdir(parents=True)
+            fixture.write_bytes(b"private fixture\n")
+
+            # Extract old version (rollback) with force=True.
+            # Because fixture is in .gitignore, it must NOT be seen as removable state
+            # and must NOT be deleted.
+            safe_unbundle(
+                b64_string=b64,
+                output_dir=root,
+                target_version=old_tag,
+                force=True,
+                quiet=True,
+            )
+            self.assertTrue(fixture.is_file())
+            self.assertEqual(fixture.read_bytes(), b"private fixture\n")
+            self.assertEqual((root / "tracked.txt").read_bytes(), b"old\n")
+
+    def test_safe_unbundle_respects_nested_gitignore_without_git(self):
+        """Nested .gitignore files are evaluated in pure Python without calling Git."""
+        old_tag = "0.1.6.70-dev"
+        new_tag = "0.1.6.71-dev"
+        old = {
+            "dwimsy/__init__.py": b"\n",
+            "dwimsy/_version.py": (
+                f'__version__ = "{old_tag}"\n__code_hash__ = ""\n'
+            ).encode(),
+            "tracked.txt": b"old\n",
+            ".gitignore": b"",
+            "sub/.gitignore": b"*.tmp\n",
+        }
+        new = {
+            "tracked.txt": b"new\n",
+            ".gitignore": b"",
+            "sub/.gitignore": b"*.tmp\n",
+            "dwimsy/_version.py": (
+                f'__version__ = "{new_tag}"\n__code_hash__ = ""\n'
+            ).encode(),
+        }
+        space = VersionSpace(
+            [
+                Stream(
+                    0,
+                    "primary",
+                    [
+                        Layer(old, is_delta=False, version_tag=old_tag),
+                        Layer(new, is_delta=True, version_tag=new_tag),
+                    ],
+                )
+            ]
+        )
+        b64 = space.to_blztar()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".gitignore").write_text("", encoding="utf-8")
+            (root / "sub").mkdir()
+            (root / "sub" / ".gitignore").write_text("*.tmp\n", encoding="utf-8")
+            (root / "tracked.txt").write_bytes(b"new\n")
+            (root / "dwimsy").mkdir()
+            (root / "dwimsy" / "__init__.py").write_bytes(b"\n")
+            (root / "dwimsy" / "_version.py").write_bytes(new["dwimsy/_version.py"])
+            ignored_file = root / "sub" / "local.tmp"
+            ignored_file.write_bytes(b"temporary\n")
+
+            safe_unbundle(
+                b64_string=b64,
+                output_dir=root,
+                target_version=old_tag,
+                force=True,
+                quiet=True,
+            )
+            self.assertTrue(ignored_file.is_file())
+            self.assertEqual(ignored_file.read_bytes(), b"temporary\n")
 
 
 class TestV91VersionBumpAPI(unittest.TestCase):
@@ -478,3 +600,23 @@ class TestV91VersionBumpAPI(unittest.TestCase):
                     message="must specify a tier",
                     no_bundle=True,
                 )
+
+
+class TestGitFlagOptions(unittest.TestCase):
+    def test_parse_early_pipeline_flags_git_options(self):
+        from dwimsy.meta.unbundle import parse_early_pipeline_flags
+
+        p1, rem1 = parse_early_pipeline_flags(["--without-git", "meta", "bundle"])
+        self.assertTrue(p1["without_git"])
+        self.assertIsNone(p1["with_git"])
+        self.assertEqual(rem1, ["meta", "bundle"])
+
+        p2, rem2 = parse_early_pipeline_flags(["--with-git=/usr/bin/custom-git", "meta", "bundle"])
+        self.assertFalse(p2["without_git"])
+        self.assertEqual(p2["with_git"], "/usr/bin/custom-git")
+        self.assertEqual(rem2, ["meta", "bundle"])
+
+        p3, rem3 = parse_early_pipeline_flags(["--with-git", "meta", "bundle"])
+        self.assertFalse(p3["without_git"])
+        self.assertEqual(p3["with_git"], "git")
+        self.assertEqual(rem3, ["meta", "bundle"])

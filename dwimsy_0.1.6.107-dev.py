@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.103-dev (2026-09-07)
+Version: 0.1.6.107-dev (2026-09-08)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.103-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.107-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.103-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.103-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.103-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.103-dev.py dwimsy license
-  python3 dwimsy_0.1.6.103-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.107-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.107-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.107-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.107-dev.py dwimsy license
+  python3 dwimsy_0.1.6.107-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.103-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.107-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -40,6 +40,12 @@ import types
 import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
+
+_HERE = Path(__file__).resolve() if "__file__" in globals() else None
+if _HERE and len(_HERE.parts) >= 3 and _HERE.parts[-3] == "dwimsy" and _HERE.parts[-2] == "meta":
+    _REPO_ROOT = _HERE.parents[2]
+    if (_REPO_ROOT / "dwimsy" / "_version.py").is_file() and str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
 
 _BLZTAR_RE = re.compile(
     rb'(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*""")(?:.*?)(?P<suffix>"""[ \t]*(?:#.*)?$)'
@@ -5122,10 +5128,112 @@ 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
-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
+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
-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
+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
+AAAEWVo=
 """
 
 
@@ -5241,6 +5349,9 @@ def iter_tar_layers(raw_tar_bytes: bytes) -> List[Dict[str, bytes]]:
     return layers
 
 
+_STREAM0_CACHE: Dict[str, Tuple[Dict[str, bytes], Set[str]]] = {}
+
+
 def materialize_stream0_assets_with_removals(
     b64_string: Optional[str] = None,
 ) -> Tuple[Dict[str, bytes], Set[str]]:
@@ -5250,6 +5361,12 @@ def materialize_stream0_assets_with_removals(
         if (b64_string is not None and b64_string.strip())
         else _get_active_blztar()
     )
+    if not payload:
+        return {}, set()
+    cached = _STREAM0_CACHE.get(payload)
+    if cached is not None:
+        return dict(cached[0]), set(cached[1])
+
     raw_bytes = (
         base64.b64decode(b"".join(payload.encode("ascii").split())) if payload else b""
     )
@@ -5293,6 +5410,9 @@ def materialize_stream0_assets_with_removals(
             else:
                 state[fname] = fdata
                 removals.discard(fname)
+    if len(_STREAM0_CACHE) > 32:
+        _STREAM0_CACHE.clear()
+    _STREAM0_CACHE[payload] = (dict(state), set(removals))
     return state, removals
 
 
@@ -5363,6 +5483,254 @@ def _timestamp_epoch(timestamp: Optional[str]) -> Optional[float]:
         return None
 
 
+class GitIgnoreRule:
+    def __init__(
+        self,
+        is_negation: bool,
+        directory_only: bool,
+        exact_regex: re.Pattern,
+        prefix_regex: re.Pattern,
+    ):
+        self.is_negation = is_negation
+        self.directory_only = directory_only
+        self.exact_regex = exact_regex
+        self.prefix_regex = prefix_regex
+
+
+class GitIgnoreMatcher:
+    """Evaluates relative paths against repo .gitignore rules in pure Python."""
+
+    def __init__(
+        self,
+        repo_root: Optional[Path] = None,
+        files: Optional[dict[str, bytes]] = None,
+    ):
+        self.repo_root = Path(repo_root).resolve() if repo_root is not None else None
+        self.rules: List[GitIgnoreRule] = []
+        if files is not None:
+            self._load_rules_from_files(files)
+        elif self.repo_root is not None:
+            self._load_rules_from_disk()
+
+    def _load_rules_from_files(self, files: dict[str, bytes]) -> None:
+        gi_keys = [
+            k
+            for k in files
+            if Path(k).name == ".gitignore"
+            and not any(part == ".git" for part in Path(k).parts)
+        ]
+        gi_keys.sort(key=lambda k: len(Path(k).parts))
+        for k in gi_keys:
+            rel_dir = Path(k).parent.as_posix()
+            if rel_dir == ".":
+                rel_dir = ""
+            text = files[k].decode("utf-8", errors="replace")
+            self._parse_gitignore_text(text, rel_dir)
+
+    def _load_rules_from_disk(self) -> None:
+        if self.repo_root is None or not self.repo_root.is_dir():
+            try:
+                from dwimsy.meta import unbundle
+
+                text = unbundle.get_asset_text(".gitignore")
+                self._parse_gitignore_text(text, "")
+            except Exception:
+                pass
+            return
+
+        gitignore_files: List[Path] = []
+        for p in self.repo_root.rglob(".gitignore"):
+            if any(part == ".git" for part in p.parts):
+                continue
+            gitignore_files.append(p)
+
+        gitignore_files.sort(key=lambda p: len(p.parts))
+
+        if not gitignore_files:
+            try:
+                from dwimsy.meta import unbundle
+
+                text = unbundle.get_asset_text(".gitignore")
+                self._parse_gitignore_text(text, "")
+            except Exception:
+                pass
+            return
+
+        for gf in gitignore_files:
+            try:
+                rel_dir = gf.parent.relative_to(self.repo_root).as_posix()
+                if rel_dir == ".":
+                    rel_dir = ""
+                text = gf.read_text(encoding="utf-8", errors="replace")
+                self._parse_gitignore_text(text, rel_dir)
+            except Exception:
+                pass
+
+    def _parse_gitignore_text(self, text: str, base_dir_rel: str) -> None:
+        for raw_line in text.splitlines():
+            line = raw_line.rstrip("\r\n")
+            if not line or line.startswith("#"):
+                continue
+
+            is_negation = False
+            if line.startswith("!"):
+                is_negation = True
+                line = line[1:]
+
+            if line.startswith(r"\#") or line.startswith(r"\!"):
+                line = line[1:]
+
+            line = re.sub(r"(?<!\\)(?:\\\\)*\s+$", "", line)
+            line = line.replace(r"\ ", " ")
+            if not line:
+                continue
+
+            directory_only = False
+            if line.endswith("/"):
+                directory_only = True
+                line = line[:-1]
+
+            anchored = line.startswith("/")
+            has_slash = "/" in line.lstrip("/")
+            line = line.lstrip("/")
+
+            i = 0
+            n = len(line)
+            res: List[str] = []
+            while i < n:
+                c = line[i]
+                if c == "*":
+                    if i + 1 < n and line[i + 1] == "*":
+                        if i + 2 < n and line[i + 2] == "/":
+                            res.append(r"(?:.+/)?")
+                            i += 3
+                        elif i > 0 and line[i - 1] == "/":
+                            res.append(r".*")
+                            i += 2
+                        else:
+                            res.append(r".*")
+                            i += 2
+                    else:
+                        res.append(r"[^/]*")
+                        i += 1
+                elif c == "?":
+                    res.append(r"[^/]")
+                    i += 1
+                elif c == "[":
+                    j = i + 1
+                    if j < n and line[j] in ("!", "^"):
+                        j += 1
+                    if j < n and line[j] == "]":
+                        j += 1
+                    while j < n and line[j] != "]":
+                        j += 1
+                    if j < n:
+                        class_content = line[i + 1 : j]
+                        if class_content.startswith("!"):
+                            class_content = "^" + class_content[1:]
+                        res.append(f"[{class_content}]")
+                        i = j + 1
+                    else:
+                        res.append(r"\[")
+                        i += 1
+                else:
+                    res.append(re.escape(c))
+                    i += 1
+
+            pattern_re = "".join(res)
+            base_prefix = re.escape(base_dir_rel.strip("/"))
+            if base_prefix:
+                base_prefix += "/"
+
+            if anchored or has_slash:
+                exact_re = f"^{base_prefix}{pattern_re}$"
+                prefix_re = f"^{base_prefix}{pattern_re}/.*$"
+            else:
+                exact_re = f"^{base_prefix}(?:.+/)?{pattern_re}$"
+                prefix_re = f"^{base_prefix}(?:.+/)?{pattern_re}/.*$"
+
+            try:
+                compiled_exact = re.compile(exact_re)
+                compiled_prefix = re.compile(prefix_re)
+                self.rules.append(
+                    GitIgnoreRule(
+                        is_negation=is_negation,
+                        directory_only=directory_only,
+                        exact_regex=compiled_exact,
+                        prefix_regex=compiled_prefix,
+                    )
+                )
+            except re.error:
+                pass
+
+    def matches(self, rel_path: str | Path, is_dir: bool = False) -> bool:
+        path_obj = Path(rel_path)
+        parts = path_obj.parts
+        if (
+            any(p == ".git" or p == "__pycache__" for p in parts)
+            or path_obj.suffix == ".pyc"
+        ):
+            return True
+        posix_path = path_obj.as_posix().strip("/")
+        if not posix_path:
+            return False
+
+        matched = False
+        for rule in self.rules:
+            if is_dir:
+                if rule.exact_regex.match(posix_path) or rule.prefix_regex.match(
+                    posix_path + "/"
+                ):
+                    matched = not rule.is_negation
+            else:
+                if rule.directory_only:
+                    if rule.prefix_regex.match(posix_path):
+                        matched = not rule.is_negation
+                else:
+                    if rule.exact_regex.match(posix_path) or rule.prefix_regex.match(
+                        posix_path
+                    ):
+                        matched = not rule.is_negation
+
+        return matched
+
+
+def get_git_command(args: Optional[Any] = None) -> Optional[str]:
+    """Return the configured git executable command, or None if git is disabled."""
+    if args is not None:
+        if getattr(args, "without_git", False):
+            return None
+        with_git = getattr(args, "with_git", None)
+        if with_git is not None and with_git is not False:
+            return with_git if isinstance(with_git, str) and with_git else "git"
+    if os.environ.get("DWIMSY_WITHOUT_GIT") == "1":
+        return None
+    env_git = os.environ.get("DWIMSY_GIT")
+    if env_git:
+        return env_git
+    return "git"
+
+
+def _git_ignored_paths(out_path: Path, names: Iterable[str]) -> Set[str]:
+    """Return paths ignored by the target checkout's .gitignore rules in pure Python."""
+    names = [name for name in names if name]
+    if not names:
+        return set()
+    matcher = GitIgnoreMatcher(out_path)
+    return {name for name in names if matcher.matches(name)}
+
+
+def _is_protected_target_path(name: str, ignored: Set[str]) -> bool:
+    """Whether a target-tree path must never be treated as bundle state."""
+    path = Path(name)
+    return (
+        any(part == ".git" for part in path.parts)
+        or "__pycache__" in path.parts
+        or name.endswith(".pyc")
+        or name in ignored
+    )
+
+
 def safe_unbundle(
     b64_string: Optional[str] = None,
     output_dir: str | Path = ".",
@@ -5425,6 +5793,17 @@ def safe_unbundle(
 
     from dwimsy.meta.versions import portable_path_error
 
+    # Treat Git-ignored target paths as external/private state.  They must not
+    # participate in cleanliness matching, rollback-removal planning, collision
+    # checks, or extraction.
+    _asset_names = [
+        name[len("<dwimsy-bundle>/") :]
+        if name.startswith("<dwimsy-bundle>/")
+        else name
+        for name in assets
+    ]
+    ignored_target = _git_ignored_paths(out_path, _asset_names)
+
     invalid_paths = [(name, portable_path_error(name)) for name in assets]
     invalid_paths = [(name, err) for name, err in invalid_paths if err]
     if invalid_paths:
@@ -5435,6 +5814,8 @@ def safe_unbundle(
     if out_path.exists() and not force:
         for norm_name in assets:
             if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+                continue
+            if _is_protected_target_path(norm_name, ignored_target):
                 continue
             dest_file = out_path / norm_name
             if dest_file.is_dir():
@@ -5475,13 +5856,17 @@ def safe_unbundle(
 
     if out_path.is_dir() and any(out_path.iterdir()):
         disk_files: Dict[str, bytes] = {}
+        disk_candidates = [
+            p.relative_to(out_path).as_posix()
+            for p in out_path.rglob("*")
+            if p.is_file()
+        ]
+        ignored_disk = ignored_target | _git_ignored_paths(out_path, disk_candidates)
         for p in out_path.rglob("*"):
             if p.is_file():
                 rel = p.relative_to(out_path).as_posix()
                 if (
-                    not any(part == ".git" for part in p.parts)
-                    and "__pycache__" not in rel
-                    and not rel.endswith(".pyc")
+                    not _is_protected_target_path(rel, ignored_disk)
                     and not (
                         p.parent == out_path
                         and (rel.startswith("dwimsy_") or rel.startswith("_failed_"))
@@ -5534,7 +5919,10 @@ def safe_unbundle(
                 if matching_ver_tag is not None:
                     break
 
-        if matching_ver_tag is None:
+        if matching_ver_tag is None and (
+            (out_path / "dwimsy" / "_version.py").is_file()
+            or (out_path / "_version.py").is_file()
+        ) and (out_path / "dwimsy" / "__init__.py").is_file():
             try:
                 declared_v = (
                     integrity._version_values(out_path)
@@ -5565,9 +5953,7 @@ def safe_unbundle(
                 for name in disk_files:
                     if name in target_names:
                         continue
-                    if any(part == ".git" for part in Path(name).parts):
-                        continue
-                    if "__pycache__" in Path(name).parts or name.endswith(".pyc"):
+                    if _is_protected_target_path(name, ignored_disk):
                         continue
                     if (name == "deps" or name.startswith("deps/")) and not with_deps:
                         continue
@@ -5699,6 +6085,8 @@ def safe_unbundle(
             norm_name = norm_name[len("<dwimsy-bundle>/") :]
         if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
             continue
+        if _is_protected_target_path(norm_name, ignored_target):
+            continue
         if norm_name == "dwimsy/meta/unbundle.py":
             continue
 
@@ -5749,6 +6137,8 @@ def safe_unbundle(
         if norm_name.startswith("<dwimsy-bundle>/"):
             norm_name = norm_name[len("<dwimsy-bundle>/") :]
         if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+            continue
+        if _is_protected_target_path(norm_name, ignored_target):
             continue
         dest_file = out_path / norm_name
         if not dest_file.exists() and not dest_file.is_symlink():
@@ -6154,15 +6544,21 @@ def parse_early_pipeline_flags(
     if this_mod is not None and "dwimsy.meta.unbundle" not in sys.modules:
         sys.modules["dwimsy.meta.unbundle"] = this_mod
     raw_b64 = _get_active_blztar()
-    if not any(isinstance(finder, BundleFinder) for finder in sys.meta_path):
-        if raw_b64:
-            sys.meta_path.insert(0, BundleFinder(raw_b64, self_mod=this_mod))
-    from dwimsy.meta.versions import VersionSpace
-
-    vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
     current_argv0 = initial_argv0 or (
         sys.argv[0] if sys.argv and sys.argv[0] else "dwimsy"
     )
+    argv0_effective = get_invocation_path(current_argv0)
+    is_chk, r_root = detect_self_location(argv0_effective)
+    if is_chk and r_root and str(r_root) not in sys.path:
+        sys.path.insert(0, str(r_root))
+    if not any(isinstance(finder, BundleFinder) for finder in sys.meta_path):
+        if raw_b64:
+            sys.meta_path.insert(
+                0, BundleFinder(raw_b64, self_mod=this_mod, on_disk_root=r_root if is_chk else None)
+            )
+    from dwimsy.meta.versions import VersionSpace
+
+    vspace = VersionSpace.from_blztar(raw_b64) if raw_b64 else VersionSpace()
     argv0_overridden = False
 
     active_selection = vspace.resolve_selection("primary")
@@ -6176,6 +6572,8 @@ def parse_early_pipeline_flags(
     short_v_count = 0
     explicit_verbose_count = 0
     explicit_version_requested = False
+    without_git = False
+    with_git = None
     version_snapshots: List[str] = []
     # --force is a safety override, not a version-space transformation.
     # It may appear anywhere in the invocation and never changes semantic
@@ -6403,6 +6801,21 @@ def parse_early_pipeline_flags(
             i += 1
             continue
 
+        # 13.5 Git flags: --without-git, --with-git[=GIT]
+        if opt_key == "--without-git":
+            without_git = True
+            with_git = None
+            operations.append(("without-git", None))
+            i += 1
+            continue
+
+        if opt_key == "--with-git":
+            without_git = False
+            with_git = opt_val if has_val and opt_val else "git"
+            operations.append(("with-git", with_git))
+            i += 1
+            continue
+
         # 14. Help flags: -h, -?, /?, --help
         if opt_key in ("-h", "-?", "/?", "--help"):
             if early_exit is None:
@@ -6467,6 +6880,8 @@ def parse_early_pipeline_flags(
         ),
         "list_versions": any(op == "version-list" for op, _ in operations),
         "version_help": any(op == "version-help" for op, _ in operations),
+        "without_git": without_git,
+        "with_git": with_git,
         "force": force_requested,
     }
 
@@ -6600,9 +7015,6 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
     this_mod = sys.modules.get(__name__)
     if this_mod is not None and "dwimsy.meta.unbundle" not in sys.modules:
         sys.modules["dwimsy.meta.unbundle"] = this_mod
-    if not any(isinstance(finder, BundleFinder) for finder in sys.meta_path):
-        sys.meta_path.insert(0, BundleFinder(_get_active_blztar(), self_mod=this_mod))
-
     from dwimsy.meta.versions import VersionSpace
 
     pipeline, remaining_args = parse_early_pipeline_flags(effective_args)
@@ -6612,6 +7024,16 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
     )
     argv0_effective = get_invocation_path(raw_argv0)
     is_checkout, repo_root = detect_self_location(argv0_effective)
+
+    if not any(isinstance(finder, BundleFinder) for finder in sys.meta_path):
+        sys.meta_path.insert(
+            0,
+            BundleFinder(
+                _get_active_blztar(),
+                self_mod=this_mod,
+                on_disk_root=repo_root if is_checkout else None,
+            ),
+        )
 
     raw_b64 = _get_active_blztar()
     vspace = VersionSpace.from_blztar(raw_b64)
@@ -6873,12 +7295,20 @@ def main(argv: Optional[List[str]] = None) -> int:
     this_mod = sys.modules.get(__name__)
     if this_mod is not None and "dwimsy.meta.unbundle" not in sys.modules:
         sys.modules["dwimsy.meta.unbundle"] = this_mod
-    if not any(isinstance(finder, BundleFinder) for finder in sys.meta_path):
-        sys.meta_path.insert(0, BundleFinder(_get_active_blztar(), self_mod=this_mod))
 
     raw_argv0 = pipeline["argv0"] or (sys.argv[0] if sys.argv and sys.argv[0] else "")
     argv0_effective = get_invocation_path(raw_argv0) if raw_argv0 else ""
     is_checkout, repo_root = detect_self_location(argv0_effective)
+
+    if not any(isinstance(finder, BundleFinder) for finder in sys.meta_path):
+        sys.meta_path.insert(
+            0,
+            BundleFinder(
+                _get_active_blztar(),
+                self_mod=this_mod,
+                on_disk_root=repo_root if is_checkout else None,
+            ),
+        )
     if is_checkout and repo_root and str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
 
@@ -6973,6 +7403,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-f", "--force", action="store_true", help="Replace conflicting files"
     )
     parser.add_argument(
+        "--without-git", action="store_true", help="Do not invoke external git binary"
+    )
+    parser.add_argument(
+        "--with-git", nargs="?", const="git", default=None, help="Specify custom git binary"
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be extracted without changing files",
@@ -6998,7 +7434,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         if this_mod is not None and "dwimsy.meta.unbundle" not in sys.modules:
             sys.modules["dwimsy.meta.unbundle"] = this_mod
         if not any(isinstance(finder, BundleFinder) for finder in sys.meta_path):
-            bundle_finder = BundleFinder(_get_active_blztar(), self_mod=this_mod)
+            bundle_finder = BundleFinder(
+                _get_active_blztar(),
+                self_mod=this_mod,
+                on_disk_root=repo_root if is_checkout else None,
+            )
             sys.meta_path.insert(0, bundle_finder)
         from dwimsy.tests import run_tests
 
