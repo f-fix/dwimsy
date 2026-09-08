@@ -142,7 +142,9 @@ class TestTestRunner(unittest.TestCase):
                 return tests_dir
 
             buf = io.StringIO()
-            with mock.patch.object(dw_tests, "_extract_tests_from_bundle", side_effect=fake_extract):
+            with mock.patch.object(
+                dw_tests, "_extract_tests_from_bundle", side_effect=fake_extract
+            ):
                 rc = dw_tests.run_tests(
                     ["test_synthetic.py"], verbose=1, stream=buf, repo_root=tmp_path
                 )
@@ -230,7 +232,9 @@ class StandaloneListTestsTests(unittest.TestCase):
             return tests_dir
 
         try:
-            with mock.patch.object(dw_tests, "_extract_tests_from_bundle", side_effect=fake_extract):
+            with mock.patch.object(
+                dw_tests, "_extract_tests_from_bundle", side_effect=fake_extract
+            ):
                 ids = dw_tests.list_tests(["test_synthetic.py"])
             self.assertTrue(ids)
             self.assertEqual(sys.meta_path, original_meta_path)

@@ -488,7 +488,11 @@ def source_files(root: Optional[Path] = None) -> Tuple[Path, ...]:
         if not p.is_file():
             continue
         rel = p.relative_to(repo).as_posix()
-        if any(part == ".git" for part in p.parts) or "__pycache__" in p.parts or p.suffix == ".pyc":
+        if (
+            any(part == ".git" for part in p.parts)
+            or "__pycache__" in p.parts
+            or p.suffix == ".pyc"
+        ):
             continue
         if gitignore.matches(rel, is_dir=False):
             continue

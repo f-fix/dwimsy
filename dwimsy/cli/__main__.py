@@ -1284,7 +1284,11 @@ def main(
         "--without-git", action="store_true", help="Do not invoke external git binary"
     )
     p_meta_fetch.add_argument(
-        "--with-git", nargs="?", const="git", default=None, help="Specify custom git binary path"
+        "--with-git",
+        nargs="?",
+        const="git",
+        default=None,
+        help="Specify custom git binary path",
     )
     p_meta_fetch.add_argument(
         "--baseline", action="store_true", help="Use bundled baseline dependency files"

@@ -453,9 +453,11 @@ class TestV91GitMetadataUnbundle(unittest.TestCase):
                 for p in root.rglob("*")
                 if p.is_file() and ".git" not in p.relative_to(root).parts
             }
-            unbundle_globals["materialize_stream0_assets_with_removals"] = lambda _b64: (
-                assets,
-                set(),
+            unbundle_globals["materialize_stream0_assets_with_removals"] = (
+                lambda _b64: (
+                    assets,
+                    set(),
+                )
             )
             try:
                 safe_unbundle(output_dir=root, force=False, quiet=True)
@@ -611,7 +613,9 @@ class TestGitFlagOptions(unittest.TestCase):
         self.assertIsNone(p1["with_git"])
         self.assertEqual(rem1, ["meta", "bundle"])
 
-        p2, rem2 = parse_early_pipeline_flags(["--with-git=/usr/bin/custom-git", "meta", "bundle"])
+        p2, rem2 = parse_early_pipeline_flags(
+            ["--with-git=/usr/bin/custom-git", "meta", "bundle"]
+        )
         self.assertFalse(p2["without_git"])
         self.assertEqual(p2["with_git"], "/usr/bin/custom-git")
         self.assertEqual(rem2, ["meta", "bundle"])

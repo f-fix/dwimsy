@@ -172,7 +172,6 @@ def list_tests(
 
     # Discovery is side-effect free with respect to imported modules.
 
-
     loader = unittest.defaultTestLoader
     test_ids = []
     original_meta_path = list(sys.meta_path)
@@ -211,16 +210,18 @@ def list_tests(
         finally:
             sys.path[:] = orig_sys_path
             for name in list(sys.modules):
-                if name == "tests" or name.startswith("tests.") or name.startswith("test_"):
+                if (
+                    name == "tests"
+                    or name.startswith("tests.")
+                    or name.startswith("test_")
+                ):
                     sys.modules.pop(name, None)
             sys.modules.update(saved_test_modules)
     else:
         saved_test_modules = {
             name: module
             for name, module in sys.modules.items()
-            if name == "tests"
-            or name.startswith("tests.")
-            or name.startswith("test_")
+            if name == "tests" or name.startswith("tests.") or name.startswith("test_")
         }
         for name in list(saved_test_modules):
             sys.modules.pop(name, None)
@@ -299,7 +300,6 @@ def run_tests(
             )
         ):
             sys.modules.pop(mod_name, None)
-
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()

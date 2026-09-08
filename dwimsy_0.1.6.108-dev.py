@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.107-dev (2026-09-08)
+Version: 0.1.6.108-dev (2026-09-08)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.107-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.108-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.107-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.107-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.107-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.107-dev.py dwimsy license
-  python3 dwimsy_0.1.6.107-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.108-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.108-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.108-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.108-dev.py dwimsy license
+  python3 dwimsy_0.1.6.108-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.107-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.108-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -42,9 +42,16 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 _HERE = Path(__file__).resolve() if "__file__" in globals() else None
-if _HERE and len(_HERE.parts) >= 3 and _HERE.parts[-3] == "dwimsy" and _HERE.parts[-2] == "meta":
+if (
+    _HERE
+    and len(_HERE.parts) >= 3
+    and _HERE.parts[-3] == "dwimsy"
+    and _HERE.parts[-2] == "meta"
+):
     _REPO_ROOT = _HERE.parents[2]
-    if (_REPO_ROOT / "dwimsy" / "_version.py").is_file() and str(_REPO_ROOT) not in sys.path:
+    if (_REPO_ROOT / "dwimsy" / "_version.py").is_file() and str(
+        _REPO_ROOT
+    ) not in sys.path:
         sys.path.insert(0, str(_REPO_ROOT))
 
 _BLZTAR_RE = re.compile(
@@ -5128,7 +5135,7 @@ n3kCjPMK0QlD6Dw0PcjZ1PEDwNj4QqFIa6NFzq6MXQW0oWENubPdh7ltolmO3Lpu418Jznr18B/P
 BkUsNUeip6jv7Jyl29TKVeKfGLi8lzhTIkRp8QwGtQaPjmgfPQHo7BvZ33cxiDEFRFkH8yS95TRm
 y4htvvILprBaOXSRipF7SzecnccL/OY2xoUTHBtr9onOSblHYau3Ux4pfiQ/k7T/WFZJCU24sC9i
 WgxIYc/9Gq0WTCH2C0fmAh3ANGcpOaeAfPBKLi8CRl4ABYPQjqH7z9XgFnWy/b3BqPFvqQYMMseq
-asINUPBc1Toy836Kuk/IcHXgW62dVFomd5FSv91z4wE82pOX9tQUwboamaMhFw8A7HWkun+eClmr
+asINUPBc1Toy836Kuk/IcHXgW62dVFomd5FSv91z4wE82pOX9tQUwboan/7zGQYA7HWkun+eClmr
 PNAKq9uYjVCh43Vq1MkXLnCKZsqqE95s+amTn6/uy7G0NZPJPmIqOVU1sYi3+B8zIWEvhOB6XCfu
 gLCo5mxCgeNDff5wCezHGsc4NpfKsrl5wxpbKMfMLIJO/RMMtKKCbJbnYmhuiuv2TVRPq7YXjx4B
 NXUtXTRTpP5ae9dfJNk1AYEzzGYQtS+m5/DeA7Dd4PMn5T8cn2lUJAc0eonp9zjcGcSlS54VdD2H
@@ -5232,8 +5239,17 @@ Q5hL3e0cMHh2BM/hQs5bPlu/u3CBZ3Szf7BdSanGXDAwGc3x8Scg+IBpBJoTJAMe8itGgo8xPsHM
 aA2OGyNjx7KhysEM7witphkzgdV0MVyC/PYxZh9I2MZjwwX9Tr6VazNGvB8WVlRUbJZruYykEIxl
 coQPlIqHXNhCF8T4DDSWOqZc0UYvcJLd+HyoGjnJacSwPnmMIl6rOfdo3rcX1YRZmGGOtxWRt5MH
 C7zTKu2RbykaAhc7k0b8RMbHRIDaQzTEvGBYesYXMZf/IuzHpBgpFU9Y4JGoIsAAmgnTHZ/Azh2D
-FTAOdDNoADaGUXv+IaUMiV2nrbXFVIYAAABt3Pk6ajEHzgAB1tMRgLCqCQAAANKbjKAUFzswAwAA
-AAAEWVo=
+FTAOdDNoADaGUXv+IaUMiV2nocUT2tP+apCLg8lu2NTvZm9b3++BE08x/nATz67kq5SVa3nGZDyH
+wfjOVWlbzsRW5K/YekjkjoCcPNqMhnYZfMobpz8TKDLu6dmdwOeiiG82PH2xFum0fkM8BT9wXCR3
+eiL5/Tvyp8yZCOyd7cvdUaLnu9V43xFZ8ALy/NWKvNxemC6e77SRrM6eeuDAOsNYlmY6WwG3dpYK
+2BCjC/8oxH5xFo4x5VRfgSSITg+h1uoeXP/ngJZTNAlusBmSFRY54n2ZXHZOMlt0pRKxXK4/J0MD
+YOe2kL+GaMSHyu2T1qMxQA28799dlzDZvKbc6ymxCG8CFmjs9z7HgvcFvePCQUF4JqQuBjoy/ytl
+/MMqFhTx0e1MHSVEcplIXsx7WwnCFw4W+fNWrrPMRr5YHLePRwpMUbqmCVd4mjMoO/QEius6tVA+
+R9QeTxKK3gOKeAl0e7DByKudVnDl/akZ/Bi3mzhg6u5ywQOHoQ5kzr7nGMA/HO2EIjgau14xreI0
+xP/k06REOwP+vlzip5EK+l2cgnwwTzbVWjIborXreaYz3z/BqWCRqUvCMc7c00WRcPCk3umWjjh+
+4TGUa+UIOpM0hy9jod9FtC3Zp6SOSKjfWNtn1qwXFMYVVIDMo1Fo3NNxsZr2t32ynfR7eKFrUUYJ
+w4ZSBDRPjUwdMQYxKYAMLQASAAdbjbrBP+xmunilYISidcFR5AAAAAC7AVmhylp4GwAB5dcRgIDE
+CQAAAGQ93FwUFzswAwAAAAAEWVo=
 """
 
 
@@ -5797,9 +5813,7 @@ def safe_unbundle(
     # participate in cleanliness matching, rollback-removal planning, collision
     # checks, or extraction.
     _asset_names = [
-        name[len("<dwimsy-bundle>/") :]
-        if name.startswith("<dwimsy-bundle>/")
-        else name
+        name[len("<dwimsy-bundle>/") :] if name.startswith("<dwimsy-bundle>/") else name
         for name in assets
     ]
     ignored_target = _git_ignored_paths(out_path, _asset_names)
@@ -5865,13 +5879,10 @@ def safe_unbundle(
         for p in out_path.rglob("*"):
             if p.is_file():
                 rel = p.relative_to(out_path).as_posix()
-                if (
-                    not _is_protected_target_path(rel, ignored_disk)
-                    and not (
-                        p.parent == out_path
-                        and (rel.startswith("dwimsy_") or rel.startswith("_failed_"))
-                        and (rel.endswith(".py") or rel.endswith(".pyz"))
-                    )
+                if not _is_protected_target_path(rel, ignored_disk) and not (
+                    p.parent == out_path
+                    and (rel.startswith("dwimsy_") or rel.startswith("_failed_"))
+                    and (rel.endswith(".py") or rel.endswith(".pyz"))
                 ):
                     try:
                         disk_files[rel] = p.read_bytes()
@@ -5919,10 +5930,14 @@ def safe_unbundle(
                 if matching_ver_tag is not None:
                     break
 
-        if matching_ver_tag is None and (
-            (out_path / "dwimsy" / "_version.py").is_file()
-            or (out_path / "_version.py").is_file()
-        ) and (out_path / "dwimsy" / "__init__.py").is_file():
+        if (
+            matching_ver_tag is None
+            and (
+                (out_path / "dwimsy" / "_version.py").is_file()
+                or (out_path / "_version.py").is_file()
+            )
+            and (out_path / "dwimsy" / "__init__.py").is_file()
+        ):
             try:
                 declared_v = (
                     integrity._version_values(out_path)
@@ -6554,7 +6569,10 @@ def parse_early_pipeline_flags(
     if not any(isinstance(finder, BundleFinder) for finder in sys.meta_path):
         if raw_b64:
             sys.meta_path.insert(
-                0, BundleFinder(raw_b64, self_mod=this_mod, on_disk_root=r_root if is_chk else None)
+                0,
+                BundleFinder(
+                    raw_b64, self_mod=this_mod, on_disk_root=r_root if is_chk else None
+                ),
             )
     from dwimsy.meta.versions import VersionSpace
 
@@ -7406,7 +7424,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         "--without-git", action="store_true", help="Do not invoke external git binary"
     )
     parser.add_argument(
-        "--with-git", nargs="?", const="git", default=None, help="Specify custom git binary"
+        "--with-git",
+        nargs="?",
+        const="git",
+        default=None,
+        help="Specify custom git binary",
     )
     parser.add_argument(
         "--dry-run",
