@@ -23,7 +23,7 @@ if len(here.parts) >= 3 and here.parts[-3] == "dwimsy" and here.parts[-2] == "me
     if (p / "dwimsy" / "_version.py").is_file() and str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from dwimsy.meta import integrity, unbundle
+from dwimsy.meta import integrity, unbundle, versions
 from dwimsy.meta.unbundle import extract_b64_lzma_tar
 from dwimsy.meta.versions import (
     VersionSpace,
@@ -74,16 +74,17 @@ from dwimsy.meta.integrity import GitIgnoreRule, GitIgnoreMatcher, get_git_comma
 
 
 def _canonical_layer_mtimes(root: Path, names) -> tuple[int, dict[str, int]]:
-    """Return one newest on-disk mtime for the supplied changed files."""
+    """Return one newest on-disk mtime for the supplied changed files rounded to 2-second timestamp."""
     mtimes = {}
     for name in names:
         fp = root / name
         if fp.is_file():
             try:
-                mtimes[name] = int(fp.stat().st_mtime)
+                mtimes[name] = int(round(fp.stat().st_mtime / 2.0) * 2)
             except OSError:
                 pass
-    layer_mtime = max(mtimes.values()) if mtimes else int(time.time())
+    raw_mtime = max(mtimes.values()) if mtimes else int(time.time())
+    layer_mtime = int(round(raw_mtime / 2.0) * 2)
     return layer_mtime, {name: layer_mtime for name in names}
 
 
@@ -91,6 +92,7 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
     """Return the deterministic portable file tree used by bundle creation."""
     result: dict[str, bytes] = {}
     invalid_paths: list[tuple[str, str]] = []
+    seen_case_keys: dict[str, str] = {}
     gitignore = GitIgnoreMatcher(repo_root)
     manifest = integrity.canonical_manifest(repo_root)
     if (repo_root / "dwimsy").is_dir():
@@ -112,6 +114,14 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
                 p.name.startswith("dwimsy_") and p.suffix in (".py", ".pyz")
             ):
                 continue
+
+            ckey = versions.path_collision_key(rel_name)
+            if ckey in seen_case_keys and seen_case_keys[ckey] != rel_name:
+                raise ValueError(
+                    f"Cannot bundle repository with NFKC case-fold collision: '{seen_case_keys[ckey]}' and '{rel_name}'"
+                )
+            seen_case_keys[ckey] = rel_name
+
             if p.is_file():
                 name = rel.as_posix()
                 err = portable_path_error(name)
@@ -122,6 +132,10 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
                 if name == "dwimsy/meta/unbundle.py":
                     data = elide_blztar_bytes(data)
                 result[name] = data
+
+        if invalid_paths:
+            details = "\n".join(f"{name}: {err}" for name, err in invalid_paths)
+            raise ValueError(f"Cannot bundle non-portable paths:\n{details}")
     else:
         embedded_assets = unbundle.materialize_stream0_assets()
         for k, v in embedded_assets.items():
@@ -427,29 +441,81 @@ def verify_bundle_roundtrip(script_text: str, repo_root: Optional[Path] = None) 
             )
 
 
-def write_pyz_bundle(script_text: str, output_path: Path) -> None:
-    """Generate a compressed .pyz bundle using stdlib zipapp."""
-    import zipapp
+def write_pyz_bundle(
+    script_text: str,
+    output_path: Path,
+    timestamp: Optional[str] = None,
+) -> None:
+    """Generate an executable compressed .pyz bundle using zipfile with deterministic UTC timestamp."""
+    import zipfile
+    import datetime
 
-    with tempfile.TemporaryDirectory() as staging:
-        st_path = Path(staging)
-        main_py = st_path / "__main__.py"
-        main_py.write_text(script_text, encoding="utf-8")
+    dt_utc = None
+    if timestamp:
         try:
-            main_py.chmod(0o755)
-        except OSError:
+            dt_utc = datetime.datetime.fromisoformat(
+                timestamp.replace("Z", "+00:00")
+            ).astimezone(datetime.timezone.utc)
+        except Exception:
             pass
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        zipapp.create_archive(
-            st_path,
-            target=output_path,
-            interpreter="/usr/bin/env python3",
-            compressed=True,
-        )
+
+    if dt_utc is None:
         try:
-            output_path.chmod(0o755)
-        except OSError:
+            m_b = re.search(r'blztar = """\n([\s\S]*?)\n"""', script_text)
+            if m_b:
+                from dwimsy.meta import versions
+
+                sp = versions.VersionSpace.from_blztar(m_b.group(1))
+                if sp.streams and sp.streams[0].layers:
+                    head_v = sp.streams[0].get_head_version()
+                    if head_v:
+                        ts_str = sp.get_layer_timestamp(
+                            sp.streams[0].layers[head_v.ordinal]
+                        )
+                        if ts_str:
+                            dt_utc = datetime.datetime.fromisoformat(
+                                ts_str.replace("Z", "+00:00")
+                            ).astimezone(datetime.timezone.utc)
+        except Exception:
             pass
+
+    if dt_utc is None:
+        dt_utc = datetime.datetime.now(datetime.timezone.utc)
+
+    rounded_epoch = int(round(dt_utc.timestamp() / 2.0) * 2)
+    dt_utc = datetime.datetime.fromtimestamp(
+        rounded_epoch, tz=datetime.timezone.utc
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    content_bytes = script_text.encode("utf-8")
+
+    with open(output_path, "wb") as f:
+        f.write(b"#!/usr/bin/env python3\n")
+        with zipfile.ZipFile(f, "w") as zf:
+            zinfo = zipfile.ZipInfo(
+                "__main__.py",
+                date_time=(
+                    dt_utc.year,
+                    dt_utc.month,
+                    dt_utc.day,
+                    dt_utc.hour,
+                    dt_utc.minute,
+                    dt_utc.second,
+                ),
+            )
+            zinfo.compress_type = zipfile.ZIP_DEFLATED
+            zinfo.external_attr = 0o100755 << 16
+            zf.writestr(zinfo, content_bytes)
+
+    try:
+        output_path.chmod(0o755)
+    except OSError:
+        pass
+    try:
+        os.utime(output_path, (rounded_epoch, rounded_epoch))
+    except OSError:
+        pass
 
 
 def get_default_bundle_name(
@@ -645,6 +711,16 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
         if out_path.suffix == ".py":
             print(f"  {out_path.with_suffix('.pyz')}", file=stderr)
         return 0
+    layer_ts = None
+    if vspace.streams and vspace.streams[0].layers:
+        head_v = vspace.streams[0].get_head_version()
+        if head_v:
+            layer_ts = vspace.get_layer_timestamp(
+                vspace.streams[0].layers[head_v.ordinal]
+            )
+    if not layer_ts:
+        _, layer_ts = integrity.get_latest_release_info(root)
+
     out_path = Path(out_name).resolve()
     is_default_out = not getattr(args, "output", None)
     generated_paths = [out_path]
@@ -652,12 +728,27 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(script_text, encoding="utf-8")
         out_path.chmod(0o755)
+        if layer_ts:
+            try:
+                ts_ep = unbundle._timestamp_epoch(layer_ts)
+                if ts_ep is not None:
+                    os.utime(out_path, (ts_ep, ts_ep))
+            except OSError:
+                pass
         if is_default_out:
             pyz_out = out_path.with_suffix(".pyz")
-            write_pyz_bundle(script_text, pyz_out)
+            write_pyz_bundle(script_text, pyz_out, timestamp=layer_ts)
+            try:
+                pyz_out.chmod(0o755)
+            except OSError:
+                pass
             generated_paths.append(pyz_out)
     elif out_path.suffix == ".pyz":
-        write_pyz_bundle(script_text, out_path)
+        write_pyz_bundle(script_text, out_path, timestamp=layer_ts)
+        try:
+            out_path.chmod(0o755)
+        except OSError:
+            pass
     else:
         raise ValueError(f"Unsupported output extension '{out_path.suffix}'")
     if len(generated_paths) == 1:
@@ -920,11 +1011,40 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         return 0
 
+    main_ts = None
+    if vspace.streams and vspace.streams[0].layers:
+        head_v = vspace.streams[0].get_head_version()
+        if head_v:
+            main_ts = vspace.get_layer_timestamp(
+                vspace.streams[0].layers[head_v.ordinal]
+            )
+    if not main_ts:
+        _, main_ts = integrity.get_latest_release_info(root)
+    main_epoch = unbundle._timestamp_epoch(main_ts)
+
     py_name = vspace.composite_bundle_name(".py")
     py_path = root / py_name
     pyz_path = py_path.with_suffix(".pyz")
     py_path.write_text(script_text, encoding="utf-8")
-    write_pyz_bundle(script_text, pyz_path)
+    try:
+        py_path.chmod(0o755)
+    except OSError:
+        pass
+    if main_epoch is not None:
+        try:
+            os.utime(py_path, (main_epoch, main_epoch))
+        except OSError:
+            pass
+    write_pyz_bundle(script_text, pyz_path, timestamp=main_ts)
+    try:
+        pyz_path.chmod(0o755)
+    except OSError:
+        pass
+    if main_epoch is not None:
+        try:
+            os.utime(pyz_path, (main_epoch, main_epoch))
+        except OSError:
+            pass
     return 0
 
 

@@ -45,19 +45,22 @@ _DWIMSY_ROLES = {"primary", "baseline", "unbundled", "alt"}
 
 REMOVAL_MARKER_PREFIX = ".wh."
 DIR_REMOVAL_MARKER_FILE = ".wh..wh..opq"
-_HOST_INVALID_CHARS = set('<>:"|?*')
+_HOST_INVALID_CHARS = set('<>:"/\\|?*')
 _HOST_RESERVED_NAMES = (
-    {"CON", "PRN", "AUX", "NUL", "CLOCK$"}
+    {"CON", "PRN", "AUX", "NUL", "CLOCK$", "CONIN$", "CONOUT$"}
     | {f"COM{i}" for i in range(1, 10)}
     | {f"LPT{i}" for i in range(1, 10)}
+    | {f"COM{c}" for c in "\u00B9\u00B2\u00B3"}
+    | {f"LPT{c}" for c in "\u00B9\u00B2\u00B3"}
 )
+MAX_VFAT_COMPONENT_LENGTH = 255
 
 
 def to_host_fs_component_name(component: str) -> str:
-    """Return a Windows/DOS-portable component name, preserving valid names."""
+    """Return a Windows/DOS/VFAT-portable component name, preserving valid names."""
     if not component or component in (".", ".."):
         return component
-    invalid = (
+    invalid_chars = (
         any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in component)
         or any(ch in _HOST_INVALID_CHARS for ch in component)
         or component.endswith(".")
@@ -66,22 +69,68 @@ def to_host_fs_component_name(component: str) -> str:
     )
     stem = component.rsplit(".", 1)[0]
     reserved = stem.rstrip(" .").upper() in _HOST_RESERVED_NAMES
-    if not invalid and not reserved:
+    code_unit_len = len(component.encode("utf-16-le")) // 2
+
+    if not invalid_chars and not reserved and code_unit_len <= MAX_VFAT_COMPONENT_LENGTH:
         return component
-    # Encode the complete offending stem for reserved device names; otherwise
-    # encode only bytes that cannot occur in a portable component.
+
+    has_real_ext = False
+    suffix = ""
+    if "." in component:
+        potential_suffix = component[component.rfind(".") :]
+        if len(potential_suffix) <= 16 and " " not in potential_suffix and len(potential_suffix) > 1:
+            has_real_ext = True
+            suffix = potential_suffix
+            stem = component[: component.rfind(".")]
+
     if reserved:
-        suffix = ""
-        if "." in component:
-            suffix = component[component.rfind(".") :]
-        return "".join(f"%{b:02X}" for b in stem.encode("utf-8")) + suffix
-    out = []
-    for ch in component:
-        if ord(ch) < 0x20 or ord(ch) == 0x7F or ch in _HOST_INVALID_CHARS:
-            out.extend(f"%{b:02X}" for b in ch.encode("utf-8"))
+        res_stem = "".join(f"%{b:02X}" for b in stem.encode("utf-8"))
+        res_suffix_parts = []
+        for ch in suffix:
+            if ord(ch) < 0x20 or ord(ch) == 0x7F or ch in _HOST_INVALID_CHARS:
+                res_suffix_parts.extend(f"%{b:02X}" for b in ch.encode("utf-8"))
+            else:
+                res_suffix_parts.append(ch)
+        converted = res_stem + "".join(res_suffix_parts)
+    else:
+        out = []
+        n = len(component)
+        for i, ch in enumerate(component):
+            if ord(ch) < 0x20 or ord(ch) == 0x7F or ch in _HOST_INVALID_CHARS:
+                out.extend(f"%{b:02X}" for b in ch.encode("utf-8"))
+            elif (i == 0 and ch == " ") or (i == n - 1 and ch in (" ", ".")):
+                out.extend(f"%{b:02X}" for b in ch.encode("utf-8"))
+            else:
+                out.append(ch)
+        converted = "".join(out)
+
+    if len(converted.encode("utf-16-le")) // 2 > MAX_VFAT_COMPONENT_LENGTH:
+        hash_suffix = "~" + hashlib.sha256(component.encode("utf-8")).hexdigest()[:8]
+        if has_real_ext:
+            avail_stem = MAX_VFAT_COMPONENT_LENGTH - len(hash_suffix) - len(suffix)
+            c_stem = converted[: len(converted) - len(suffix)]
+            while len(c_stem.encode("utf-16-le")) // 2 > avail_stem and c_stem:
+                c_stem = c_stem[:-1]
+            converted = c_stem.rstrip(" .") + hash_suffix + suffix
         else:
-            out.append(ch)
-    return "".join(out).rstrip(".")
+            avail_total = MAX_VFAT_COMPONENT_LENGTH - len(hash_suffix)
+            while len(converted.encode("utf-16-le")) // 2 > avail_total and converted:
+                converted = converted[:-1]
+            converted = converted.rstrip(" .") + hash_suffix
+
+    return converted
+
+
+def to_host_fs_path(path_str: str) -> str:
+    """Convert all components of a relative posix path to host FS safe names."""
+    parts = Path(path_str).parts
+    return "/".join(to_host_fs_component_name(p) for p in parts if p not in (".", ".."))
+
+
+def path_collision_key(path_str: str) -> str:
+    """Return the NFKC casefolded collision key for a path."""
+    parts = Path(path_str).parts
+    return "/".join(unicodedata.normalize("NFKC", p).casefold() for p in parts if p not in (".", ".."))
 
 
 def portable_path_error(path: str) -> Optional[str]:
@@ -89,11 +138,14 @@ def portable_path_error(path: str) -> Optional[str]:
     for component in Path(path).parts:
         if component in (".", ".."):
             continue
-        converted = to_host_fs_component_name(component)
         if component.startswith(REMOVAL_MARKER_PREFIX):
             return f"path '{path}' contains disallowed removal-marker component '{component}'."
+        if len(component.encode("utf-16-le")) // 2 > MAX_VFAT_COMPONENT_LENGTH:
+            return f"path '{path}' contains component '{component}' exceeding VFAT length limit (255 characters)."
+        converted = to_host_fs_component_name(component)
         if component != converted:
-            return f"path '{path}' contains disallowed component '{component}'.\nSuggested safe rename: '{Path(path).parent.joinpath(converted, Path(path).name).as_posix() if Path(path).name == component else str(Path(path).parent / converted)}'"
+            suggested = to_host_fs_path(path)
+            return f"path '{path}' contains disallowed component '{component}'.\nSuggested safe rename: '{suggested}'"
     return None
 
 
@@ -392,11 +444,14 @@ class Layer:
             code_hash if code_hash is not None else self._extract_code_hash()
         )
         self.sealed = bool(self.code_hash and self.code_hash.strip())
-        self.mtime = int(mtime) if mtime is not None else None
-        self.file_mtimes = (
-            {k: int(v) for k, v in file_mtimes.items()} if file_mtimes else {}
+        self.mtime = (
+            int(round(mtime / 2.0) * 2) if mtime is not None else None
         )
-        self.mtime = int(mtime) if mtime is not None else None
+        self.file_mtimes = (
+            {k: int(round(v / 2.0) * 2) for k, v in file_mtimes.items()}
+            if file_mtimes
+            else {}
+        )
 
     def _extract_version_tag(self) -> str:
         v_data = self.files.get("dwimsy/_version.py") or self.files.get("_version.py")
@@ -431,7 +486,7 @@ class Layer:
                 data = self.files[name]
                 ti = tarfile.TarInfo(name=name)
                 ti.size = len(data)
-                ti.mtime = int(file_mtimes.get(name, layer_mtime))
+                ti.mtime = int(round(file_mtimes.get(name, layer_mtime) / 2.0) * 2)
                 ti.mode = (
                     0o755
                     if (name.endswith(".py") and data.startswith(b"#!"))
@@ -964,6 +1019,68 @@ def parse_tar_layers_from_bytes(
 
                 is_mod_layer = "+mod." in tag_str
                 curr_semver = parse_semver(tag_str)
+
+                # Check for in-layer NFKC case-folding collisions
+                seen_case_keys: Dict[str, str] = {}
+                case_collision = None
+                for fname in files:
+                    if fname.startswith(".wh."):
+                        continue
+                    ckey = path_collision_key(fname)
+                    if ckey in seen_case_keys and seen_case_keys[ckey] != fname:
+                        case_collision = (seen_case_keys[ckey], fname)
+                        break
+                    seen_case_keys[ckey] = fname
+
+                if case_collision is not None:
+                    if in_tip:
+                        if stream_name == "primary":
+                            raise RuntimeError(
+                                f"Corrupt primary stream: NFKC case-fold collision between '{case_collision[0]}' and '{case_collision[1]}' in layer {l_idx} ('{tag_str}')."
+                            )
+                        else:
+                            warnings.warn(
+                                f"Invalid alternate stream {stream_name}: NFKC case-fold collision between '{case_collision[0]}' and '{case_collision[1]}' in layer {l_idx} ('{tag_str}'). Invaliding stream.",
+                                UserWarning,
+                            )
+                            return []
+                    else:
+                        warnings.warn(
+                            f"Truncating stream {stream_name} at historical layer {l_idx} ('{tag_str}'): NFKC case-fold collision between '{case_collision[0]}' and '{case_collision[1]}'.",
+                            UserWarning,
+                        )
+                        break
+
+                # Check for in-layer NFKC case-folding collisions
+                seen_case_keys: Dict[str, str] = {}
+                case_collision = None
+                for fname in files:
+                    if fname.startswith(".wh."):
+                        continue
+                    ckey = path_collision_key(fname)
+                    if ckey in seen_case_keys and seen_case_keys[ckey] != fname:
+                        case_collision = (seen_case_keys[ckey], fname)
+                        break
+                    seen_case_keys[ckey] = fname
+
+                if case_collision is not None:
+                    if in_tip:
+                        if stream_name == "primary":
+                            raise RuntimeError(
+                                f"Corrupt primary stream: NFKC case-fold collision between '{case_collision[0]}' and '{case_collision[1]}' in layer {l_idx} ('{tag_str}')."
+                            )
+                        else:
+                            warnings.warn(
+                                f"Invalid alternate stream {stream_name}: NFKC case-fold collision between '{case_collision[0]}' and '{case_collision[1]}' in layer {l_idx} ('{tag_str}'). Invaliding stream.",
+                                UserWarning,
+                            )
+                            return []
+                    else:
+                        warnings.warn(
+                            f"Truncating stream {stream_name} at historical layer {l_idx} ('{tag_str}'): NFKC case-fold collision between '{case_collision[0]}' and '{case_collision[1]}'.",
+                            UserWarning,
+                        )
+                        break
 
                 # Update in-memory materialized state
                 if l_idx == 0 or (
@@ -1998,14 +2115,16 @@ class VersionSpace:
                 pass
 
         if meaningful:
+            max_epoch = int(round(max(meaningful) / 2.0) * 2)
             return datetime.datetime.fromtimestamp(
-                max(meaningful), tz=datetime.timezone.utc
+                max_epoch, tz=datetime.timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         layer_mtime = getattr(layer, "mtime", None)
         if layer_mtime and int(layer_mtime) != LEGACY_BOGUS_MTIME:
+            lm_epoch = int(round(int(layer_mtime) / 2.0) * 2)
             return datetime.datetime.fromtimestamp(
-                int(layer_mtime), tz=datetime.timezone.utc
+                lm_epoch, tz=datetime.timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         tag = layer.version_tag

@@ -1,7 +1,7 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation
 
-**Version: 0.1.6.111-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-08)
+**Version: 0.1.6.113-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-09)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
@@ -216,22 +216,22 @@ Any `dwimsy` bundle or installed command can be forced into a maintainer persona
 | **Reconstruct Bundle** | `python3 dwimsy_bundle.py --version=V --version-restrict-to=V -a dwimsy meta bundle --baseline -o out.py` |
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.111-dev (2026-09-08)
+Version: 0.1.6.113-dev (2026-09-09)
 
-`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.111-dev.py`).
+`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.113-dev.py`).
 
 To use the embedded dwimsy CLI directly from the bundle:
 ```bash
-python3 dwimsy_0.1.6.111-dev.py dwimsy --help
-python3 dwimsy_0.1.6.111-dev.py dwimsy --version
-python3 dwimsy_0.1.6.111-dev.py dwimsy readme
-python3 dwimsy_0.1.6.111-dev.py dwimsy license
-python3 dwimsy_0.1.6.111-dev.py dwimsy changelog
+python3 dwimsy_0.1.6.113-dev.py dwimsy --help
+python3 dwimsy_0.1.6.113-dev.py dwimsy --version
+python3 dwimsy_0.1.6.113-dev.py dwimsy readme
+python3 dwimsy_0.1.6.113-dev.py dwimsy license
+python3 dwimsy_0.1.6.113-dev.py dwimsy changelog
 ```
 
 To extract the repository tree to disk:
 ```bash
-python3 dwimsy_0.1.6.111-dev.py meta unbundle /path/to/target --deps
+python3 dwimsy_0.1.6.113-dev.py meta unbundle /path/to/target --deps
 ```
 
 
@@ -636,11 +636,11 @@ options:
   * `dwimsy meta bundle --baseline`: Reconstructs the baseline standalone unpacker from the embedded baseline `blztar` payload and its canonical, blztar-elided `unbundle.py` template.
 
 ```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.111-dev.py
+# Bundle live working tree -> generates dwimsy_0.1.6.113-dev.py
 dwimsy meta bundle
 
 # Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.111-dev.py
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.113-dev.py
 ```
 
 ##### `dwimsy meta unbundle`
@@ -697,7 +697,7 @@ dwimsy meta diff
 dwimsy meta diff 0.1.6.55-dev 0.1.6.56-dev
 
 # Compare on-disk checkout against bundle baseline from an external directory
-python3 dwimsy_0.1.6.111-dev.py --version-include-primary=. dwimsy meta diff baseline alt
+python3 dwimsy_0.1.6.113-dev.py --version-include-primary=. dwimsy meta diff baseline alt
 ```
 
 ##### `dwimsy meta integrity`
@@ -2113,7 +2113,7 @@ Multi-stream bundles delimit stream versions using comma `,` with uniform `,altN
 - Timestamps: ISO 8601 UTC timestamps (`YYYY-MM-DDTHH:MM:SSZ`) derived from layer metadata.
 - Hashes: 12-character short hashes by default for easy visual correlation with `--version` and `+mod.<short_hash>` tails. Specifying `--verbose` (`dwimsy --version-list --verbose`) expands hashes to full 64-character SHA-256 strings.
 - Single Shared Entry: When an on-disk checkout is content-identical to the baseline, the redundant top `[unbundled]` row is omitted, and the primary baseline row includes `=unbundled` in its annotations (`[=baseline, =primary, =unbundled, =selected]`).
-- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.111-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
+- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.113-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
 
 ### Execution Model & The Three Paths
 - Path A: Default in-memory virtual mount via `BundleFinder` (zero disk writes).
@@ -2121,10 +2121,47 @@ Multi-stream bundles delimit stream versions using comma `,` with uniform `,altN
 - Path C: Pass-through or swap-and-lie execution for disk-backed checkouts based on exact blztar byte comparison.
 
 ### Distribution Shapes & .pyc Support
-- `.py`: Standalone self-extracting script.
-- `.pyz`: Compressed zipapp executable.
+- `.py`: Standalone self-extracting script, marked executable (`0o755`).
+- `.pyz`: Compressed zipapp executable, marked executable (`0o755`).
 - `.pyc`: Precompiled bytecode distribution: `python3 -m py_compile dwimsy/meta/unbundle.py` and rename to `dwimsy.pyc`.
 - `-a` / `--argv0`: Authoritative display-name and self-location override, supporting Windows batch wrappers (`@py -3 "%~dp0dwimsy.pyz" --argv0="%~n0" %*`).
+
+### FAT32 / VFAT Compatibility, Filename Portability & Case-Fold Invariants
+
+#### 1. 2-Second Timestamp Precision
+- **What**: All DWIMSY version timestamps, blztar layer and member mtimes, and filesystem mtimes applied during unbundling are rounded to the nearest 2-second timestamp (rather than truncated to 1-second increments).
+- **Why**: The FAT32 and ZIP/DOS specifications store date-time with 2-second granularity (even seconds: 0, 2, 4, ..., 58) and without timezone metadata. Rounding to the nearest 2-second timestamp ensures exact, lossless timestamp preservation across FAT32 and ZIP archives without drift.
+- **How**: All layer and version creation computes `int(round(epoch / 2.0) * 2)`. When unbundling, file mtimes are stamped with this 2-second rounded value.
+- **UTC Timezone in `.pyz` Packaging**: The `.pyz` zipapp packaging writes `__main__.py` with an explicit UTC timestamp matching the DWIMSY release version timestamp. Invoking `env TZ=GMT unzip -vl *.pyz` displays the exact original release version timestamp. Output `.py` and `.pyz` files on disk are also stamped with this version timestamp upon creation (silently ignoring filesystem timestamp errors where unsupported).
+
+#### 2. FAT32 / VFAT Filename Portability
+- **Length Constraint & Deterministic Hash-Suffix Truncation**:
+  - VFAT long filenames support up to 255 UTF-16 code units per path component.
+  - When non-portable names exceeding 255 code units must be converted to portable format, DWIMSY applies deterministic **hash-suffix truncation**:
+    - If the filename has a real short extension (up to 16 characters without spaces, e.g. `.flac`, `.tar.gz`, `.wav`, `.py`), the leading stem is truncated to fit within 255 code units together with `~<8-hex-char-sha256-hash>` and the original extension.
+    - If the filename has a long suffix or is a track title (e.g. `"x." + 256*"y"` or `"01. <long track name>"` without a standard extension), the entire component is truncated to fit within 255 code units together with `~<8-hex-char-sha256-hash>`.
+    - This guarantees uniqueness, length compliance, and collision prevention.
+- **Disallowed Characters & Control Codes**:
+  - Components containing `< > : " / \ | ? *`, ASCII control codes (0x00-0x1F), or DEL (0x7F), or having leading/trailing spaces or trailing dots, are disallowed.
+- **Reserved Device Names**:
+  - Stems matching DOS device names (`CON`, `PRN`, `AUX`, `NUL`, `CLOCK\$`, `COM1`-`COM9`, `LPT1`-`LPT9`, and superscript variants `COM¹`-`COM³`, `LPT¹`-`LPT³`, `CONIN\$`, `CONOUT\$`) are disallowed.
+- **Working-Tree Removal Markers**:
+  - Files or directories beginning with `.wh.` in the working tree are forbidden.
+
+#### 3. Bundling vs. Unbundling Rules
+- **During Bundling**:
+  - A non-portable path component in the working tree is a **hard error**.
+  - Attempting to bundle two files or directories whose paths collide under Unicode NFKC case-folding (e.g. `Foo.py` and `foo.py`) is a **hard error**.
+- **During Unbundling**:
+  - Non-portable filenames in the payload are **automatically converted** to portable safe names before extraction, ensuring no collisions among incoming files.
+  - If an existing file on disk has a non-portable name whose safe conversion conflicts with an incoming file, unbundling raises a **hard error** with an actionable `mv` command to rename the on-disk file.
+  - If an existing on-disk file or directory collides with an incoming file or directory under NFKC case-folding, unbundling raises a **hard error** with an actionable `mv` command to resolve the conflict.
+  - In-stream NFKC case-folding collisions within a bundle payload are treated as **blztar stream corruption**:
+    - Primary stream active tip: fatal `RuntimeError`.
+    - Alternate stream active tip: `UserWarning` followed by stream invalidation.
+    - Sealed historical tail: `UserWarning` followed by stream truncation.
+- **Unified File/Directory Namespace**:
+  - File and directory namespaces are unified: a directory and a file cannot share a name that is NFKC case-fold identical.
 
 ### Version Export & Dependency Shadow Fallback
 - Prune-to-one-layer (`--prune`) is the supported way to export a version as a standalone snapshot.

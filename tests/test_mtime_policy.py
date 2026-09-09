@@ -25,13 +25,13 @@ class TestMtimePolicy(unittest.TestCase):
             mtime=versions.LEGACY_BOGUS_MTIME,
             file_mtimes={
                 "a": versions.LEGACY_BOGUS_MTIME,
-                "b": 1_750_000_123,
+                "b": 1_750_000_124,
             },
         )
         space = versions.VersionSpace([versions.Stream(0, "primary", [layer])])
         self.assertEqual(
             space.get_layer_timestamp(layer),
-            "2025-06-15T15:08:43Z",
+            "2025-06-15T15:08:44Z",
         )
 
     def test_layer_timestamp_falls_back_to_changelog_when_all_members_are_bogus(self):
@@ -56,22 +56,22 @@ class TestMtimePolicy(unittest.TestCase):
             {"a": b"a", "b": b"b"},
             is_delta=True,
             version_tag="0.1.6.95-dev",
-            mtime=1_750_000_123,
+            mtime=1_750_000_124,
             file_mtimes={"a": 1_700_000_001, "b": 1_700_000_002},
         )
         # New packing paths are expected to canonicalize file_mtimes before
         # constructing Layer; verify the TAR serializer honors that mapping.
-        layer.file_mtimes = {name: 1_750_000_123 for name in layer.files}
+        layer.file_mtimes = {name: 1_750_000_124 for name in layer.files}
         import tarfile
 
         with tarfile.open(fileobj=io.BytesIO(layer.get_tar_bytes()), mode="r:") as tar:
-            self.assertEqual({m.mtime for m in tar.getmembers()}, {1_750_000_123})
+            self.assertEqual({m.mtime for m in tar.getmembers()}, {1_750_000_124})
 
     def test_stream_copy_preserves_layer_timestamps(self):
         layer = versions.Layer(
             {"a": b"a"},
-            mtime=1_750_000_123,
-            file_mtimes={"a": 1_750_000_123},
+            mtime=1_750_000_124,
+            file_mtimes={"a": 1_750_000_124},
         )
         copied = versions.Stream(0, "primary", [layer]).copy().layers[0]
         self.assertEqual(copied.mtime, layer.mtime)

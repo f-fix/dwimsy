@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.111-dev (2026-09-08)
+Version: 0.1.6.113-dev (2026-09-09)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.111-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.113-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.111-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.111-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.111-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.111-dev.py dwimsy license
-  python3 dwimsy_0.1.6.111-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.113-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.113-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.113-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.113-dev.py dwimsy license
+  python3 dwimsy_0.1.6.113-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.111-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.113-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -5248,7 +5248,7 @@ YOe2kL+GaMSHyu2T1qMxQA28799dlzDZvKbc6ymxCG8CFmjs9z7HgvcFvePCQUF4JqQuBjoy/ytl
 R9QeTxKK3gOKeAl0e7DByKudVnDl/akZ/Bi3mzhg6u5ywQOHoQ5kzr7nGMA/HO2EIjgau14xreI0
 xP/k06REOwP+vlzip5EK+l2cgnwwTzbVWjIborXreaYz3z/BqWCRqUvCMc7c00WRcPCk3umWjjh+
 4TGUa+UIOpM0hy9jod9FtC3Zp6SOSKjfWNtn1qwXFMYVVIDMo1Fo3NNxsZr2t32ynfR7eKFrUUYJ
-w4ZSBDRPjUwdMQYxKZBMLQmQAAdbjbrBP+xmunilYIR+b7i5PGBNwMfoKHXbnD0/KrxcFjOD03kZ
+w4ZSBDRPjUwdMQYxKZ5cLRv4AAdbjbrBP+xmunilYIR+b7i5PGBNwMfoKHXbnD0/KrxcFjOD03kZ
 sPngCXuXH30Q/2g9JuOUNOP/7XVoWG3TLxjanXSpGS0nO4oE1RzCE2bLIuVrZRhwzYjncO9iXd99
 h6FRLHVtITMhR0VQlO4PeEgszcrHK622/j2dqHWkBM3l3RUZF4hpF8GjT+gD07qh1VOtyE/oEz23
 4jZsldHJw3HhnwWrV2zR171cNG2/LTbcJKvSXPBfrVZYJPYrMR73H9qhbf+Mkuv+BCIFQAKm/lsE
@@ -5291,7 +5291,90 @@ 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
-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
+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
 """
 
 
@@ -5528,17 +5611,106 @@ def get_asset_text(
 
 
 def _timestamp_epoch(timestamp: Optional[str]) -> Optional[float]:
-    """Convert an ISO-8601 UTC timestamp to an epoch for filesystem mtimes."""
+    """Convert an ISO-8601 UTC timestamp to an epoch rounded to the nearest 2-second timestamp."""
     if not timestamp:
         return None
     import datetime
 
     try:
-        return datetime.datetime.fromisoformat(
+        raw_epoch = datetime.datetime.fromisoformat(
             timestamp.replace("Z", "+00:00")
         ).timestamp()
+        return float(int(round(raw_epoch / 2.0) * 2))
     except (TypeError, ValueError):
         return None
+
+
+_HOST_INVALID_CHARS = set('<>:"/\\|?*')
+_HOST_RESERVED_NAMES = (
+    {"CON", "PRN", "AUX", "NUL", "CLOCK$", "CONIN$", "CONOUT$"}
+    | {f"COM{i}" for i in range(1, 10)}
+    | {f"LPT{i}" for i in range(1, 10)}
+    | {f"COM{c}" for c in "\u00B9\u00B2\u00B3"}
+    | {f"LPT{c}" for c in "\u00B9\u00B2\u00B3"}
+)
+MAX_VFAT_COMPONENT_LENGTH = 255
+
+
+def to_host_fs_component_name(component: str) -> str:
+    """Return a Windows/DOS/VFAT-portable component name, preserving valid names."""
+    if not component or component in (".", ".."):
+        return component
+    invalid_chars = (
+        any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in component)
+        or any(ch in _HOST_INVALID_CHARS for ch in component)
+        or component.endswith(".")
+        or component.startswith(" ")
+        or component.endswith(" ")
+    )
+    stem = component.rsplit(".", 1)[0]
+    reserved = stem.rstrip(" .").upper() in _HOST_RESERVED_NAMES
+    code_unit_len = len(component.encode("utf-16-le")) // 2
+
+    if not invalid_chars and not reserved and code_unit_len <= MAX_VFAT_COMPONENT_LENGTH:
+        return component
+
+    has_real_ext = False
+    suffix = ""
+    if "." in component:
+        potential_suffix = component[component.rfind(".") :]
+        if len(potential_suffix) <= 16 and " " not in potential_suffix and len(potential_suffix) > 1:
+            has_real_ext = True
+            suffix = potential_suffix
+            stem = component[: component.rfind(".")]
+
+    if reserved:
+        res_stem = "".join(f"%{b:02X}" for b in stem.encode("utf-8"))
+        res_suffix_parts = []
+        for ch in suffix:
+            if ord(ch) < 0x20 or ord(ch) == 0x7F or ch in _HOST_INVALID_CHARS:
+                res_suffix_parts.extend(f"%{b:02X}" for b in ch.encode("utf-8"))
+            else:
+                res_suffix_parts.append(ch)
+        converted = res_stem + "".join(res_suffix_parts)
+    else:
+        out = []
+        n = len(component)
+        for i, ch in enumerate(component):
+            if ord(ch) < 0x20 or ord(ch) == 0x7F or ch in _HOST_INVALID_CHARS:
+                out.extend(f"%{b:02X}" for b in ch.encode("utf-8"))
+            elif (i == 0 and ch == " ") or (i == n - 1 and ch in (" ", ".")):
+                out.extend(f"%{b:02X}" for b in ch.encode("utf-8"))
+            else:
+                out.append(ch)
+        converted = "".join(out)
+
+    if len(converted.encode("utf-16-le")) // 2 > MAX_VFAT_COMPONENT_LENGTH:
+        hash_suffix = "~" + hashlib.sha256(component.encode("utf-8")).hexdigest()[:8]
+        if has_real_ext:
+            avail_stem = MAX_VFAT_COMPONENT_LENGTH - len(hash_suffix) - len(suffix)
+            c_stem = converted[: len(converted) - len(suffix)]
+            while len(c_stem.encode("utf-16-le")) // 2 > avail_stem and c_stem:
+                c_stem = c_stem[:-1]
+            converted = c_stem.rstrip(" .") + hash_suffix + suffix
+        else:
+            avail_total = MAX_VFAT_COMPONENT_LENGTH - len(hash_suffix)
+            while len(converted.encode("utf-16-le")) // 2 > avail_total and converted:
+                converted = converted[:-1]
+            converted = converted.rstrip(" .") + hash_suffix
+
+    return converted
+
+
+def to_host_fs_path(path_str: str) -> str:
+    """Convert all components of a relative posix path to host FS safe names."""
+    parts = Path(path_str).parts
+    return "/".join(to_host_fs_component_name(p) for p in parts if p not in (".", ".."))
+
+
+def path_collision_key(path_str: str) -> str:
+    """Return the NFKC casefolded collision key for a path."""
+    parts = Path(path_str).parts
+    return "/".join(unicodedata.normalize("NFKC", p).casefold() for p in parts if p not in (".", ".."))
 
 
 class GitIgnoreRule:
@@ -5861,25 +6033,53 @@ def safe_unbundle(
                     vspace.streams[0].layers[head_v.ordinal]
                 )
 
-    try:
-        from dwimsy.meta.versions import portable_path_error
-    except (ImportError, ModuleNotFoundError):
-        portable_path_error = lambda name: None
+    portable_assets: Dict[str, bytes] = {}
+    source_path_map: Dict[str, str] = {}
+    for orig_name, content in assets.items():
+        clean_orig = orig_name[len("<dwimsy-bundle>/") :] if orig_name.startswith("<dwimsy-bundle>/") else orig_name
+        safe_name = to_host_fs_path(clean_orig)
+        if safe_name in portable_assets and source_path_map[safe_name] != clean_orig:
+            raise RuntimeError(
+                f"Unbundle path collision: source payload paths '{source_path_map[safe_name]}' and '{clean_orig}' "
+                f"both convert to portable filename '{safe_name}'."
+            )
+        portable_assets[safe_name] = content
+        source_path_map[safe_name] = clean_orig
+    assets = portable_assets
 
-    # Treat Git-ignored target paths as external/private state.  They must not
-    # participate in cleanliness matching, rollback-removal planning, collision
-    # checks, or extraction.
-    _asset_names = [
-        name[len("<dwimsy-bundle>/") :] if name.startswith("<dwimsy-bundle>/") else name
-        for name in assets
-    ]
+    portable_removals: Set[str] = set()
+    for orig_rem in removals:
+        clean_rem = orig_rem[len("<dwimsy-bundle>/") :] if orig_rem.startswith("<dwimsy-bundle>/") else orig_rem
+        portable_removals.add(to_host_fs_path(clean_rem))
+    removals = portable_removals
+
+    _asset_names = list(assets.keys())
     ignored_target = _git_ignored_paths(out_path, _asset_names)
 
-    invalid_paths = [(name, portable_path_error(name)) for name in assets]
-    invalid_paths = [(name, err) for name, err in invalid_paths if err]
-    if invalid_paths:
-        details = "\n".join(err for _name, err in invalid_paths)
-        raise ValueError("Cannot extract non-portable paths:\n" + details)
+    if out_path.is_dir():
+        for p in out_path.rglob("*"):
+            rel_disk = p.relative_to(out_path).as_posix()
+            if _is_protected_target_path(rel_disk, ignored_target):
+                continue
+            if p.parent == out_path and (rel_disk.startswith("dwimsy_") or rel_disk.startswith("_failed_")) and (rel_disk.endswith(".py") or rel_disk.endswith(".pyz")):
+                continue
+
+            safe_disk_name = to_host_fs_path(rel_disk)
+            if rel_disk != safe_disk_name and safe_disk_name in assets:
+                raise RuntimeError(
+                    f"Non-portable file '{rel_disk}' exists in unbundle target '{output_dir}' and conflicts with incoming file '{safe_disk_name}'.\n"
+                    f"Please rename the on-disk file before unbundling:\n"
+                    f"  mv '{out_path / rel_disk}' '{out_path / safe_disk_name}'"
+                )
+
+            disk_ckey = path_collision_key(rel_disk)
+            for inc_name in assets:
+                if path_collision_key(inc_name) == disk_ckey and inc_name != rel_disk:
+                    raise RuntimeError(
+                        f"Case collision: existing on-disk file '{rel_disk}' collides with incoming file '{inc_name}' under NFKC case-folding.\n"
+                        f"Please rename the on-disk file before unbundling:\n"
+                        f"  mv '{out_path / rel_disk}' '{out_path / inc_name}'"
+                    )
 
     # 1. Type Collision Guard (Spec Section3.1)
     if out_path.exists() and not force:

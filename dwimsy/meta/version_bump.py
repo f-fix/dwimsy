@@ -80,7 +80,9 @@ def update_version_files(
 ) -> None:
     """Update dwimsy/_version.py, README.md, unbundle.py docstring, and CHANGELOG.md with new_version."""
     root = integrity.find_repo_root(repo_root)
-    now_utc = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    rounded_epoch = int(round(now_utc.timestamp() / 2.0) * 2)
+    now_utc = datetime.datetime.fromtimestamp(rounded_epoch, tz=datetime.timezone.utc)
     changelog_timestamp = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     today_str = now_utc.date().isoformat()
 
@@ -229,17 +231,22 @@ def sync_bundle_baseline(
         fp = root / name
         if fp.is_file():
             try:
-                file_mtimes[name] = int(fp.stat().st_mtime)
+                file_mtimes[name] = int(round(fp.stat().st_mtime / 2.0) * 2)
             except OSError:
                 pass
     if layer_timestamp:
         layer_mtime = int(
-            datetime.datetime.fromisoformat(
-                layer_timestamp.replace("Z", "+00:00")
-            ).timestamp()
+            round(
+                datetime.datetime.fromisoformat(
+                    layer_timestamp.replace("Z", "+00:00")
+                ).timestamp()
+                / 2.0
+            )
+            * 2
         )
     else:
-        layer_mtime = max(file_mtimes.values()) if file_mtimes else int(time.time())
+        raw_mtime = max(file_mtimes.values()) if file_mtimes else int(time.time())
+        layer_mtime = int(round(raw_mtime / 2.0) * 2)
     file_mtimes = {name: layer_mtime for name in delta}
 
     if old_head and (
@@ -299,9 +306,22 @@ def sync_bundle_baseline(
         bundle_path.chmod(0o755)
     except OSError:
         pass
+    try:
+        bundle_path.chmod(0o755)
+    except OSError:
+        pass
+    try:
+        os.utime(bundle_path, (layer_mtime, layer_mtime))
+    except OSError:
+        pass
     pyz_path = root / space.composite_bundle_name(".pyz")
     try:
-        bundle.write_pyz_bundle(bundle_script, pyz_path)
+        bundle.write_pyz_bundle(bundle_script, pyz_path, timestamp=layer_timestamp)
+        try:
+            pyz_path.chmod(0o755)
+        except OSError:
+            pass
+        os.utime(pyz_path, (layer_mtime, layer_mtime))
     except Exception:
         pass
     return bundle_path
@@ -439,11 +459,15 @@ def bump_version(
             b_dst = root / b_name
             if b_src.is_file():
                 b_dst.write_bytes(b_src.read_bytes())
-                if b_name.endswith(".py"):
-                    try:
-                        b_dst.chmod(0o755)
-                    except OSError:
-                        pass
+                try:
+                    b_dst.chmod(0o755)
+                except OSError:
+                    pass
+                try:
+                    src_mtime = b_src.stat().st_mtime
+                    os.utime(b_dst, (src_mtime, src_mtime))
+                except OSError:
+                    pass
 
         bundle_path = root / bundle_py_name
 

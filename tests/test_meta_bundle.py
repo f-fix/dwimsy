@@ -688,5 +688,58 @@ def main(argv=None):
     return 0
 
 
+
+    def test_vfat_long_filename_hash_suffix_truncation(self):
+        from dwimsy.meta.versions import to_host_fs_component_name
+        c1 = "x." + 256 * "y"
+        res1 = to_host_fs_component_name(c1)
+        self.assertLessEqual(len(res1.encode("utf-16-le")) // 2, 255)
+        self.assertIn("~", res1)
+
+        c2 = "01. " + 300 * "A"
+        res2 = to_host_fs_component_name(c2)
+        self.assertLessEqual(len(res2.encode("utf-16-le")) // 2, 255)
+        self.assertIn("~", res2)
+
+        c3 = 300 * "A" + ".flac"
+        res3 = to_host_fs_component_name(c3)
+        self.assertLessEqual(len(res3.encode("utf-16-le")) // 2, 255)
+        self.assertTrue(res3.endswith(".flac"))
+        self.assertIn("~", res3)
+
+    def test_bundling_nonportable_filename_is_hard_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "dwimsy").mkdir()
+            (tmp_path / "dwimsy" / "__init__.py").write_text("", encoding="utf-8")
+            (tmp_path / "dwimsy" / "_version.py").write_text('__version__ = "0.1.6.0-dev"\n', encoding="utf-8")
+            (tmp_path / "nul.txt").write_text("reserved", encoding="utf-8")
+            with self.assertRaises(ValueError) as ctx:
+                bundle.create_tree_state(tmp_path)
+            self.assertIn("Cannot bundle non-portable paths", str(ctx.exception))
+
+    def test_bundling_nfkc_casefold_collision_is_hard_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "dwimsy").mkdir()
+            (tmp_path / "dwimsy" / "__init__.py").write_text("", encoding="utf-8")
+            (tmp_path / "dwimsy" / "_version.py").write_text('__version__ = "0.1.6.0-dev"\n', encoding="utf-8")
+            (tmp_path / "FileA.py").write_text("a = 1", encoding="utf-8")
+            (tmp_path / "filea.py").write_text("a = 2", encoding="utf-8")
+            with self.assertRaises(ValueError) as ctx:
+                bundle.create_tree_state(tmp_path)
+            self.assertIn("NFKC case-fold collision", str(ctx.exception))
+
+    def test_unbundling_ondisk_case_collision_is_hard_error_with_mv_command(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "readme.md").write_text("old lowercase", encoding="utf-8")
+            with self.assertRaises(RuntimeError) as ctx:
+                unbundle.safe_unbundle(output_dir=tmp_path)
+            err_msg = str(ctx.exception)
+            self.assertIn("Case collision", err_msg)
+            self.assertIn("mv '", err_msg)
+
+
 if __name__ == "__main__":
     main()
