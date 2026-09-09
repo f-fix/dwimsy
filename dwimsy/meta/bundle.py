@@ -483,9 +483,7 @@ def write_pyz_bundle(
         dt_utc = datetime.datetime.now(datetime.timezone.utc)
 
     rounded_epoch = int(round(dt_utc.timestamp() / 2.0) * 2)
-    dt_utc = datetime.datetime.fromtimestamp(
-        rounded_epoch, tz=datetime.timezone.utc
-    )
+    dt_utc = datetime.datetime.fromtimestamp(rounded_epoch, tz=datetime.timezone.utc)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     content_bytes = script_text.encode("utf-8")

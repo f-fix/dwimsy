@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.113-dev (2026-09-09)
+Version: 0.1.6.114-dev (2026-09-09)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.113-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.114-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.113-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.113-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.113-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.113-dev.py dwimsy license
-  python3 dwimsy_0.1.6.113-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.114-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.114-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.114-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.114-dev.py dwimsy license
+  python3 dwimsy_0.1.6.114-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.113-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.114-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -5248,7 +5248,7 @@ YOe2kL+GaMSHyu2T1qMxQA28799dlzDZvKbc6ymxCG8CFmjs9z7HgvcFvePCQUF4JqQuBjoy/ytl
 R9QeTxKK3gOKeAl0e7DByKudVnDl/akZ/Bi3mzhg6u5ywQOHoQ5kzr7nGMA/HO2EIjgau14xreI0
 xP/k06REOwP+vlzip5EK+l2cgnwwTzbVWjIborXreaYz3z/BqWCRqUvCMc7c00WRcPCk3umWjjh+
 4TGUa+UIOpM0hy9jod9FtC3Zp6SOSKjfWNtn1qwXFMYVVIDMo1Fo3NNxsZr2t32ynfR7eKFrUUYJ
-w4ZSBDRPjUwdMQYxKZ5cLRv4AAdbjbrBP+xmunilYIR+b7i5PGBNwMfoKHXbnD0/KrxcFjOD03kZ
+w4ZSBDRPjUwdMQYxKZ//pBxQAAdbjbrBP+xmunilYIR+b7i5PGBNwMfoKHXbnD0/KrxcFjOD03kZ
 sPngCXuXH30Q/2g9JuOUNOP/7XVoWG3TLxjanXSpGS0nO4oE1RzCE2bLIuVrZRhwzYjncO9iXd99
 h6FRLHVtITMhR0VQlO4PeEgszcrHK622/j2dqHWkBM3l3RUZF4hpF8GjT+gD07qh1VOtyE/oEz23
 4jZsldHJw3HhnwWrV2zR171cNG2/LTbcJKvSXPBfrVZYJPYrMR73H9qhbf+Mkuv+BCIFQAKm/lsE
@@ -5373,8 +5373,16 @@ Vr43IMptNpFSv5cxqT0I7ZfxD3FAjryhfuM3Z7NGJJEOjN/mIyXlyR5KwjDGiLHeyDdpV6BOuFLF
 OmSddsMcofTk/vbi8It643/L8SdyyYX/bCdRUZtKP+UJg+ul4zvhJZ3lL+cYs+WfAtfM0CvpMTRb
 fg5XyTS7cbkPg7RHbLvTyKLJEe/EAGASVfm0v7bVgIjQ7fKzCxmwylWFoT3o2/bx+EcQqvu7QRxf
 A88cgtwo0j6kQxBgxk9YupXE0WC36NtgAEdGOy5cCL7TaIUKg56WaFMK7PqqhX0YMQKWche5M3Tq
-uhs/fR0BnbgcSoJc+o33cflkhuPMInu/fd13/JOLViR3E7frSLfxL7EO2w5Wmf+bx18OQgUwAADC
-EDIVHMMHigABy48SgKC9CgAAAOzClqsUFzswAwAAAAAEWVo=
+uhs/fR0BnbgcSoJc+o33cflkhuPMInu/fd13/JOLViR3E7frSLfxL7EO2w5Wmf+bx1sIc72/s40z
+k3N9wV5wsudFjmJQvfGuwAeLMr14+buDUrH2kAcpc6hitI2K3RR4tv08gM8COMe6h3W17pU7Bf2D
+eMEzTr9zjZ0nf0fimG9oX1DMWE2ngdzgO3exoIVkiAFxAOyqHI6XAukHJNk6zubWVRnJ4bnQDX0a
+fxdm6zfH8On2e2SaL2soHBkaYMDkXPBa+GqgVT5CtmqjDRjogXCfIVWBzo4R6cMWlVZsix//Svyr
+/TnEmmbSDiX2AhBvO7DO9nEk5k2uO26/CUisBnzvmn38W8OYdxqVjaYnjBJ+7gPlkzymUc/Iwsm0
+MyvWOIo7g9qiamvditRlsNvusnJNkRJ3tUdTilx973EQvgSZZGzpoXylHvL+dAAytnKIANd7xCol
+SBhEfRbkx5KolVLj5EBVrL21Bcudpd+Avl9jkp1sWPXf7HBmDKpWk3NxguIACCdhOiadLEF5qSZM
+ooH0cGMh0JSXzxOqEU/d7Ww5tLIEnMi/+crjPEIyiOiXIuhzvOqdkdOdBpkFLSXGFfl7OC4XtLE9
+IR42F+FPn2lAYOIbaCX2X/9vBLKukSxObyvzejjakm60/2TRMpJeqlT57XARX90tE4Z2lDErzhNQ
+J5MSAAAAAFsSaDyg7e9NAAGakxKAsNkKAAAA6U3Q2BQXOzADAAAAAARZWg==
 """
 
 
@@ -5630,8 +5638,8 @@ _HOST_RESERVED_NAMES = (
     {"CON", "PRN", "AUX", "NUL", "CLOCK$", "CONIN$", "CONOUT$"}
     | {f"COM{i}" for i in range(1, 10)}
     | {f"LPT{i}" for i in range(1, 10)}
-    | {f"COM{c}" for c in "\u00B9\u00B2\u00B3"}
-    | {f"LPT{c}" for c in "\u00B9\u00B2\u00B3"}
+    | {f"COM{c}" for c in "\u00b9\u00b2\u00b3"}
+    | {f"LPT{c}" for c in "\u00b9\u00b2\u00b3"}
 )
 MAX_VFAT_COMPONENT_LENGTH = 255
 
@@ -5651,14 +5659,22 @@ def to_host_fs_component_name(component: str) -> str:
     reserved = stem.rstrip(" .").upper() in _HOST_RESERVED_NAMES
     code_unit_len = len(component.encode("utf-16-le")) // 2
 
-    if not invalid_chars and not reserved and code_unit_len <= MAX_VFAT_COMPONENT_LENGTH:
+    if (
+        not invalid_chars
+        and not reserved
+        and code_unit_len <= MAX_VFAT_COMPONENT_LENGTH
+    ):
         return component
 
     has_real_ext = False
     suffix = ""
     if "." in component:
         potential_suffix = component[component.rfind(".") :]
-        if len(potential_suffix) <= 16 and " " not in potential_suffix and len(potential_suffix) > 1:
+        if (
+            len(potential_suffix) <= 16
+            and " " not in potential_suffix
+            and len(potential_suffix) > 1
+        ):
             has_real_ext = True
             suffix = potential_suffix
             stem = component[: component.rfind(".")]
@@ -5710,7 +5726,11 @@ def to_host_fs_path(path_str: str) -> str:
 def path_collision_key(path_str: str) -> str:
     """Return the NFKC casefolded collision key for a path."""
     parts = Path(path_str).parts
-    return "/".join(unicodedata.normalize("NFKC", p).casefold() for p in parts if p not in (".", ".."))
+    return "/".join(
+        unicodedata.normalize("NFKC", p).casefold()
+        for p in parts
+        if p not in (".", "..")
+    )
 
 
 class GitIgnoreRule:
@@ -6036,7 +6056,11 @@ def safe_unbundle(
     portable_assets: Dict[str, bytes] = {}
     source_path_map: Dict[str, str] = {}
     for orig_name, content in assets.items():
-        clean_orig = orig_name[len("<dwimsy-bundle>/") :] if orig_name.startswith("<dwimsy-bundle>/") else orig_name
+        clean_orig = (
+            orig_name[len("<dwimsy-bundle>/") :]
+            if orig_name.startswith("<dwimsy-bundle>/")
+            else orig_name
+        )
         safe_name = to_host_fs_path(clean_orig)
         if safe_name in portable_assets and source_path_map[safe_name] != clean_orig:
             raise RuntimeError(
@@ -6049,7 +6073,11 @@ def safe_unbundle(
 
     portable_removals: Set[str] = set()
     for orig_rem in removals:
-        clean_rem = orig_rem[len("<dwimsy-bundle>/") :] if orig_rem.startswith("<dwimsy-bundle>/") else orig_rem
+        clean_rem = (
+            orig_rem[len("<dwimsy-bundle>/") :]
+            if orig_rem.startswith("<dwimsy-bundle>/")
+            else orig_rem
+        )
         portable_removals.add(to_host_fs_path(clean_rem))
     removals = portable_removals
 
@@ -6061,7 +6089,11 @@ def safe_unbundle(
             rel_disk = p.relative_to(out_path).as_posix()
             if _is_protected_target_path(rel_disk, ignored_target):
                 continue
-            if p.parent == out_path and (rel_disk.startswith("dwimsy_") or rel_disk.startswith("_failed_")) and (rel_disk.endswith(".py") or rel_disk.endswith(".pyz")):
+            if (
+                p.parent == out_path
+                and (rel_disk.startswith("dwimsy_") or rel_disk.startswith("_failed_"))
+                and (rel_disk.endswith(".py") or rel_disk.endswith(".pyz"))
+            ):
                 continue
 
             safe_disk_name = to_host_fs_path(rel_disk)

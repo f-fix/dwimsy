@@ -50,8 +50,8 @@ _HOST_RESERVED_NAMES = (
     {"CON", "PRN", "AUX", "NUL", "CLOCK$", "CONIN$", "CONOUT$"}
     | {f"COM{i}" for i in range(1, 10)}
     | {f"LPT{i}" for i in range(1, 10)}
-    | {f"COM{c}" for c in "\u00B9\u00B2\u00B3"}
-    | {f"LPT{c}" for c in "\u00B9\u00B2\u00B3"}
+    | {f"COM{c}" for c in "\u00b9\u00b2\u00b3"}
+    | {f"LPT{c}" for c in "\u00b9\u00b2\u00b3"}
 )
 MAX_VFAT_COMPONENT_LENGTH = 255
 
@@ -71,14 +71,22 @@ def to_host_fs_component_name(component: str) -> str:
     reserved = stem.rstrip(" .").upper() in _HOST_RESERVED_NAMES
     code_unit_len = len(component.encode("utf-16-le")) // 2
 
-    if not invalid_chars and not reserved and code_unit_len <= MAX_VFAT_COMPONENT_LENGTH:
+    if (
+        not invalid_chars
+        and not reserved
+        and code_unit_len <= MAX_VFAT_COMPONENT_LENGTH
+    ):
         return component
 
     has_real_ext = False
     suffix = ""
     if "." in component:
         potential_suffix = component[component.rfind(".") :]
-        if len(potential_suffix) <= 16 and " " not in potential_suffix and len(potential_suffix) > 1:
+        if (
+            len(potential_suffix) <= 16
+            and " " not in potential_suffix
+            and len(potential_suffix) > 1
+        ):
             has_real_ext = True
             suffix = potential_suffix
             stem = component[: component.rfind(".")]
@@ -130,7 +138,11 @@ def to_host_fs_path(path_str: str) -> str:
 def path_collision_key(path_str: str) -> str:
     """Return the NFKC casefolded collision key for a path."""
     parts = Path(path_str).parts
-    return "/".join(unicodedata.normalize("NFKC", p).casefold() for p in parts if p not in (".", ".."))
+    return "/".join(
+        unicodedata.normalize("NFKC", p).casefold()
+        for p in parts
+        if p not in (".", "..")
+    )
 
 
 def portable_path_error(path: str) -> Optional[str]:
@@ -444,9 +456,7 @@ class Layer:
             code_hash if code_hash is not None else self._extract_code_hash()
         )
         self.sealed = bool(self.code_hash and self.code_hash.strip())
-        self.mtime = (
-            int(round(mtime / 2.0) * 2) if mtime is not None else None
-        )
+        self.mtime = int(round(mtime / 2.0) * 2) if mtime is not None else None
         self.file_mtimes = (
             {k: int(round(v / 2.0) * 2) for k, v in file_mtimes.items()}
             if file_mtimes

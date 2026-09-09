@@ -687,10 +687,9 @@ def main(argv=None):
     unittest.main(argv=[sys.argv[0]] + effective)
     return 0
 
-
-
     def test_vfat_long_filename_hash_suffix_truncation(self):
         from dwimsy.meta.versions import to_host_fs_component_name
+
         c1 = "x." + 256 * "y"
         res1 = to_host_fs_component_name(c1)
         self.assertLessEqual(len(res1.encode("utf-16-le")) // 2, 255)
@@ -712,7 +711,9 @@ def main(argv=None):
             tmp_path = Path(tmp)
             (tmp_path / "dwimsy").mkdir()
             (tmp_path / "dwimsy" / "__init__.py").write_text("", encoding="utf-8")
-            (tmp_path / "dwimsy" / "_version.py").write_text('__version__ = "0.1.6.0-dev"\n', encoding="utf-8")
+            (tmp_path / "dwimsy" / "_version.py").write_text(
+                '__version__ = "0.1.6.0-dev"\n', encoding="utf-8"
+            )
             (tmp_path / "nul.txt").write_text("reserved", encoding="utf-8")
             with self.assertRaises(ValueError) as ctx:
                 bundle.create_tree_state(tmp_path)
@@ -723,7 +724,9 @@ def main(argv=None):
             tmp_path = Path(tmp)
             (tmp_path / "dwimsy").mkdir()
             (tmp_path / "dwimsy" / "__init__.py").write_text("", encoding="utf-8")
-            (tmp_path / "dwimsy" / "_version.py").write_text('__version__ = "0.1.6.0-dev"\n', encoding="utf-8")
+            (tmp_path / "dwimsy" / "_version.py").write_text(
+                '__version__ = "0.1.6.0-dev"\n', encoding="utf-8"
+            )
             (tmp_path / "FileA.py").write_text("a = 1", encoding="utf-8")
             (tmp_path / "filea.py").write_text("a = 2", encoding="utf-8")
             with self.assertRaises(ValueError) as ctx:
