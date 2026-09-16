@@ -331,6 +331,16 @@ class StreamingWavWriter:
             else:
                 self.out.seek(0, os.SEEK_CUR)
                 is_seekable = True
+            # On Windows, os.pipe() file descriptors report seekable() == True because
+            # Windows CRT _lseek sets EINVAL rather than ESPIPE. Check for S_ISFIFO.
+            raw = getattr(self.out, "raw", self.out)
+            if hasattr(raw, "fileno"):
+                try:
+                    import stat
+                    if stat.S_ISFIFO(os.fstat(raw.fileno()).st_mode):
+                        is_seekable = False
+                except (OSError, io.UnsupportedOperation, AttributeError):
+                    pass
         except (io.UnsupportedOperation, OSError, AttributeError):
             is_seekable = False
 

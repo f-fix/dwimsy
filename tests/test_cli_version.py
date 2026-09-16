@@ -222,44 +222,32 @@ if __name__ == "__main__":
 
 
 class PlaceholderHelpTests(unittest.TestCase):
+    def _run_cli(self, args):
+        buf = io.StringIO()
+        with redirect_stdout(buf), redirect_stderr(buf):
+            try:
+                rc = dwimsy_cli_main(args)
+            except SystemExit as e:
+                rc = e.code if isinstance(e.code, int) else (0 if e.code is None else 1)
+        return rc, buf.getvalue()
+
     def test_recover_help_advertises_unimplemented_status_and_milestone(self):
-        proc = subprocess.run(
-            [sys.executable, "-m", "dwimsy", "recover", "--help"],
-            cwd=pkg_root,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        self.assertEqual(proc.returncode, 0)
-        out = proc.stdout + proc.stderr
+        rc, out = self._run_cli(["recover", "--help"])
+        self.assertEqual(rc, 0)
         self.assertIn("NOT IMPLEMENTED", out)
         self.assertIn("Milestone 4.0", out)
         self.assertIn("Forensic bit/pulse recovery engine", out)
 
     def test_bundle_fixtures_help_advertises_unimplemented_status_and_milestone(self):
-        proc = subprocess.run(
-            [sys.executable, "-m", "dwimsy", "meta", "bundle-fixtures", "--help"],
-            cwd=pkg_root,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        self.assertEqual(proc.returncode, 0)
-        out = proc.stdout + proc.stderr
+        rc, out = self._run_cli(["meta", "bundle-fixtures", "--help"])
+        self.assertEqual(rc, 0)
         self.assertIn("NOT IMPLEMENTED", out)
         self.assertIn("Milestone 1.6", out)
         self.assertIn("Package private test fixtures", out)
 
     def test_top_level_help_lists_unimplemented_placeholders(self):
-        proc = subprocess.run(
-            [sys.executable, "-m", "dwimsy", "--help"],
-            cwd=pkg_root,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        self.assertEqual(proc.returncode, 0)
-        out = proc.stdout + proc.stderr
+        rc, out = self._run_cli(["--help"])
+        self.assertEqual(rc, 0)
         self.assertIn("recover", out)
         self.assertIn("Milestone 4.0", out)
         self.assertIn("charset", out)

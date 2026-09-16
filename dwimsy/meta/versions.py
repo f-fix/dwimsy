@@ -22,7 +22,7 @@ _RETAIN_MINOR_RELEASES = 3
 _RETAIN_MAJOR_RELEASES = 3
 
 _BLZTAR_RE = re.compile(
-    rb"(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?:.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)"
+    rb"(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?:.*?)(?P<suffix>\"\"\"[ \t]*(?:#[^\r\n]*)?\r?$)"
 )
 
 _DWIMSY_COMMANDS = {
@@ -427,7 +427,7 @@ class Layer:
 
                 def elide_blztar_bytes(data: bytes) -> bytes:
                     match = re.search(
-                        rb"(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?:.*?)(?P<suffix>\"\"\"[ \t]*(?:#.*)?$)",
+                        rb"(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*\"\"\")(?:.*?)(?P<suffix>\"\"\"[ \t]*(?:#[^\r\n]*)?\r?$)",
                         data,
                     )
                     if match:
@@ -1634,7 +1634,7 @@ class VersionSpace:
         if src_path.is_dir():
             target_unbundle = src_path / "dwimsy" / "meta" / "unbundle.py"
             if target_unbundle.is_file():
-                data = target_unbundle.read_bytes()
+                data = target_unbundle.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
                 m = _BLZTAR_RE.search(data)
                 if m:
                     b64_found = data[m.start("prefix") : m.end("suffix")]
@@ -1651,7 +1651,7 @@ class VersionSpace:
                                 b64_found = data[m.start("prefix") : m.end("suffix")]
                                 break
             if b64_found is None:
-                data = src_path.read_bytes()
+                data = src_path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
                 m = _BLZTAR_RE.search(data)
                 if m:
                     b64_found = data[m.start("prefix") : m.end("suffix")]

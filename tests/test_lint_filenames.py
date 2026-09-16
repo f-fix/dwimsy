@@ -21,6 +21,11 @@ class TestLintFilenames(unittest.TestCase):
             (root / "dwimsy" / "test.py").write_text("")
             (root / "dwimsy" / "TEST.py").write_text("")
 
+            if len(list((root / "dwimsy").iterdir())) < 2:
+                self.skipTest(
+                    "Filesystem is case-insensitive; cannot create distinct ASCII case-colliding files on disk"
+                )
+
             errors = lint_filenames(root)
             self.assertTrue(any("Filename collision" in e for e in errors))
 

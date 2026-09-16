@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.114-dev (2026-09-09)
+Version: 0.1.6.115-dev (2026-09-16)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.114-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.115-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.114-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.114-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.114-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.114-dev.py dwimsy license
-  python3 dwimsy_0.1.6.114-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.115-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.115-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.115-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.115-dev.py dwimsy license
+  python3 dwimsy_0.1.6.115-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.114-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.115-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ if (
         sys.path.insert(0, str(_REPO_ROOT))
 
 _BLZTAR_RE = re.compile(
-    rb'(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*""")(?:.*?)(?P<suffix>"""[ \t]*(?:#.*)?$)'
+    rb'(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*""")(?:.*?)(?P<suffix>"""[ \t]*(?:#[^\r\n]*)?\r?$)'
 )
 
 
@@ -5375,14 +5375,28 @@ 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
-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
+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
-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
+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
+AAAEWVo=
 """
 
 
