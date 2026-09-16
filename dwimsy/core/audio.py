@@ -337,6 +337,7 @@ class StreamingWavWriter:
             if hasattr(raw, "fileno"):
                 try:
                     import stat
+
                     if stat.S_ISFIFO(os.fstat(raw.fileno()).st_mode):
                         is_seekable = False
                 except (OSError, io.UnsupportedOperation, AttributeError):
