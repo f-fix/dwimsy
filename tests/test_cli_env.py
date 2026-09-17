@@ -22,7 +22,9 @@ class TestCliEnvOptions(unittest.TestCase):
 
     def test_env_set_and_unset(self):
         # Test setting via -D with explicit value
-        pipeline, _ = unbundle.parse_early_pipeline_flags(["-D", "MY_TEST_VAR=hello_world"])
+        pipeline, _ = unbundle.parse_early_pipeline_flags(
+            ["-D", "MY_TEST_VAR=hello_world"]
+        )
         self.assertEqual(unbundle.get_env_casefolded("my_test_var"), "hello_world")
         self.assertEqual(os.environ.get("MY_TEST_VAR"), "hello_world")
 
@@ -55,7 +57,9 @@ class TestCliEnvOptions(unittest.TestCase):
 
     def test_http_proxy_exception(self):
         # Setting HTTP_PROXY case-insensitively sets both HTTP_PROXY and http_proxy
-        pipeline, _ = unbundle.parse_early_pipeline_flags(["-D", "http_proxy=http://proxy.example.com:8080"])
+        pipeline, _ = unbundle.parse_early_pipeline_flags(
+            ["-D", "http_proxy=http://proxy.example.com:8080"]
+        )
         self.assertEqual(os.environ.get("HTTP_PROXY"), "http://proxy.example.com:8080")
         self.assertEqual(os.environ.get("http_proxy"), "http://proxy.example.com:8080")
 

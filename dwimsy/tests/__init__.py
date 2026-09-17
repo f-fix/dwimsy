@@ -52,7 +52,11 @@ def find_disk_tests_dir(start: Optional[Path] = None) -> Optional[Path]:
     its test suite merely because the bundle was launched from that directory.
     """
     from dwimsy.meta.unbundle import get_env_casefolded
-    if start is None and (integrity.is_standalone_bundle() or get_env_casefolded("DWIMSY_STANDALONE_TEST") == "1"):
+
+    if start is None and (
+        integrity.is_standalone_bundle()
+        or get_env_casefolded("DWIMSY_STANDALONE_TEST") == "1"
+    ):
         return None
     if start is not None:
         p = Path(start).resolve()

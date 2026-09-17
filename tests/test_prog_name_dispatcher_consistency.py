@@ -58,7 +58,9 @@ def _prog_literal(path: Path):
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in ast.walk(tree):
         if isinstance(node, ast.keyword) and node.arg == "prog":
-            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            if isinstance(node.value, ast.Constant) and isinstance(
+                node.value.value, str
+            ):
                 return node.value.value
     return None
 
@@ -79,7 +81,9 @@ class TestProgNameDispatcherConsistency(unittest.TestCase):
             prog = _prog_literal(self.repo_root / rel_path)
             with self.subTest(module=rel_path):
                 self.assertEqual(resolve_argv0_command(prog), target)
-                self.assertEqual(resolve_argv0_command(f"/usr/local/bin/{prog}"), target)
+                self.assertEqual(
+                    resolve_argv0_command(f"/usr/local/bin/{prog}"), target
+                )
 
     def test_known_impostor_names_do_not_resolve(self):
         for name, real_target in MUST_NOT_RESOLVE.items():
@@ -113,7 +117,9 @@ class TestProgNameDispatcherConsistency(unittest.TestCase):
                     capture_output=True,
                     text=True,
                 )
-                self.assertIn("usage: dwimsy meta version-bump", res.stdout + res.stderr)
+                self.assertIn(
+                    "usage: dwimsy meta version-bump", res.stdout + res.stderr
+                )
 
 
 if __name__ == "__main__":

@@ -258,7 +258,6 @@ def main(argv=None):
     unittest.main(argv=[sys.argv[0]] + effective)
     return 0
 
-
     def test_version_list_multi_member_selector_single_annotation_per_row(self):
         """Verify multi-member selector produces at most one =selected or =~selected per row (C2)."""
         raw_b64 = unbundle._get_active_blztar()

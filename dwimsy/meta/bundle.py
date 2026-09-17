@@ -407,11 +407,17 @@ def verify_bundle_roundtrip(script_text: str, repo_root: Optional[Path] = None) 
         extracted.mkdir()
 
         # Parse candidate's blztar directly out of script_text
-        cand_bytes = script_text.encode("utf-8") if isinstance(script_text, str) else script_text
+        cand_bytes = (
+            script_text.encode("utf-8") if isinstance(script_text, str) else script_text
+        )
         m = unbundle._BLZTAR_RE.search(cand_bytes)
         if not m:
-            raise RuntimeError("Bundle round-trip extraction failed: no blztar found in candidate")
-        payload = cand_bytes[m.start("prefix") : m.end("suffix")].decode("ascii", errors="ignore")
+            raise RuntimeError(
+                "Bundle round-trip extraction failed: no blztar found in candidate"
+            )
+        payload = cand_bytes[m.start("prefix") : m.end("suffix")].decode(
+            "ascii", errors="ignore"
+        )
         lines = payload.split('"""')
         cand_blztar = lines[1] if len(lines) >= 2 else ""
 
@@ -573,6 +579,7 @@ def _set_layer_version_tag(
 
 def _can_use_subprocess() -> bool:
     from dwimsy.meta.unbundle import get_env_casefolded
+
     if sys.platform in ("emscripten", "wasi"):
         return False
     if (
@@ -593,9 +600,7 @@ def _run_bundle_self_test_in_process(
     from dwimsy.meta import unbundle
 
     cand_bytes = (
-        script_text.encode("utf-8")
-        if isinstance(script_text, str)
-        else script_text
+        script_text.encode("utf-8") if isinstance(script_text, str) else script_text
     )
     m = unbundle._BLZTAR_RE.search(cand_bytes)
     if not m:

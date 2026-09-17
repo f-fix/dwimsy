@@ -341,15 +341,17 @@ def lint_python_whitespace(repo_root: Optional[Path] = None) -> List[str]:
     return errors
 
 
-
 _BANNED_WORDS_B64 = "d2hpdGVvdXQgd2hpdGUtb3V0IHdoaXRlX291dCBvcGFxdWUgdG9tYnN0b25lIGRpcnR5IGRpcnR5X3N0YXRlIG1hc3RlciBtYXN0ZXJpbmcgd2hpdGVsaXN0IHdoaXRlLWxpc3Qgd2hpdGVfbGlzdCBibGFja2xpc3QgYmxhY2stbGlzdCBibGFja19saXN0"
 
 
 def lint_terminology(repo_root: Optional[Path] = None) -> List[str]:
     """Verify repository files are free of forbidden terminology per Spec Section 4.1."""
     import base64
+
     root = integrity.find_repo_root(repo_root)
-    raw_words = base64.b64decode(_BANNED_WORDS_B64.encode("ascii")).decode("ascii").split()
+    raw_words = (
+        base64.b64decode(_BANNED_WORDS_B64.encode("ascii")).decode("ascii").split()
+    )
     patterns = []
     for w in raw_words:
         w_pat = w.replace("_", r"\s+")
@@ -375,7 +377,9 @@ def lint_terminology(repo_root: Optional[Path] = None) -> List[str]:
                 if m:
                     if m.group(0).lower() == "opaque" and ".opq" in line:
                         continue
-                    errors.append(f"{rel}:{line_no}: forbidden term '{m.group(0)}' found: {line.strip()}")
+                    errors.append(
+                        f"{rel}:{line_no}: forbidden term '{m.group(0)}' found: {line.strip()}"
+                    )
         except Exception:
             pass
     return errors

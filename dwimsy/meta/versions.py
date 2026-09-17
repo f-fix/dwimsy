@@ -2191,6 +2191,7 @@ class VersionSpace:
     ) -> str:
         """Format the output of --list-versions according to the complete specification."""
         from dwimsy.meta import integrity
+
         all_refs = self.get_all_versions()
 
         if selected is None and on_disk_root is None:
@@ -2382,8 +2383,13 @@ class VersionSpace:
                 )
                 role_name = "primary" if s.index == 0 else s.name
                 src_label = v.source
-                if s.index == 0 and (not hasattr(s, "source") or s.source in (".", "dwimsy")):
-                    if on_disk_root is not None and (on_disk_root / "dwimsy" / "__init__.py").is_file():
+                if s.index == 0 and (
+                    not hasattr(s, "source") or s.source in (".", "dwimsy")
+                ):
+                    if (
+                        on_disk_root is not None
+                        and (on_disk_root / "dwimsy" / "__init__.py").is_file()
+                    ):
                         try:
                             if Path.cwd().resolve() == on_disk_root.resolve():
                                 src_label = "."
@@ -2393,7 +2399,11 @@ class VersionSpace:
                             src_label = "."
                     elif bundle_name:
                         src_label = bundle_name
-                    elif integrity.is_standalone_bundle() or (sys.argv and sys.argv[0] and sys.argv[0].endswith((".py", ".pyz"))):
+                    elif integrity.is_standalone_bundle() or (
+                        sys.argv
+                        and sys.argv[0]
+                        and sys.argv[0].endswith((".py", ".pyz"))
+                    ):
                         src_label = Path(sys.argv[0]).name
                 prov_str = f"[{role_status}{role_name}: {src_label}]"
 

@@ -381,7 +381,9 @@ def bump_version(
     from dwimsy.tests import run_tests
 
     stage_dir = root.parent if (root.parent and root.parent.is_dir()) else None
-    with tempfile.TemporaryDirectory(prefix="dwimsy_bump_stage_", dir=stage_dir) as tmp_dir:
+    with tempfile.TemporaryDirectory(
+        prefix="dwimsy_bump_stage_", dir=stage_dir
+    ) as tmp_dir:
         tmp_stage = Path(tmp_dir) / "stage"
 
         def _ignore_staging(src, names):
@@ -402,8 +404,14 @@ def bump_version(
         shutil.copytree(root, tmp_stage, symlinks=True, ignore=_ignore_staging)
 
         # 1. Update version files in staging copy
-        verif_mode = "in-process" if not bundle._can_use_subprocess() else getattr(bundle, "LAST_VERIFICATION_PATH", "subprocess")
-        update_version_files(new_ver, repo_root=tmp_stage, message=message, verification_path=verif_mode)
+        verif_mode = (
+            "in-process"
+            if not bundle._can_use_subprocess()
+            else getattr(bundle, "LAST_VERIFICATION_PATH", "subprocess")
+        )
+        update_version_files(
+            new_ver, repo_root=tmp_stage, message=message, verification_path=verif_mode
+        )
 
         # 2. Run test suite against staging copy
         test_buf = io.StringIO()
@@ -436,9 +444,13 @@ def bump_version(
         verif_mode = "subprocess"
         if not bundle._can_use_subprocess():
             verif_mode = "in-process"
-            rc_st, out_st = bundle._run_bundle_self_test_in_process(staged_script, "meta integrity")
+            rc_st, out_st = bundle._run_bundle_self_test_in_process(
+                staged_script, "meta integrity"
+            )
             if rc_st != 0:
-                raise RuntimeError(f"Staged bundle in-process self-test failed: {out_st}")
+                raise RuntimeError(
+                    f"Staged bundle in-process self-test failed: {out_st}"
+                )
         else:
             try:
                 with tempfile.TemporaryDirectory(prefix="dwimsy_bump_test_") as b_tmp:
@@ -449,19 +461,31 @@ def bump_version(
                     sub_env.pop("DWIMSY_TEST_REPO_ROOT", None)
                     sub_env["DWIMSY_BUNDLE_BUILD"] = "1"
                     proc = subprocess.run(
-                        [sys.executable, str(stage_p), "dwimsy", "-T", "meta integrity"],
+                        [
+                            sys.executable,
+                            str(stage_p),
+                            "dwimsy",
+                            "-T",
+                            "meta integrity",
+                        ],
                         capture_output=True,
                         text=True,
                         env=sub_env,
                     )
                     if proc.returncode != 0:
-                        raise RuntimeError(f"Staged bundle self-test failed: {proc.stderr}")
+                        raise RuntimeError(
+                            f"Staged bundle self-test failed: {proc.stderr}"
+                        )
                     verif_mode = "subprocess"
             except Exception:
                 verif_mode = "in-process"
-                rc_st, out_st = bundle._run_bundle_self_test_in_process(staged_script, "meta integrity")
+                rc_st, out_st = bundle._run_bundle_self_test_in_process(
+                    staged_script, "meta integrity"
+                )
                 if rc_st != 0:
-                    raise RuntimeError(f"Staged bundle in-process self-test failed: {out_st}")
+                    raise RuntimeError(
+                        f"Staged bundle in-process self-test failed: {out_st}"
+                    )
         bundle.LAST_VERIFICATION_PATH = verif_mode
 
         # 4. All gates succeeded — atomically publish changes back to root

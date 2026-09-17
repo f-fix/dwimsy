@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.119-dev (2026-09-17)
+Version: 0.1.6.120-dev (2026-09-17)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.119-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.120-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.119-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.119-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.119-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.119-dev.py dwimsy license
-  python3 dwimsy_0.1.6.119-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.120-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.120-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.120-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.120-dev.py dwimsy license
+  python3 dwimsy_0.1.6.120-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.119-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.120-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ if (
 _BLZTAR_RE = re.compile(
     rb'(?ms)^(?P<prefix>[ \t]*blztar[ \t]*=[ \t]*""")(?:.*?)(?P<suffix>"""[ \t]*(?:#[^\r\n]*)?\r?$)'
 )
-_B64_STREAM_RE = re.compile(rb'(?ms)([A-Za-z0-9+/ \t\r\n]+={0,2})')
+_B64_STREAM_RE = re.compile(rb"(?ms)([A-Za-z0-9+/ \t\r\n]+={0,2})")
 
 
 def get_env_casefolded(name: str, default: Optional[str] = None) -> Optional[str]:
@@ -814,7 +814,6 @@ def get_git_command(args: Optional[Any] = None) -> Optional[str]:
     if env_git:
         return env_git
     return "git"
-
 
 
 def _git_ignored_paths(out_path: Path, names: Iterable[str]) -> Set[str]:
@@ -1995,7 +1994,9 @@ def parse_early_pipeline_flags(
             test_mode = True
             if has_val:
                 test_pattern = opt_val
-            elif (norm_arg.startswith("-T") or norm_arg.startswith("-t")) and len(norm_arg) > 2:
+            elif (norm_arg.startswith("-T") or norm_arg.startswith("-t")) and len(
+                norm_arg
+            ) > 2:
                 test_pattern = raw_arg[2:].lstrip("=")
             elif (
                 i + 1 < len(args)
@@ -8023,7 +8024,7 @@ lUStH180oxgPhiAkxfJjLFSMPWF5L/41oOn0UCmx++BOwmkzADMHZuGTfXcJFGWFhM0l7WA8vSTR
 6+bu3XmQXL22rXoLJkddfqT+hMXDaL5ZunBqGvmOMmN4a1D5oDICKlLp1L9+WZ7DMkyKma/flmUW
 YfHkodCg+O3/pELmk08WMZoIqDe+nAP092WoUq73GR51ZP9sxucvHTf2S/FQZL9/oDVy9uMF0hfR
 uYGzA1/HtyMgvskILmoWVos3Nc5W/lFI1UVs0OYl6+o8FOc5Uqynfu+ciepjfsUGip3gEwwWIL3t
-qP18M4AGN846Ke2JpPMVcADsvYUdg6T/r2NbhQoCgCGRP41g7hREAQgH1ixaUUFqrfexKk0itdrq
+qP18M4AGN846Ke2TpPMZQgDsvYUdg6T/r2NbhQoCgCGRP41g7hREAQgH1ixaUUFqrfexKk0itdrq
 YD381hkEkEixSed0DG3xFjpYrOpyRtmKUWWDSbWzZrCr9oKkiK9ynNyWeWoal9t1KGSiBWG6K1Hr
 WcBO1dYv/TM4e9Ya9zDCp890vHb3wKfI8/L7R1gPavg9ZCOzlR2YV7FS5rQ9AHTYT16YwyGa+qib
 PSY6zcWiZqRq79D9eb/qcw/NjIzGk1CNVqsoX6PgLf1Php+UXAJyp1xOLl5P5dCY6o1G589CkuRl
@@ -8119,8 +8120,25 @@ E9uBfLdqKxrZixl2IyWDeo+LB1JCbFQNbDKqq2rZJ0tvmG0Fy6V3hE5FO+gRK0+yUMRbL8oFUHdJ
 HjIek9MVlcwjXweJlv9ej/DrTIjjwzQ4TCsKZZZheCMHMafPaD2Vm20Mxwg0ILM7+hGROOmBvlUd
 bo21wQ7TtaTlKD8H1a2v9MhSYq5dq1bBnG3vV3TUYBfLtG40Zjz5xnEYocGLS0WSoINaGftd73l0
 N4SIzCYBCk6o+gPqSCSvZmGxY7AOLy46F03fTqf8KcK5S84c8hGhOS5UcbVon6yPPawuLWnPf2IU
-MRA3UklpvxTwu5sQo68/uNcnqEeSgyHG1y6vHsyQbsyYAAAA6X5JlW7pT6gAAbrYEoCw6gsAAADQ
-dneVFBc7MAMAAAAABFla
+MRA3UklpvxTwu5sQo68/uNcnqEeSgyHG1y6vHsiPOtwMkZhw5+Os6u7n2lh3CVS6xrZPL+kLTVqF
+6oAe4Vezeb5rCzdGwGPCAJQzzuihB+0XM7oeQCM6Pk+xUfLvvkG78qXqLHlmQbRclBrIrD2EXUtF
+GEuuCSPOunZ1GlbIIoKQOlE064BCgiHzEnebAoeTa7vS/obwxL0VxAHirJhVSos+hEWijlTyzl9v
+nMpCXWM030P66py5TuQAZbPcPqizbeg7XIvyEbA9zJKmSgIniwI8Y0A6kTXyHOccbEGLuYIpT4E4
+U4fFF0sODs9ImXhT/5/F3Qt6wWar/TvuXPolvlf9yOX+Cn2DPyUQnvqYLIh8tTQ1kYEv/2hdUho4
+qjATM5ooayu3yP2zcTq5hhFAcEe3sNF30n+3M56Pg4ZgKcRfY4baWsMI1le6PlezMafFYcX/AvdW
+7+XeIMl7D1sgMHP4degdHpSIFqCTskYkLS8+lUHT2a4KB8ElGrEvvCn1YElBG92GNNKcNoWD38Wt
+fo+oTP1JUOv2AQi8U/SbCRzlhIGvwVh4Un7Dz+ehBiUmIgyBa1OMU2vyWS1piBFEA7qaOndXRzzI
+Bb4TrIeYS8NkdvYjwlx5iVmEUSb+2V2rjIrWclDe0PMnSLtkLNZJmjzLWQG/f1a+RFfbkhQh1pEn
+oo4XzRx/W0c+kHBfzrMIHfyJScHgOpxSEyZ88Y/nhWeNi2gXFIpQBgVNO7/CDbPN2RYEwC5rxk3b
+2PM+mnkvO6z9iSvccCS940nRHkJ5kaWhxxPiYf6iPV0lhrX26S7domUS+YBvtl658W42loxSlZHM
+PUk3drhgn+BAw6MUFt/5trzPREKXqu899aXEKOl0PF1lthYbrQ0Axwe8upYbIKEGSrauRHm/yvP+
+AT/CqxmwC0Ar5J/CPwYwsj1uoawPQRI3GxqA5YkTzNOcpyBwHN5i9nqtNftIS0QYPohUlP4pCX4V
+IDtiv7M8irxAD5Wi92kJIwniL56mBU4EI49/V11SBJZtO94wDVoom6muhcw8luxjZ8a2ZNEl0NFJ
+jUMihwUSgCM3KswCEJZOADNAfSaUopGiQEnROrNRUj8EyZ/NGGZjfbaRQ1Cx582bH6LXN7KyBqIN
+bfTzLzQg0vrPKIpWRkdyj7xEqa6tAxPxAEEbM72yNJ4eklCR/VDM8mKIVMof944WG4rEKERKdiwx
+Amj1bbgCXdiZvdi70gwvNNVNQ/7xlNmZw8evhtpbOOrshkiuVx9PebeQUfu4DXuXwtCfnPXwv9Ej
+pK+srlXLQ8HtSUDf4PJTKeZ2O3j59p0XL1gFAl0oHuWUGMiksblFdf4xAAtohTGGlcoPAAGM4BKA
+sJIMAAAA0nUGMRQXOzADAAAAAARZWg==
 """
 
 

@@ -216,7 +216,6 @@ def main(argv=None):
                 orig_unbundle,
             )
 
-
     def test_cli_help_api_introspection(self):
         """Verify dwimsy help api <dotted.target> prints pydoc documentation (C1)."""
         if (
@@ -228,6 +227,7 @@ def main(argv=None):
             import io
             from contextlib import redirect_stdout
             from dwimsy.cli.__main__ import main as cli_main
+
             buf = io.StringIO()
             with redirect_stdout(buf):
                 rc = cli_main(["help", "api", "dwimsy.meta.versions.VersionSpace"])
@@ -237,8 +237,16 @@ def main(argv=None):
         else:
             try:
                 import subprocess
+
                 res = subprocess.run(
-                    [sys.executable, "-m", "dwimsy.cli", "help", "api", "dwimsy.meta.versions.VersionSpace"],
+                    [
+                        sys.executable,
+                        "-m",
+                        "dwimsy.cli",
+                        "help",
+                        "api",
+                        "dwimsy.meta.versions.VersionSpace",
+                    ],
                     cwd=str(integrity.find_repo_root()),
                     capture_output=True,
                     text=True,
@@ -250,6 +258,7 @@ def main(argv=None):
                 import io
                 from contextlib import redirect_stdout
                 from dwimsy.cli.__main__ import main as cli_main
+
                 buf = io.StringIO()
                 with redirect_stdout(buf):
                     rc = cli_main(["help", "api", "dwimsy.meta.versions.VersionSpace"])

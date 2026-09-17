@@ -1504,9 +1504,13 @@ def main(
         if args.topic and args.topic.strip().lower() == "api":
             target = getattr(args, "target", None)
             if not target:
-                print("error: 'help api' requires a dotted module, class, or function target.", file=sys.stderr)
+                print(
+                    "error: 'help api' requires a dotted module, class, or function target.",
+                    file=sys.stderr,
+                )
                 return 1
             import importlib, pydoc
+
             resolved = None
             try:
                 resolved = importlib.import_module(target)
@@ -1523,7 +1527,9 @@ def main(
                     except Exception:
                         continue
             if resolved is None:
-                print(f"error: could not resolve API target '{target}'", file=sys.stderr)
+                print(
+                    f"error: could not resolve API target '{target}'", file=sys.stderr
+                )
                 return 1
             rendered = pydoc.render_doc(resolved, renderer=pydoc.plaintext)
             safe_page(rendered)

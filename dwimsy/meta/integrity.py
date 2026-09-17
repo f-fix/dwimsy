@@ -417,6 +417,7 @@ class GitIgnoreMatcher:
 def get_git_command(args: Optional[Any] = None) -> Optional[str]:
     """Return the configured git executable command, or None if git is disabled."""
     from dwimsy.meta.unbundle import get_env_casefolded
+
     if sys.platform in ("emscripten", "wasi"):
         return None
     if (
@@ -436,7 +437,6 @@ def get_git_command(args: Optional[Any] = None) -> Optional[str]:
     if env_git:
         return env_git
     return "git"
-
 
 
 def canonical_manifest(
