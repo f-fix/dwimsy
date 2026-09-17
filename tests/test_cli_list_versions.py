@@ -259,5 +259,31 @@ def main(argv=None):
     return 0
 
 
+    def test_version_list_multi_member_selector_single_annotation_per_row(self):
+        """Verify multi-member selector produces at most one =selected or =~selected per row (C2)."""
+        raw_b64 = unbundle._get_active_blztar()
+        space = versions.VersionSpace.from_blztar(raw_b64)
+        sel = space.resolve_selection("0.1.6-dev")
+        out = space.format_list_versions(selected=sel)
+        for line in out.splitlines():
+            sel_count = line.count("=selected")
+            anc_count = line.count("=~selected")
+            self.assertLessEqual(
+                sel_count,
+                1,
+                f"Row has duplicate =selected tokens: {line}",
+            )
+            self.assertLessEqual(
+                anc_count,
+                1,
+                f"Row has duplicate =~selected tokens: {line}",
+            )
+            self.assertLessEqual(
+                sel_count + anc_count,
+                1,
+                f"Row has both =selected and =~selected tokens: {line}",
+            )
+
+
 if __name__ == "__main__":
     main()

@@ -24,7 +24,6 @@ class TestRollbackInstructionsAndTimestamps(unittest.TestCase):
                 "dwimsy.meta.bundle",
                 "-o",
                 str(cls.bundle_path),
-                "--with-deps",
             ],
             cwd=str(src_dir),
             check=True,

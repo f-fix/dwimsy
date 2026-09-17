@@ -416,18 +416,27 @@ class GitIgnoreMatcher:
 
 def get_git_command(args: Optional[Any] = None) -> Optional[str]:
     """Return the configured git executable command, or None if git is disabled."""
+    from dwimsy.meta.unbundle import get_env_casefolded
+    if sys.platform in ("emscripten", "wasi"):
+        return None
+    if (
+        get_env_casefolded("DWIMSY_WITHOUT_SUBPROCESS") == "1"
+        or get_env_casefolded("DWIMSY_IN_PROCESS_VERIFICATION") == "1"
+    ):
+        return None
     if args is not None:
         if getattr(args, "without_git", False):
             return None
         with_git = getattr(args, "with_git", None)
         if with_git is not None and with_git is not False:
             return with_git if isinstance(with_git, str) and with_git else "git"
-    if os.environ.get("DWIMSY_WITHOUT_GIT") == "1":
+    if get_env_casefolded("DWIMSY_WITHOUT_GIT") == "1":
         return None
-    env_git = os.environ.get("DWIMSY_GIT")
+    env_git = get_env_casefolded("DWIMSY_GIT")
     if env_git:
         return env_git
     return "git"
+
 
 
 def canonical_manifest(
@@ -869,7 +878,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         effective = ["-h" if a == "--help-all" else a for a in effective]
 
     parser = argparse.ArgumentParser(
-        prog="dwimsy-integrity",
+        prog="dwimsy-meta-integrity",
         description="Verify canonical portable-project integrity and hash status.",
     )
     parser.add_argument(

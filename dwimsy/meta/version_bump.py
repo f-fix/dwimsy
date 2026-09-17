@@ -2,6 +2,7 @@
 """dwimsy.meta.version_bump - Automated version bumping, changelog recording, and bundle synchronization."""
 
 from __future__ import annotations
+import subprocess
 
 import argparse
 import datetime
@@ -77,6 +78,7 @@ def update_version_files(
     new_version: str,
     repo_root: Optional[Path] = None,
     message: Optional[str] = None,
+    verification_path: Optional[str] = None,
 ) -> None:
     """Update dwimsy/_version.py, README.md, unbundle.py docstring, and CHANGELOG.md with new_version."""
     root = integrity.find_repo_root(repo_root)
@@ -108,6 +110,8 @@ def update_version_files(
                 if message
                 else "- Maintenance release and baseline synchronization."
             )
+            if verification_path and "verification" not in (message or "").lower():
+                msg_entry += f"\n- Bundle verification: {verification_path}"
             entry = f"{header}\n\n### Changed\n{msg_entry}"
             match = re.search(
                 r"(## \[[^\]]+\] - " r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?)",
@@ -376,7 +380,8 @@ def bump_version(
     import io
     from dwimsy.tests import run_tests
 
-    with tempfile.TemporaryDirectory(prefix="dwimsy_bump_stage_") as tmp_dir:
+    stage_dir = root.parent if (root.parent and root.parent.is_dir()) else None
+    with tempfile.TemporaryDirectory(prefix="dwimsy_bump_stage_", dir=stage_dir) as tmp_dir:
         tmp_stage = Path(tmp_dir) / "stage"
 
         def _ignore_staging(src, names):
@@ -397,7 +402,8 @@ def bump_version(
         shutil.copytree(root, tmp_stage, symlinks=True, ignore=_ignore_staging)
 
         # 1. Update version files in staging copy
-        update_version_files(new_ver, repo_root=tmp_stage, message=message)
+        verif_mode = "in-process" if not bundle._can_use_subprocess() else getattr(bundle, "LAST_VERIFICATION_PATH", "subprocess")
+        update_version_files(new_ver, repo_root=tmp_stage, message=message, verification_path=verif_mode)
 
         # 2. Run test suite against staging copy
         test_buf = io.StringIO()
@@ -424,6 +430,40 @@ def bump_version(
             layer_timestamp=changelog_timestamp,
         )
 
+        # Verify the staged bundle and record verification path
+        staged_script = staged_bundle_path.read_text(encoding="utf-8")
+        bundle.verify_bundle_roundtrip(staged_script, repo_root=tmp_stage)
+        verif_mode = "subprocess"
+        if not bundle._can_use_subprocess():
+            verif_mode = "in-process"
+            rc_st, out_st = bundle._run_bundle_self_test_in_process(staged_script, "meta integrity")
+            if rc_st != 0:
+                raise RuntimeError(f"Staged bundle in-process self-test failed: {out_st}")
+        else:
+            try:
+                with tempfile.TemporaryDirectory(prefix="dwimsy_bump_test_") as b_tmp:
+                    stage_p = Path(b_tmp) / "bundle.py"
+                    stage_p.write_text(staged_script, encoding="utf-8")
+                    stage_p.chmod(0o755)
+                    sub_env = dict(os.environ)
+                    sub_env.pop("DWIMSY_TEST_REPO_ROOT", None)
+                    sub_env["DWIMSY_BUNDLE_BUILD"] = "1"
+                    proc = subprocess.run(
+                        [sys.executable, str(stage_p), "dwimsy", "-T", "meta integrity"],
+                        capture_output=True,
+                        text=True,
+                        env=sub_env,
+                    )
+                    if proc.returncode != 0:
+                        raise RuntimeError(f"Staged bundle self-test failed: {proc.stderr}")
+                    verif_mode = "subprocess"
+            except Exception:
+                verif_mode = "in-process"
+                rc_st, out_st = bundle._run_bundle_self_test_in_process(staged_script, "meta integrity")
+                if rc_st != 0:
+                    raise RuntimeError(f"Staged bundle in-process self-test failed: {out_st}")
+        bundle.LAST_VERIFICATION_PATH = verif_mode
+
         # 4. All gates succeeded — atomically publish changes back to root
         for meta_file in (
             Path("dwimsy/_version.py"),
@@ -435,12 +475,16 @@ def bump_version(
             dst_f = root / meta_file
             if src_f.is_file():
                 dst_f.parent.mkdir(parents=True, exist_ok=True)
-                dst_f.write_bytes(src_f.read_bytes())
+                tmp_dst = dst_f.parent / f".{dst_f.name}.tmp.{os.getpid()}"
+                tmp_dst.write_bytes(src_f.read_bytes())
                 if meta_file.suffix == ".py" and src_f.read_bytes().startswith(b"#!"):
                     try:
-                        dst_f.chmod(0o755)
+                        tmp_dst.chmod(0o755)
                     except OSError:
                         pass
+                if dst_f.exists() or dst_f.is_symlink():
+                    dst_f.unlink()
+                os.replace(tmp_dst, dst_f)
 
         unb_script = (root / "dwimsy" / "meta" / "unbundle.py").read_text(
             encoding="utf-8"
@@ -450,24 +494,27 @@ def bump_version(
             unbundle.blztar = m_b.group(1)
         integrity.clear_integrity_cache()
 
-        space = versions.VersionSpace.from_blztar(unbundle.blztar)
-        bundle_py_name = space.composite_bundle_name(".py")
-        bundle_pyz_name = space.composite_bundle_name(".pyz")
+        bundle_py_name = staged_bundle_path.name
+        bundle_pyz_name = staged_bundle_path.with_suffix(".pyz").name
 
         for b_name in (bundle_py_name, bundle_pyz_name):
             b_src = tmp_stage / b_name
             b_dst = root / b_name
             if b_src.is_file():
-                b_dst.write_bytes(b_src.read_bytes())
+                tmp_dst = b_dst.parent / f".{b_dst.name}.tmp.{os.getpid()}"
+                tmp_dst.write_bytes(b_src.read_bytes())
                 try:
-                    b_dst.chmod(0o755)
+                    tmp_dst.chmod(0o755)
                 except OSError:
                     pass
                 try:
                     src_mtime = b_src.stat().st_mtime
-                    os.utime(b_dst, (src_mtime, src_mtime))
+                    os.utime(tmp_dst, (src_mtime, src_mtime))
                 except OSError:
                     pass
+                if b_dst.exists() or b_dst.is_symlink():
+                    b_dst.unlink()
+                os.replace(tmp_dst, b_dst)
 
         bundle_path = root / bundle_py_name
 
@@ -476,8 +523,9 @@ def bump_version(
                 f"[SUCCESS] Advanced version: {current_ver} -> {new_ver}",
                 file=sys.stderr,
             )
+            verif_mode = getattr(bundle, "LAST_VERIFICATION_PATH", "subprocess")
             print(
-                f"[SUCCESS] Reconstituted unbundle.py and generated {bundle_path.name}",
+                f"[SUCCESS] Reconstituted unbundle.py and generated {bundle_path.name} (verified via {verif_mode})",
                 file=sys.stderr,
             )
 
@@ -519,7 +567,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         effective = ["-h" if a == "--help-all" else a for a in effective]
 
     parser = argparse.ArgumentParser(
-        prog="dwimsy-version-bump",
+        prog="dwimsy-meta-version-bump",
         description="Advance version revision, record changelog, and synchronize bundle baseline.",
     )
     parser.add_argument(

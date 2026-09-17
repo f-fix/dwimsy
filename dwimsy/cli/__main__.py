@@ -338,6 +338,14 @@ def format_all_help(parser: argparse.ArgumentParser) -> str:
                     _collect_subparsers(subparser, prefix=name)
 
     _collect_subparsers(parser)
+    out.write("\n\n" + "=" * 80 + "\n")
+    out.write("VERSION-SPACE OPTIONS (--version-help)\n")
+    out.write("=" * 80 + "\n\n")
+    out.write(unbundle.VERSION_SPACE_HELP.strip() + "\n")
+    out.write("\n\n" + "=" * 80 + "\n")
+    out.write("ENVIRONMENT VARIABLES (--env-help)\n")
+    out.write("=" * 80 + "\n\n")
+    out.write(unbundle.ENV_HELP_TEXT.strip() + "\n")
     return out.getvalue()
 
 
@@ -610,6 +618,13 @@ def main(
         print(banner)
         return 0
 
+    if (
+        any(op == "env-help" for op, _ in pipeline["operations"])
+        or pipeline.get("early_exit") == "env-help"
+    ):
+        safe_page(unbundle.ENV_HELP_TEXT)
+        return 0
+
     if pipeline.get("early_exit") == "version-help":
         safe_page(unbundle.VERSION_SPACE_HELP)
         return 0
@@ -686,6 +701,11 @@ def main(
     if remaining and remaining[0] == "dwimsy":
         remaining = remaining[1:]
 
+    if remaining:
+        positional_cmd = unbundle.resolve_argv0_command(remaining[0])
+        if positional_cmd and remaining[: len(positional_cmd)] != positional_cmd:
+            return main(list(positional_cmd) + remaining[1:])
+
     is_checkout, repo_root = unbundle.detect_self_location()
     if is_checkout and repo_root and str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
@@ -694,7 +714,7 @@ def main(
         prog="dwimsy",
         description="dwimsy - retrocomputing media preservation, demodulation, and conversion.",
         add_help=False,
-        epilog="Project Homepage: https://github.com/f-fix/dwimsy\nTip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.\n\nUniversal pipeline options (also accepted by every CLI entry point): -a/--argv0 NAME, --version=TAG, --version-list, --version-include=PATH, --version-restrict-to=PATTERN, --version-prune=PATTERN, --version-splice=SPEC, --version-alt[=TAG].",
+        epilog="Project Homepage: https://github.com/f-fix/dwimsy\nTip: Run 'dwimsy <command> --help' or 'dwimsy --help-all' to view detailed options for all commands.\n\nSee also:\n  --version-help  Version-space pipeline options and -a/--argv0 invocation identities\n  --env-help      Environment variable reference (-D/--env-set, -U/--env-unset)\n  --help-all      Comprehensive multi-command documentation",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-h", "--help", action=PagedHelpAction)
@@ -1136,6 +1156,9 @@ def main(
         "topic", nargs="?", default=None, help="Subcommand or topic name to inspect"
     )
     p_help.add_argument(
+        "target", nargs="?", default=None, help="Target for sub-mode like api"
+    )
+    p_help.add_argument(
         "--help-all",
         action="store_true",
         help="Show full detailed help for all subcommands",
@@ -1160,11 +1183,6 @@ def main(
     )
     p_meta_bundle.add_argument(
         "-t", "--tag", default=None, help="Optional short descriptive tag/label"
-    )
-    p_meta_bundle.add_argument(
-        "--with-deps",
-        action="store_true",
-        help="Include legacy submodule scaffolding from deps/",
     )
     p_meta_bundle.add_argument(
         "--without-git",
@@ -1483,7 +1501,34 @@ def main(
         safe_page(get_doc_asset_text("CHANGELOG.md"))
         return 0
     elif args.command == "help":
-        if args.topic:
+        if args.topic and args.topic.strip().lower() == "api":
+            target = getattr(args, "target", None)
+            if not target:
+                print("error: 'help api' requires a dotted module, class, or function target.", file=sys.stderr)
+                return 1
+            import importlib, pydoc
+            resolved = None
+            try:
+                resolved = importlib.import_module(target)
+            except (ImportError, ModuleNotFoundError):
+                parts = target.split(".")
+                for split_idx in range(len(parts) - 1, 0, -1):
+                    mod_cand = ".".join(parts[:split_idx])
+                    try:
+                        curr = importlib.import_module(mod_cand)
+                        for attr in parts[split_idx:]:
+                            curr = getattr(curr, attr)
+                        resolved = curr
+                        break
+                    except Exception:
+                        continue
+            if resolved is None:
+                print(f"error: could not resolve API target '{target}'", file=sys.stderr)
+                return 1
+            rendered = pydoc.render_doc(resolved, renderer=pydoc.plaintext)
+            safe_page(rendered)
+            return 0
+        elif args.topic:
             topic = args.topic.strip()
             found = False
             for action in parser._actions:

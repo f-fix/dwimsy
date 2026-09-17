@@ -78,11 +78,6 @@ def build_parser() -> argparse.ArgumentParser:
         "-t", "--tag", default=None, help="Optional short descriptive tag/label"
     )
     p_bundle.add_argument(
-        "--with-deps",
-        action="store_true",
-        help="Include legacy submodule scaffolding from deps/",
-    )
-    p_bundle.add_argument(
         "--status",
         action="store_true",
         help="List uncommitted/modified and untracked files",
@@ -121,7 +116,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_unbundle.add_argument(
         "--deps",
-        "-d",
         action="store_true",
         help="Also extract reference dependencies into deps/",
     )

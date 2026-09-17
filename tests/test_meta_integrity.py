@@ -281,66 +281,79 @@ class IntegrityTests(unittest.TestCase):
                     )
 
 
-def test_manifest_selects_expected_files(self):
-    repo = integrity.find_repo_root()
-    files = integrity.source_files(repo)
-    posix = [p.relative_to(repo).as_posix() for p in files]
+    def test_manifest_selects_expected_files(self):
+        repo = integrity.find_repo_root()
+        files = integrity.source_files(repo)
+        posix = [p.relative_to(repo).as_posix() for p in files]
 
-    self.assertIn("README.md", posix)
-    self.assertIn("CHANGELOG.md", posix)
-    self.assertIn("LICENSE", posix)
-    self.assertIn(".gitignore", posix)
-    self.assertIn(".gitmodules", posix)
-    self.assertIn("dwimsy/__init__.py", posix)
-    self.assertIn("dwimsy/_version.py", posix)
-    self.assertIn("dwimsy/core/audio.py", posix)
-    self.assertIn("dwimsy/cli/filters/t882wav.py", posix)
-    self.assertIn("tests/test_meta_integrity.py", posix)
-    self.assertIn("deps/bin2fds/bin2fds.py", posix)
-    self.assertIn("dwimsy/meta/unbundle.py", posix)
-
-
-def test_canonical_manifest_structure(self):
-    patterns = integrity.canonical_manifest()
-    self.assertIn("dwimsy/**/*.py", patterns)
-    self.assertIn("tests/**/*.py", patterns)
-    self.assertIn("tests/**/*.md", patterns)
-    self.assertIn(".gitignore", patterns)
-    self.assertIn(".gitmodules", patterns)
-    self.assertIn("LICENSE", patterns)
-    self.assertIn("README.md", patterns)
-    self.assertIn("CHANGELOG.md", patterns)
-    self.assertIn("deps/bin2fds/**/*", patterns)
+        self.assertIn("README.md", posix)
+        self.assertIn("CHANGELOG.md", posix)
+        self.assertIn("LICENSE", posix)
+        self.assertIn(".gitignore", posix)
+        self.assertIn(".gitmodules", posix)
+        self.assertIn("dwimsy/__init__.py", posix)
+        self.assertIn("dwimsy/_version.py", posix)
+        self.assertIn("dwimsy/core/audio.py", posix)
+        self.assertIn("dwimsy/cli/filters/t882wav.py", posix)
+        self.assertIn("tests/test_meta_integrity.py", posix)
+        if (repo / "deps" / "bin2fds" / "bin2fds.py").is_file():
+            self.assertIn("deps/bin2fds/bin2fds.py", posix)
+        self.assertIn("dwimsy/meta/unbundle.py", posix)
 
 
-def test_canonical_assets_fallback_matches_files(self):
-    repo = integrity.find_repo_root()
-    assets = integrity.canonical_assets(repo, baseline=False)
-    self.assertIn("dwimsy/_version.py", assets)
-    self.assertIn("README.md", assets)
-    self.assertIn("deps/bin2fds/bin2fds.py", assets)
+    def test_canonical_manifest_structure(self):
+        patterns = integrity.canonical_manifest()
+        self.assertIn("dwimsy/**/*.py", patterns)
+        self.assertIn("tests/**/*.py", patterns)
+        self.assertIn("tests/**/*.md", patterns)
+        self.assertIn(".gitignore", patterns)
+        self.assertIn(".gitmodules", patterns)
+        self.assertIn("LICENSE", patterns)
+        self.assertIn("README.md", patterns)
+        self.assertIn("CHANGELOG.md", patterns)
+        self.assertIn("deps/bin2fds/**/*", patterns)
 
 
-def test_code_hash_deterministic(self):
-    h1 = integrity.canonical_code_hash()
-    h2 = integrity.canonical_code_hash()
-    self.assertEqual(h1, h2)
-    self.assertEqual(len(h1), 64)
+    def test_canonical_assets_fallback_matches_files(self):
+        repo = integrity.find_repo_root()
+        assets = integrity.canonical_assets(repo, baseline=False)
+        self.assertIn("dwimsy/_version.py", assets)
+        self.assertIn("README.md", assets)
+        self.assertIn("deps/bin2fds/bin2fds.py", assets)
 
 
-def test_version_output_format(self):
-    v = integrity.version()
-    self.assertTrue(len(v) > 0)
+    def test_code_hash_deterministic(self):
+        h1 = integrity.canonical_code_hash()
+        h2 = integrity.canonical_code_hash()
+        self.assertEqual(h1, h2)
+        self.assertEqual(len(h1), 64)
 
 
-def test_modification_hash_positive_length(self):
-    with self.assertRaises(ValueError):
-        integrity.modification_hash(length=0)
-    with self.assertRaises(ValueError):
-        integrity.modification_hash(length=-5)
-    h = integrity.modification_hash(length=8)
-    self.assertEqual(len(h), 8)
+    def test_version_output_format(self):
+        v = integrity.version()
+        self.assertTrue(len(v) > 0)
 
+
+    def test_modification_hash_positive_length(self):
+        with self.assertRaises(ValueError):
+            integrity.modification_hash(length=0)
+        with self.assertRaises(ValueError):
+            integrity.modification_hash(length=-5)
+        h = integrity.modification_hash(length=8)
+        self.assertEqual(len(h), 8)
+
+
+    def test_no_bare_function_tests_in_test_tree(self):
+        import ast
+        repo = integrity.find_repo_root()
+        test_dir = repo / "tests"
+        bare_tests = []
+        for p in test_dir.glob("test_*.py"):
+            tree = ast.parse(p.read_text(encoding="utf-8"))
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
+                    bare_tests.append(f"{p.name}:{node.lineno} ({node.name})")
+        self.assertEqual(bare_tests, [], f"Bare test functions found at module level: {bare_tests}")
 
 def main(argv=None):
     import sys

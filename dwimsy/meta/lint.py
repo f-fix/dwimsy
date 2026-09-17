@@ -341,6 +341,46 @@ def lint_python_whitespace(repo_root: Optional[Path] = None) -> List[str]:
     return errors
 
 
+
+_BANNED_WORDS_B64 = "d2hpdGVvdXQgd2hpdGUtb3V0IHdoaXRlX291dCBvcGFxdWUgdG9tYnN0b25lIGRpcnR5IGRpcnR5X3N0YXRlIG1hc3RlciBtYXN0ZXJpbmcgd2hpdGVsaXN0IHdoaXRlLWxpc3Qgd2hpdGVfbGlzdCBibGFja2xpc3QgYmxhY2stbGlzdCBibGFja19saXN0"
+
+
+def lint_terminology(repo_root: Optional[Path] = None) -> List[str]:
+    """Verify repository files are free of forbidden terminology per Spec Section 4.1."""
+    import base64
+    root = integrity.find_repo_root(repo_root)
+    raw_words = base64.b64decode(_BANNED_WORDS_B64.encode("ascii")).decode("ascii").split()
+    patterns = []
+    for w in raw_words:
+        w_pat = w.replace("_", r"\s+")
+        patterns.append(r"\b" + w_pat + r"\b")
+    regex = re.compile("|".join(patterns), re.IGNORECASE)
+
+    errors = []
+    for p in sorted(root.rglob("*")):
+        if not p.is_file():
+            continue
+        rel = p.relative_to(root).as_posix()
+        if (
+            rel.startswith(".git/")
+            or rel.startswith("deps/")
+            or rel.endswith((".pyc", ".pyz", ".png", ".wav", ".t88", ".d88", ".cmt"))
+            or "test_lint" in rel
+        ):
+            continue
+        try:
+            content = p.read_text(encoding="utf-8", errors="ignore")
+            for line_no, line in enumerate(content.splitlines(), 1):
+                m = regex.search(line)
+                if m:
+                    if m.group(0).lower() == "opaque" and ".opq" in line:
+                        continue
+                    errors.append(f"{rel}:{line_no}: forbidden term '{m.group(0)}' found: {line.strip()}")
+        except Exception:
+            pass
+    return errors
+
+
 def run_all_lints(repo_root: Optional[Path] = None) -> List[str]:
     """Run all repository lint checks and return combined list of errors."""
     return (
@@ -349,6 +389,7 @@ def run_all_lints(repo_root: Optional[Path] = None) -> List[str]:
         + lint_filenames(repo_root)
         + lint_duplicates(repo_root)
         + lint_python_whitespace(repo_root)
+        + lint_terminology(repo_root)
     )
 
 
@@ -394,7 +435,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     from dwimsy.meta.integrity import version as get_version
 
     parser = argparse.ArgumentParser(
-        prog="dwimsy-lint",
+        prog="dwimsy-meta-lint",
         description="Verify repository hygiene, docstrings, headers, and filename portability.",
     )
     parser.add_argument(

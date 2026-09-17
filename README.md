@@ -1,7 +1,7 @@
 # dwimsy
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation
 
-**Version: 0.1.6.116-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-16)
+**Version: 0.1.6.119-dev** (Milestone 1.6 [IN PROGRESS], 2026-09-17)
 
 grandiose version: (Phase 1 & Milestone 1.5 Complete, Milestone 1.6 in progress)
 > **D**oing **W**hat **I** **M**ean, **S**alvaging **Y**esteryear - Format-Aware Media Transducer & Preservation Gateway
@@ -216,22 +216,22 @@ Any `dwimsy` bundle or installed command can be forced into a maintainer persona
 | **Reconstruct Bundle** | `python3 dwimsy_bundle.py --version=V --version-restrict-to=V -a dwimsy meta bundle --baseline -o out.py` |
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.116-dev (2026-09-16)
+Version: 0.1.6.119-dev (2026-09-17)
 
-`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.116-dev.py`).
+`dwimsy` is also distributed as a standalone, self-extracting single-file Python script (`dwimsy_0.1.6.119-dev.py`).
 
 To use the embedded dwimsy CLI directly from the bundle:
 ```bash
-python3 dwimsy_0.1.6.116-dev.py dwimsy --help
-python3 dwimsy_0.1.6.116-dev.py dwimsy --version
-python3 dwimsy_0.1.6.116-dev.py dwimsy readme
-python3 dwimsy_0.1.6.116-dev.py dwimsy license
-python3 dwimsy_0.1.6.116-dev.py dwimsy changelog
+python3 dwimsy_0.1.6.119-dev.py dwimsy --help
+python3 dwimsy_0.1.6.119-dev.py dwimsy --version
+python3 dwimsy_0.1.6.119-dev.py dwimsy readme
+python3 dwimsy_0.1.6.119-dev.py dwimsy license
+python3 dwimsy_0.1.6.119-dev.py dwimsy changelog
 ```
 
 To extract the repository tree to disk:
 ```bash
-python3 dwimsy_0.1.6.116-dev.py meta unbundle /path/to/target --deps
+python3 dwimsy_0.1.6.119-dev.py meta unbundle /path/to/target --deps
 ```
 
 
@@ -615,7 +615,7 @@ Generates a standalone, self-extracting single-file Python unpacker script of `d
 
 ```text
 $ dwimsy meta bundle --help
-usage: dwimsy meta bundle [-h] [-o OUTPUT] [-t TAG] [--baseline] [--with-deps] [--status] [--diff]
+usage: dwimsy meta bundle [-h] [-o OUTPUT] [-t TAG] [--baseline] [--status] [--diff]
 
 Generate a self-extracting single-file Python unpacker bundle of dwimsy.
 
@@ -626,7 +626,6 @@ options:
   -t TAG, --tag TAG     Optional short descriptive tag/label (e.g. 'parser-fix')
   --baseline            Directly emit the installed canonical baseline bundle module
                         (dwimsy/meta/bundle.py) as output without bundling working tree
-  --with-deps           Include legacy submodule scaffolding from deps/
   --status              List uncommitted/modified and untracked files before bundling
   --diff                Display working tree diff on stdout before bundling
 ```
@@ -636,11 +635,11 @@ options:
   * `dwimsy meta bundle --baseline`: Reconstructs the baseline standalone unpacker from the embedded baseline `blztar` payload and its canonical, blztar-elided `unbundle.py` template.
 
 ```bash
-# Bundle live working tree -> generates dwimsy_0.1.6.116-dev.py
+# Bundle live working tree -> generates dwimsy_0.1.6.119-dev.py
 dwimsy meta bundle
 
 # Emit sealed baseline bundle directly
-dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.116-dev.py
+dwimsy meta bundle --baseline -o ./dwimsy_0.1.6.119-dev.py
 ```
 
 ##### `dwimsy meta unbundle`
@@ -697,7 +696,7 @@ dwimsy meta diff
 dwimsy meta diff 0.1.6.55-dev 0.1.6.56-dev
 
 # Compare on-disk checkout against bundle baseline from an external directory
-python3 dwimsy_0.1.6.116-dev.py --version-include-primary=. dwimsy meta diff baseline alt
+python3 dwimsy_0.1.6.119-dev.py --version-include-primary=. dwimsy meta diff baseline alt
 ```
 
 ##### `dwimsy meta integrity`
@@ -897,13 +896,23 @@ To maintain absolute synchronization between the source checkout and the portabl
 
 ### Environment Variables
 
-`dwimsy` recognizes a concise set of standard environment variables:
+`dwimsy` recognizes a concise set of standard environment variables. They can be configured in your shell environment, or set/cleared dynamically on the command line via `-D NAME[=VALUE]` / `--env-set=NAME[=VALUE]` and `-U NAME` / `--env-unset=NAME`.
+
+Environment variable lookups are evaluated case-insensitively across all platforms (e.g. `dwimsy_without_git` matches `DWIMSY_WITHOUT_GIT`). When modifying the environment via `-D` / `--env-set`, `NAME` is canonically converted to uppercase, any existing case-insensitive matches of `NAME` are cleared first, and `VALUE` defaults to `1` if omitted. `-U` / `--env-unset` clears all case-insensitive matches of `NAME`. As an exception for compatibility with standard proxy conventions, setting `HTTP_PROXY` also sets `http_proxy`.
 
 | Environment Variable | Target Subsystem | Default | Description |
 |:---|:---|:---|:---|
 | `DWIMSY_BUNDLE_BUILD` | Meta & Test Engine | `None` / `0` | When set to `1`, signals in-process bundle self-testing and suppresses on-disk subprocess invocations that require extracted filesystem packages. |
+| `DWIMSY_GIT` | External Tooling | `git` | Explicit path to custom git binary executable. |
+| `DWIMSY_WITHOUT_GIT` | External Tooling | `None` / `0` | When set to `1`, suppresses all external git binary subprocess invocations across all subsystems. |
+| `DWIMSY_WITHOUT_SUBPROCESS` | Runtime Engine | `None` / `0` | When set to `1`, disables all subprocess execution across all subsystems, selecting in-process verification. |
+| `DWIMSY_IN_PROCESS_VERIFICATION` | Meta & Verification | `None` / `0` | When set to `1`, forces in-process bundle self-testing and roundtrip verification without spawning subprocesses (ideal for Emscripten/WASI). |
+| `DWIMSY_STANDALONE_TEST` | Test Runner | `None` / `0` | When set to `1`, isolates standalone self-tests from checkout suites and bounds bundle creation recursion. |
 | `DWIMSY_TEST_FIXTURES` | Test Fixture Pool | `tests/fixtures` | Explicit filesystem path override for local private fixture repositories and real tape captures. |
+| `DWIMSY_TEST_MODE` | Compression & Runner | `None` / `0` | When set to `1`, selects fast compression presets during bundle generation for rapid test execution. |
 | `DWIMSY_TEST_REPO_ROOT` | Integrity & Runner | `None` (Auto) | Explicit repository root path override used during ephemeral temporary directory test execution. |
+| `DWIMSY_REBUNDLE_VERIFYING` | Verification Guard | `None` / `0` | Internal recursion-guard flag set to `1` during bundle round-trip verification passes. |
+
 
 ### Character & Syntax Considerations
 
@@ -1156,7 +1165,7 @@ When browsing media via the `<I>` keystroke in TTY mode:
 * **Ephemeral In-Memory / Crash-Safe Mode (`--ephemeral`)**: Overlays and newly created save media are held strictly in RAM and never written to disk or persistent cache, remaining clean even after sudden termination or power loss. Temporary storage uses auto-cleaned scratch directories or RAM.
 * **TTY UI Local Transfer Commands**: Running logically within the TTY frontend without interrupting the audio streaming engine, operators can issue local commands (`:import <path>`, `:export <file> <dest>`, `:save-overlay`) to transfer files into/out of the Virtual Image Root.
 * **Remote UI Upload/Download (IPC)**: Web and phone dashboards expose file upload/download endpoints over WebSocket / HTTP. Imported images immediately enter the Virtual Image Root and can be cycled via `[` / `]`.
-* **SHA1-Indexed Persistent Overlays**: In non-ephemeral mode, write overlays are stored out-of-band under `~/.cache/dwimsy/overlays/<SHA1>/`, indexed by the source tape SHA-1 hash. Selecting an image with an existing overlay presents an instant choice: `[1] Use Overlay`, `[2] Clean Master`, `[3] Delete Overlay`. Pressing `<D>` in TTY mode discards the active overlay.
+* **SHA1-Indexed Persistent Overlays**: In non-ephemeral mode, write overlays are stored out-of-band under `~/.cache/dwimsy/overlays/<SHA1>/`, indexed by the source tape SHA-1 hash. Selecting an image with an existing overlay presents an instant choice: `[1] Use Overlay`, `[2] Clean Baseline`, `[3] Delete Overlay`. Pressing `<D>` in TTY mode discards the active overlay.
 * **Pipeline / Filter Default**: Standalone filter applets and piped stream conversions default to cold, read-only mode. If a matching overlay is found in cache, `dwimsy` displays an informational notice on `stderr` explaining the `--overlay` activation flag.
 * **Deterministic Verification (`--no-overlay`)**: Explicitly bypasses overlay reading for reproducible verification and testing.
 
@@ -1502,7 +1511,7 @@ dwimsy license > LICENSE
 dwimsy changelog -n 5 -v
 
 # Package dwimsy into a standalone self-extracting script with custom tag
-dwimsy meta bundle --tag "wav-clamping" --with-deps
+dwimsy meta bundle --tag "wav-clamping"
 
 # Output the canonical baseline unpacker script directly without bundling working tree
 dwimsy meta bundle --baseline -o dwimsy_0.1.6.0_clean.py
@@ -2113,7 +2122,7 @@ Multi-stream bundles delimit stream versions using comma `,` with uniform `,altN
 - Timestamps: ISO 8601 UTC timestamps (`YYYY-MM-DDTHH:MM:SSZ`) derived from layer metadata.
 - Hashes: 12-character short hashes by default for easy visual correlation with `--version` and `+mod.<short_hash>` tails. Specifying `--verbose` (`dwimsy --version-list --verbose`) expands hashes to full 64-character SHA-256 strings.
 - Single Shared Entry: When an on-disk checkout is content-identical to the baseline, the redundant top `[unbundled]` row is omitted, and the primary baseline row includes `=unbundled` in its annotations (`[=baseline, =primary, =unbundled, =selected]`).
-- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.116-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
+- Provenance column is unconditional on every row: `[=unbundled: .]`, `[=primary: dwimsy_0.1.6.119-dev.py]`, `[=~primary: ...]`, `[=altN: path]`, `[=~altN: path]`.
 
 ### Execution Model & The Three Paths
 - Path A: Default in-memory virtual mount via `BundleFinder` (zero disk writes).

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+LAST_VERIFICATION_PATH: str = "subprocess"
+
 import argparse
 import base64
 import io
@@ -396,39 +398,42 @@ def verify_bundle_roundtrip(script_text: str, repo_root: Optional[Path] = None) 
     """Verify candidate bundle extraction and canonical rebundling are lossless."""
     root = find_repo_root(repo_root)
     from dwimsy.meta import integrity as _integrity
+    from dwimsy.meta import unbundle
+    from dwimsy.meta.versions import VersionSpace
 
     with tempfile.TemporaryDirectory(prefix="dwimsy_roundtrip_") as tmp:
         tmpdir = Path(tmp)
-        candidate = tmpdir / "candidate.py"
-        candidate.write_text(script_text, encoding="utf-8")
-        candidate.chmod(0o755)
         extracted = tmpdir / "extracted"
         extracted.mkdir()
-        proc = subprocess.run(
-            [
-                sys.executable,
-                str(candidate),
-                "meta",
-                "unbundle",
-                str(extracted),
-                "--deps",
-                "--force",
-            ],
-            capture_output=True,
-            text=True,
-            env={**os.environ, "DWIMSY_REBUNDLE_VERIFYING": "1"},
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(
-                "Bundle round-trip extraction failed"
-                + (f": {proc.stderr.strip()}" if proc.stderr.strip() else "")
-            )
 
-        # The round-trip invariant is candidate -> extraction -> canonical rebundle.
-        # Do not compare the extracted tree to the current checkout here: a bundle
-        # is allowed to represent a historical version that intentionally differs
-        # from the checkout used to run this verifier.
-        rebuilt = build_bundle_script(extracted, with_deps=True)
+        # Parse candidate's blztar directly out of script_text
+        cand_bytes = script_text.encode("utf-8") if isinstance(script_text, str) else script_text
+        m = unbundle._BLZTAR_RE.search(cand_bytes)
+        if not m:
+            raise RuntimeError("Bundle round-trip extraction failed: no blztar found in candidate")
+        payload = cand_bytes[m.start("prefix") : m.end("suffix")].decode("ascii", errors="ignore")
+        lines = payload.split('"""')
+        cand_blztar = lines[1] if len(lines) >= 2 else ""
+
+        cand_vspace = VersionSpace.from_blztar(cand_blztar)
+        unbundle.safe_unbundle(
+            b64_string=cand_vspace.to_blztar(),
+            output_dir=extracted,
+            with_deps=True,
+            force=True,
+            quiet=True,
+        )
+
+        prev_env = os.environ.get("DWIMSY_REBUNDLE_VERIFYING")
+        os.environ["DWIMSY_REBUNDLE_VERIFYING"] = "1"
+        try:
+            rebuilt = build_bundle_script(extracted, with_deps=True)
+        finally:
+            if prev_env is None:
+                os.environ.pop("DWIMSY_REBUNDLE_VERIFYING", None)
+            else:
+                os.environ["DWIMSY_REBUNDLE_VERIFYING"] = prev_env
+
         candidate_canonical = _integrity._canonical_bytes(
             script_text.encode("utf-8"), "dwimsy/meta/unbundle.py"
         )
@@ -566,6 +571,101 @@ def _set_layer_version_tag(
     return result
 
 
+def _can_use_subprocess() -> bool:
+    from dwimsy.meta.unbundle import get_env_casefolded
+    if sys.platform in ("emscripten", "wasi"):
+        return False
+    if (
+        get_env_casefolded("DWIMSY_WITHOUT_SUBPROCESS") == "1"
+        or get_env_casefolded("DWIMSY_IN_PROCESS_VERIFICATION") == "1"
+    ):
+        return False
+    return True
+
+
+def _run_bundle_self_test_in_process(
+    script_text: str,
+    test_pattern: Optional[str] = "meta integrity",
+    verbose: int = 0,
+    stderr=None,
+) -> Tuple[int, str]:
+    """Run candidate bundle self-test in-process via a temporary BundleFinder swap."""
+    from dwimsy.meta import unbundle
+
+    cand_bytes = (
+        script_text.encode("utf-8")
+        if isinstance(script_text, str)
+        else script_text
+    )
+    m = unbundle._BLZTAR_RE.search(cand_bytes)
+    if not m:
+        return 1, "No blztar found in candidate bundle"
+    payload = cand_bytes[m.start("prefix") : m.end("suffix")].decode(
+        "ascii", errors="ignore"
+    )
+    lines = payload.split('"""')
+    cand_blztar = lines[1] if len(lines) >= 2 else ""
+
+    saved_modules = dict(sys.modules)
+    saved_meta_path = list(sys.meta_path)
+    saved_argv = list(sys.argv)
+    saved_env = dict(os.environ)
+
+    for mod_name in list(sys.modules.keys()):
+        if (
+            mod_name == "dwimsy"
+            or mod_name.startswith("dwimsy.")
+            or mod_name == "tests"
+            or mod_name.startswith("tests.")
+            or mod_name.startswith("test_")
+        ):
+            del sys.modules[mod_name]
+
+    sys.meta_path = [
+        f for f in sys.meta_path if not isinstance(f, unbundle.BundleFinder)
+    ]
+    finder = unbundle.BundleFinder(cand_blztar, on_disk_root=None)
+    sys.meta_path.insert(0, finder)
+
+    os.environ.pop("DWIMSY_TEST_REPO_ROOT", None)
+    os.environ["DWIMSY_BUNDLE_BUILD"] = "1"
+    os.environ["DWIMSY_STANDALONE_TEST"] = "1"
+
+    out_buf = io.StringIO()
+    err_buf = io.StringIO()
+    rc = 0
+    try:
+        from contextlib import redirect_stdout, redirect_stderr
+
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            from dwimsy.tests import run_tests
+
+            pattern = [test_pattern] if test_pattern else None
+            rc = run_tests(pattern, verbose=max(1, verbose), stream=out_buf)
+    except SystemExit as se:
+        rc = se.code if isinstance(se.code, int) else (0 if se.code is None else 1)
+    except Exception as exc:
+        err_buf.write(str(exc))
+        rc = 1
+    finally:
+        sys.meta_path = saved_meta_path
+        sys.argv = saved_argv
+        os.environ.clear()
+        os.environ.update(saved_env)
+        for mod_name in list(sys.modules.keys()):
+            if mod_name not in saved_modules:
+                del sys.modules[mod_name]
+        for mod_name, mod in saved_modules.items():
+            sys.modules[mod_name] = mod
+
+    combined = out_buf.getvalue() + err_buf.getvalue()
+    if verbose and stderr and combined:
+        stderr.write(combined)
+        stderr.flush()
+
+    return rc, combined
+
+
 def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     """Generate a bundle while preserving the current VersionSpace history."""
     stdout = stdout or sys.stdout
@@ -578,10 +678,13 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
 
     git_bin = get_git_command(args)
     if getattr(args, "status", False) and git_bin and (root / ".git").exists():
-        res = subprocess.run(
-            [git_bin, "status", "-s"], cwd=root, capture_output=True, text=True
-        )
-        if res.returncode == 0 and res.stdout.strip():
+        try:
+            res = subprocess.run(
+                [git_bin, "status", "-s"], cwd=root, capture_output=True, text=True
+            )
+        except Exception:
+            res = None
+        if res is not None and res.returncode == 0 and res.stdout.strip():
             print("=== Working Tree Status ===", file=stderr)
             print(res.stdout.strip(), file=stderr)
 
@@ -661,40 +764,68 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     script_text = build_bundle_script(root, with_deps=True, version_space=vspace)
     out_name = getattr(args, "output", None) or vspace.composite_bundle_name(".py")
 
-    # Verify the generated bundle in an isolated subprocess before publishing it.
-    with tempfile.TemporaryDirectory(prefix="dwimsy_bundle_") as tmp:
-        tmpdir = Path(tmp)
-        stage = tmpdir / "bundle.py"
-        stage.write_text(script_text, encoding="utf-8")
-        stage.chmod(0o755)
+    global LAST_VERIFICATION_PATH
+    # Verify the generated bundle before publishing it.
+    verification_path = "subprocess"
+    rc = 0
+    err_output = ""
 
-        sub_env = dict(os.environ)
-        sub_env.pop("DWIMSY_TEST_REPO_ROOT", None)
-        sub_env["DWIMSY_BUNDLE_BUILD"] = "1"
-        proc = subprocess.run(
-            [sys.executable, str(stage), "dwimsy", "-T", "meta integrity"],
-            capture_output=True,
-            text=True,
-            env=sub_env,
+    if not _can_use_subprocess():
+        verification_path = "in-process"
+        rc, err_output = _run_bundle_self_test_in_process(
+            script_text,
+            test_pattern="meta integrity",
+            verbose=getattr(args, "verbose", 0),
+            stderr=stderr,
         )
-        rc = proc.returncode
-        if getattr(args, "verbose", 0) and (proc.stdout or proc.stderr):
-            if proc.stdout:
-                stderr.write(proc.stdout)
-            if proc.stderr:
-                stderr.write(proc.stderr)
-            stderr.flush()
-        if rc != 0:
-            failed = Path(out_name).with_name(
-                Path(out_name).stem
-                + f"_failed_{rc}_tests"
-                + (Path(out_name).suffix or ".py")
-            )
-            failed.write_text(script_text, encoding="utf-8")
-            failed.chmod(0o755)
-            if proc.stderr:
-                stderr.write(proc.stderr)
-            return 1
+    else:
+        with tempfile.TemporaryDirectory(prefix="dwimsy_bundle_") as tmp:
+            tmpdir = Path(tmp)
+            stage = tmpdir / "bundle.py"
+            stage.write_text(script_text, encoding="utf-8")
+            stage.chmod(0o755)
+
+            sub_env = dict(os.environ)
+            sub_env.pop("DWIMSY_TEST_REPO_ROOT", None)
+            sub_env["DWIMSY_BUNDLE_BUILD"] = "1"
+            try:
+                proc = subprocess.run(
+                    [sys.executable, str(stage), "dwimsy", "-T", "meta integrity"],
+                    capture_output=True,
+                    text=True,
+                    env=sub_env,
+                )
+                rc = proc.returncode
+                if getattr(args, "verbose", 0) and (proc.stdout or proc.stderr):
+                    if proc.stdout:
+                        stderr.write(proc.stdout)
+                    if proc.stderr:
+                        stderr.write(proc.stderr)
+                    stderr.flush()
+                if proc.stderr:
+                    err_output = proc.stderr
+            except Exception:
+                verification_path = "in-process"
+                rc, err_output = _run_bundle_self_test_in_process(
+                    script_text,
+                    test_pattern="meta integrity",
+                    verbose=getattr(args, "verbose", 0),
+                    stderr=stderr,
+                )
+
+    LAST_VERIFICATION_PATH = verification_path
+
+    if rc != 0:
+        failed = Path(out_name).with_name(
+            Path(out_name).stem
+            + f"_failed_{rc}_tests"
+            + (Path(out_name).suffix or ".py")
+        )
+        failed.write_text(script_text, encoding="utf-8")
+        failed.chmod(0o755)
+        if err_output:
+            stderr.write(err_output)
+        return 1
 
     if not os.environ.get("DWIMSY_REBUNDLE_VERIFYING"):
         verify_bundle_roundtrip(script_text, repo_root=root)
@@ -786,13 +917,16 @@ def run_meta_fetch_deps(args, stdout=None, stderr=None) -> int:
     )
 
     if not use_baseline and git_bin:
-        res = subprocess.run(
-            [git_bin, "submodule", "update", "--init", "--recursive"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-        )
-        if res.returncode == 0:
+        try:
+            res = subprocess.run(
+                [git_bin, "submodule", "update", "--init", "--recursive"],
+                cwd=repo_root,
+                capture_output=True,
+                text=True,
+            )
+        except Exception:
+            res = None
+        if res is not None and res.returncode == 0:
             print(f"[SUCCESS] Updated git submodules in {deps_dir}", file=stderr)
             return 0
         print(
@@ -844,7 +978,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return run_tests(pattern, verbose=max(verbosity, 1))
 
     parser = argparse.ArgumentParser(
-        prog="dwimsy-bundle",
+        prog="dwimsy-meta-bundle",
         description="Build self-extracting dwimsy standalone bundles.",
     )
     parser.add_argument(
@@ -865,11 +999,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument(
         "-t", "--tag", default=None, help="Optional short descriptive tag/label"
-    )
-    parser.add_argument(
-        "--with-deps",
-        action="store_true",
-        help="Include legacy submodule scaffolding from deps/",
     )
     parser.add_argument(
         "--without-git",
@@ -911,6 +1040,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--version-splice", default=None)
     parser.add_argument("--version-alt", nargs="?", const=True, default=False)
     args = parser.parse_args(effective)
+
+    if args.output is not None and args.output != "-":
+        p_out = Path(args.output)
+        if p_out.suffix not in (".py", ".pyz"):
+            print(
+                f"error: unsupported output extension '{p_out.suffix}'. Expected '.py' or '.pyz' (or '-' for stdout).",
+                file=sys.stderr,
+            )
+            return 1
 
     # Keep the standalone maintainer entry point behaviorally aligned with
     # `dwimsy meta bundle` for the shared baseline/dry-run modes.

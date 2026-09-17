@@ -5,6 +5,21 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.119-dev] - 2026-09-17T04:17:04Z
+
+### Changed
+- Fix CLI dispatcher/tokenizer consistency (version-bump/bundle-fixtures/fetch-deps hyphen handling, bare-positional dispatch), finish --with-deps removal across all three parser copies, and land Emscripten-safe transactional bundle verification.
+
+## [0.1.6.118-dev] - 2026-09-16T08:35:02Z
+
+### Changed
+- Implement v10.0 spec conformance: Tier 3 API help, quadratic selection annotation fix, banned terminology lint, atomic publication, and dead plumbing removal.
+
+## [0.1.6.117-dev] - 2026-09-16T08:33:54Z
+
+### Changed
+- Implement v10.0 spec conformance: Tier 3 API help, quadratic selection annotation fix, banned terminology lint, atomic publication, and dead plumbing removal.
+
 ## [0.1.6.116-dev] - 2026-09-16T04:53:34Z
 
 ### Changed

@@ -2187,8 +2187,10 @@ class VersionSpace:
         on_disk_root: Optional[Path] = None,
         selected: Optional[SelectionSet] = None,
         verbose: bool = False,
+        bundle_name: Optional[str] = None,
     ) -> str:
         """Format the output of --list-versions according to the complete specification."""
+        from dwimsy.meta import integrity
         all_refs = self.get_all_versions()
 
         if selected is None and on_disk_root is None:
@@ -2352,12 +2354,11 @@ class VersionSpace:
                         kw_tokens.append("=~alt_sealed")
 
                 if selected is not None:
-                    for item in selected:
-                        if item.stream is s:
-                            if v.ordinal == item.ordinal:
-                                kw_tokens.append("=selected")
-                            elif v.ordinal < item.ordinal:
-                                kw_tokens.append("=~selected")
+                    stream_items = [item for item in selected if item.stream is s]
+                    if any(item.ordinal == v.ordinal for item in stream_items):
+                        kw_tokens.append("=selected")
+                    elif any(v.ordinal < item.ordinal for item in stream_items):
+                        kw_tokens.append("=~selected")
 
                 peer_list = [
                     t
@@ -2380,7 +2381,21 @@ class VersionSpace:
                     "=" if (head_ver and v.ordinal == head_ver.ordinal) else "=~"
                 )
                 role_name = "primary" if s.index == 0 else s.name
-                prov_str = f"[{role_status}{role_name}: {v.source}]"
+                src_label = v.source
+                if s.index == 0 and (not hasattr(s, "source") or s.source in (".", "dwimsy")):
+                    if on_disk_root is not None and (on_disk_root / "dwimsy" / "__init__.py").is_file():
+                        try:
+                            if Path.cwd().resolve() == on_disk_root.resolve():
+                                src_label = "."
+                            else:
+                                src_label = str(on_disk_root)
+                        except Exception:
+                            src_label = "."
+                    elif bundle_name:
+                        src_label = bundle_name
+                    elif integrity.is_standalone_bundle() or (sys.argv and sys.argv[0] and sys.argv[0].endswith((".py", ".pyz"))):
+                        src_label = Path(sys.argv[0]).name
+                prov_str = f"[{role_status}{role_name}: {src_label}]"
 
                 ts = self.get_layer_timestamp(lyr)
                 h_str = v.content_hash if verbose else v.content_hash[:12]

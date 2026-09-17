@@ -217,6 +217,47 @@ def main(argv=None):
             )
 
 
+    def test_cli_help_api_introspection(self):
+        """Verify dwimsy help api <dotted.target> prints pydoc documentation (C1)."""
+        if (
+            os.environ.get("DWIMSY_BUNDLE_BUILD") == "1"
+            or os.environ.get("DWIMSY_STANDALONE_TEST") == "1"
+            or os.environ.get("DWIMSY_WITHOUT_SUBPROCESS") == "1"
+            or sys.platform in ("emscripten", "wasi")
+        ):
+            import io
+            from contextlib import redirect_stdout
+            from dwimsy.cli.__main__ import main as cli_main
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = cli_main(["help", "api", "dwimsy.meta.versions.VersionSpace"])
+            self.assertEqual(rc, 0)
+            self.assertIn("class VersionSpace", buf.getvalue())
+            self.assertIn("The collection of all streams", buf.getvalue())
+        else:
+            try:
+                import subprocess
+                res = subprocess.run(
+                    [sys.executable, "-m", "dwimsy.cli", "help", "api", "dwimsy.meta.versions.VersionSpace"],
+                    cwd=str(integrity.find_repo_root()),
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(res.returncode, 0, f"help api failed: {res.stderr}")
+                self.assertIn("class VersionSpace", res.stdout)
+                self.assertIn("The collection of all streams", res.stdout)
+            except Exception:
+                import io
+                from contextlib import redirect_stdout
+                from dwimsy.cli.__main__ import main as cli_main
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    rc = cli_main(["help", "api", "dwimsy.meta.versions.VersionSpace"])
+                self.assertEqual(rc, 0)
+                self.assertIn("class VersionSpace", buf.getvalue())
+                self.assertIn("The collection of all streams", buf.getvalue())
+
+
 if __name__ == "__main__":
     main()
 

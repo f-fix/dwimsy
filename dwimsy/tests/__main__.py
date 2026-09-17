@@ -37,7 +37,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         effective = ["-h" if a == "--help-all" else a for a in effective]
 
     parser = argparse.ArgumentParser(
-        prog="python -m dwimsy.tests",
+        prog="dwimsy-tests",
         description="Discover and run dwimsy unit tests in-process (from disk or in-memory bundle payload).",
     )
     parser.add_argument(

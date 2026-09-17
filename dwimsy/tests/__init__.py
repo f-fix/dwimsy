@@ -51,7 +51,8 @@ def find_disk_tests_dir(start: Optional[Path] = None) -> Optional[Path]:
     A standalone bundle is hermetic: a surrounding checkout must not become
     its test suite merely because the bundle was launched from that directory.
     """
-    if start is None and integrity.is_standalone_bundle():
+    from dwimsy.meta.unbundle import get_env_casefolded
+    if start is None and (integrity.is_standalone_bundle() or get_env_casefolded("DWIMSY_STANDALONE_TEST") == "1"):
         return None
     if start is not None:
         p = Path(start).resolve()
@@ -234,7 +235,10 @@ def list_tests(
                 old_standalone_test = os.environ.get("DWIMSY_STANDALONE_TEST")
                 if str(tests_dir) in sys.path:
                     sys.path.remove(str(tests_dir))
+                if str(tmp_path) in sys.path:
+                    sys.path.remove(str(tmp_path))
                 sys.path.insert(0, str(tests_dir))
+                sys.path.insert(0, str(tmp_path))
                 os.environ["DWIMSY_TEST_REPO_ROOT"] = str(tmp_path)
                 os.environ["DWIMSY_STANDALONE_TEST"] = "1"
                 try:
@@ -303,16 +307,16 @@ def run_tests(
 
     loader = unittest.defaultTestLoader
     suite = unittest.TestSuite()
-    original_meta_path = [
-        finder
-        for finder in sys.meta_path
-        if not (
-            hasattr(finder, "b64_string") or "BundleFinder" in type(finder).__name__
-        )
-    ]
-    sys.meta_path[:] = original_meta_path
+    original_meta_path = list(sys.meta_path)
 
     if disk_tests is not None and any(disk_tests.glob("test_*.py")):
+        sys.meta_path[:] = [
+            finder
+            for finder in sys.meta_path
+            if not (
+                hasattr(finder, "b64_string") or "BundleFinder" in type(finder).__name__
+            )
+        ]
         root = disk_tests.parent
         orig_sys_path = list(sys.path)
         orig_cwd = Path.cwd()
@@ -360,7 +364,10 @@ def run_tests(
             old_test_mode = os.environ.get("DWIMSY_TEST_MODE")
             if str(tests_dir) in sys.path:
                 sys.path.remove(str(tests_dir))
+            if str(tmp_path) in sys.path:
+                sys.path.remove(str(tmp_path))
             sys.path.insert(0, str(tests_dir))
+            sys.path.insert(0, str(tmp_path))
             os.environ["DWIMSY_TEST_REPO_ROOT"] = str(tmp_path)
             os.environ["DWIMSY_STANDALONE_TEST"] = "1"
             os.environ["DWIMSY_TEST_MODE"] = "1"

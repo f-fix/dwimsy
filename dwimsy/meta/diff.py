@@ -320,7 +320,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     from dwimsy.meta.integrity import version as get_version
 
     parser = argparse.ArgumentParser(
-        prog="dwimsy-diff",
+        prog="dwimsy-meta-diff",
         description="Version-labeled unified diff engine.",
         add_help=False,
     )
