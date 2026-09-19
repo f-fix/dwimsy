@@ -94,7 +94,9 @@ def _canonical_layer_mtimes(root: Path, names) -> tuple[int, dict[str, int]]:
     return layer_mtime, {name: layer_mtime for name in names}
 
 
-def create_tree_state(repo_root: Path, include_deps: bool = True, *, with_deps: Optional[bool] = None) -> dict[str, bytes]:
+def create_tree_state(
+    repo_root: Path, include_deps: bool = True, *, with_deps: Optional[bool] = None
+) -> dict[str, bytes]:
     """Return the deterministic portable file tree used by bundle creation.
 
     ``include_deps`` is an internal compatibility parameter; normal bundle
@@ -212,7 +214,9 @@ def create_tree_state(repo_root: Path, include_deps: bool = True, *, with_deps: 
     return result
 
 
-def create_tar_archive(repo_root: Path, include_deps: bool = True, *, with_deps: Optional[bool] = None) -> bytes:
+def create_tar_archive(
+    repo_root: Path, include_deps: bool = True, *, with_deps: Optional[bool] = None
+) -> bytes:
     """Create a deterministic in-memory TAR byte stream of the repository tree.
 
     ``include_deps`` refers only to bundle construction; it is unrelated to
@@ -461,7 +465,12 @@ def verify_bundle_roundtrip(script_text: str, repo_root: Optional[Path] = None) 
                 os.environ["DWIMSY_REBUNDLE_VERIFYING"] = prev_env
 
         candidate_canonical = _integrity._canonical_bytes(
-            (script_text if isinstance(script_text, bytes) else script_text.encode("utf-8")), "dwimsy/meta/unbundle.py"
+            (
+                script_text
+                if isinstance(script_text, bytes)
+                else script_text.encode("utf-8")
+            ),
+            "dwimsy/meta/unbundle.py",
         )
         rebuilt_canonical = _integrity._canonical_bytes(
             rebuilt.encode("utf-8"), "dwimsy/meta/unbundle.py"
@@ -1223,6 +1232,7 @@ _FIXTURE_END = b"# FIXTURE-CORE-END"
 def extract_fixture_core(unbundle_source: bytes) -> str:
     """Extract all marked fixture-core source regions and verify references."""
     import ast
+
     text = unbundle_source.decode("utf-8")
     lines = text.splitlines(keepends=True)
     regions = []
@@ -1280,12 +1290,18 @@ def extract_fixture_core(unbundle_source: bytes) -> str:
         elif isinstance(node, ast.arg):
             core_defs.add(node.arg)
 
-    builtins = set(dir(__builtins__)) if isinstance(__builtins__, dict) else set(dir(__builtins__))
+    builtins = (
+        set(dir(__builtins__))
+        if isinstance(__builtins__, dict)
+        else set(dir(__builtins__))
+    )
     for node in ast.walk(core_ast):
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             name = node.id
             if name in unbundle_defs and name not in core_defs and name not in builtins:
-                raise ValueError(f"FIXTURE-CORE contains unmarked dependency '{name}' from unbundle.py")
+                raise ValueError(
+                    f"FIXTURE-CORE contains unmarked dependency '{name}' from unbundle.py"
+                )
 
     return core_text
 
@@ -1302,6 +1318,7 @@ def build_fixture_bundles(
 ) -> list[Path]:
     """Build deterministic subsetted one-version fixture bundles."""
     from dwimsy.meta import unbundle as _ub
+
     base_ver = version or integrity.version().split("+")[0]
     return _ub._fixture_core_bundle_fixtures(
         [str(s) for s in sources],

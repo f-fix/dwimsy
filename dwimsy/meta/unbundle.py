@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.126-dev (2026-09-19)
+Version: 0.1.6.127-dev (2026-09-19)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.126-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.127-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.126-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.126-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.126-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.126-dev.py dwimsy license
-  python3 dwimsy_0.1.6.126-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.127-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.127-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.127-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.127-dev.py dwimsy license
+  python3 dwimsy_0.1.6.127-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.126-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.127-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -426,7 +426,9 @@ def _open_bundle_tar(b64_string: Optional[str] = None) -> tarfile.TarFile:
     try:
         data = decomp.decompress(raw_bytes)
     except lzma.LZMAError as exc:
-        raise RuntimeError("Primary stream LZMA corruption while opening bundle") from exc
+        raise RuntimeError(
+            "Primary stream LZMA corruption while opening bundle"
+        ) from exc
     if not data:
         return tarfile.open(fileobj=io.BytesIO(b"\x00" * 1024), mode="r:")
     return tarfile.open(fileobj=io.BytesIO(data), mode="r:*")
@@ -965,7 +967,9 @@ def safe_unbundle(
     # 1. Type Collision Guard (Spec Section3.1)
     if out_path.exists() and not force:
         for norm_name in assets:
-            if not materialize_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+            if not materialize_deps and (
+                norm_name == "deps" or norm_name.startswith("deps/")
+            ):
                 continue
             if _is_protected_target_path(norm_name, ignored_target):
                 continue
@@ -1108,7 +1112,9 @@ def safe_unbundle(
                         continue
                     if _is_protected_target_path(name, ignored_disk):
                         continue
-                    if (name == "deps" or name.startswith("deps/")) and not materialize_deps:
+                    if (
+                        name == "deps" or name.startswith("deps/")
+                    ) and not materialize_deps:
                         continue
                     if (
                         Path(name).parent == Path(".")
@@ -1236,7 +1242,9 @@ def safe_unbundle(
     for norm_name, content in sorted(assets.items()):
         if norm_name.startswith("<dwimsy-bundle>/"):
             norm_name = norm_name[len("<dwimsy-bundle>/") :]
-        if not materialize_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+        if not materialize_deps and (
+            norm_name == "deps" or norm_name.startswith("deps/")
+        ):
             continue
         if _is_protected_target_path(norm_name, ignored_target):
             continue
@@ -1289,7 +1297,9 @@ def safe_unbundle(
     for norm_name in sorted(removals):
         if norm_name.startswith("<dwimsy-bundle>/"):
             norm_name = norm_name[len("<dwimsy-bundle>/") :]
-        if not materialize_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+        if not materialize_deps and (
+            norm_name == "deps" or norm_name.startswith("deps/")
+        ):
             continue
         if _is_protected_target_path(norm_name, ignored_target):
             continue
@@ -2763,12 +2773,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 # FIXTURE-CORE-BEGIN: blztar decode/materialize
 
+
 def _fixture_core_decode_payload(b64_text: str):
     """Decode and decompress base64 LZMA tar payload."""
     import base64 as _base64
     import io as _io
     import lzma as _lzma
     import tarfile as _tarfile
+
     raw = _base64.b64decode(b"".join(str(b64_text).encode("ascii").split()))
     if not raw:
         raise RuntimeError("Fixture bundle contains no payload")
@@ -2806,10 +2818,13 @@ def _fixture_core_get_manifest(blztar_text: str) -> list[tuple[str, str, int]]:
     return manifest
 
 
-def _fixture_core_materialize(blztar_text: str, output_dir: str | Path, names: list[str] | None = None) -> list[str]:
+def _fixture_core_materialize(
+    blztar_text: str, output_dir: str | Path, names: list[str] | None = None
+) -> list[str]:
     """Extract fixture payloads to output directory with path traversal safety."""
     import os as _os
     from pathlib import Path as _Path
+
     data, _io, _tarfile = _fixture_core_decode_payload(blztar_text)
     out = _Path(output_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -2848,9 +2863,12 @@ def _fixture_core_materialize(blztar_text: str, output_dir: str | Path, names: l
     return extracted
 
 
-def _fixture_core_list_manifest(blztar_text: str, verbose: bool = False, out_stream=None) -> None:
+def _fixture_core_list_manifest(
+    blztar_text: str, verbose: bool = False, out_stream=None
+) -> None:
     """Print formatted manifest listing to output stream."""
     import sys as _sys
+
     if out_stream is None:
         out_stream = _sys.stdout
     manifest = _fixture_core_get_manifest(blztar_text)
@@ -2864,19 +2882,23 @@ def _fixture_core_list_manifest(blztar_text: str, verbose: bool = False, out_str
     text = "\n".join(lines) + "\n"
     out_stream.write(text)
 
+
 # FIXTURE-CORE-END
 # FIXTURE-CORE-BEGIN: packaging and dispatch
+
 
 def _fixture_core_candidates(source_path: str | Path) -> dict[str, tuple[str, bytes]]:
     """Scan directory, file, or fixture bundle and return {sha1: (filename, bytes)}."""
     import hashlib as _hashlib
     from pathlib import Path as _Path
+
     p = _Path(source_path).resolve()
     items = {}
     if p.is_file():
         data = p.read_bytes()
         if p.name.endswith(".pyz") or data[:4] == b"PK\x03\x04":
             import zipfile as _zipfile
+
             try:
                 with _zipfile.ZipFile(p, "r") as zf:
                     if "__main__.py" in zf.namelist():
@@ -2885,6 +2907,7 @@ def _fixture_core_candidates(source_path: str | Path) -> dict[str, tuple[str, by
                 pass
         if b"_FIXTURE_BLZTAR" in data:
             import re as _re
+
             m = _re.search(rb'(?s)_FIXTURE_BLZTAR\s*=\s*"""(.*?)"""', data)
             if m:
                 b64_str = m.group(1).decode("ascii")
@@ -2986,16 +3009,24 @@ def _fixture_core_bundle_fixtures(
         raise ValueError("No fixture files found in the supplied sources")
 
     def _matches(sel: str, items: dict[str, tuple[str, bytes]]) -> set[str]:
-        hits = {sha for sha, (fn, _) in items.items() if _fixture_core_match_selector(sel, sha, fn)}
+        hits = {
+            sha
+            for sha, (fn, _) in items.items()
+            if _fixture_core_match_selector(sel, sha, fn)
+        }
         if sel.casefold().startswith("sha1:") and len(hits) > 1:
-            raise ValueError(f"Ambiguous SHA-1 selector '{sel}': {', '.join(sorted(hits))}")
+            raise ValueError(
+                f"Ambiguous SHA-1 selector '{sel}': {', '.join(sorted(hits))}"
+            )
         return hits
 
     selected = set(all_items.keys())
-    for op, sel in (operations or []):
+    for op, sel in operations or []:
         hit = _matches(sel, all_items)
         if sel.casefold().startswith("sha1:") and len(hit) > 1:
-            raise ValueError(f"Ambiguous SHA-1 selector '{sel}': {', '.join(sorted(hit))}")
+            raise ValueError(
+                f"Ambiguous SHA-1 selector '{sel}': {', '.join(sorted(hit))}"
+            )
         if not hit and op not in ("prune", "fixture-prune"):
             raise ValueError(f"Fixture selector matched no fixtures: {sel}")
         if op in ("include", "fixture-include"):
@@ -3010,23 +3041,35 @@ def _fixture_core_bundle_fixtures(
         raise ValueError("Fixture selection is empty")
 
     sorted_selected_shas = sorted(selected)
-    fixture_id = _hashlib.sha256("\n".join(sorted_selected_shas).encode("utf-8")).hexdigest()[:12]
+    fixture_id = _hashlib.sha256(
+        "\n".join(sorted_selected_shas).encode("utf-8")
+    ).hexdigest()[:12]
     base_version = version.split("+")[0]
 
     sorted_items = sorted(
         [(sha, all_items[sha][0], all_items[sha][1]) for sha in selected],
-        key=lambda t: (t[1].rsplit(".", 1)[-1].lower() if "." in t[1] else "", t[1].lower(), t[0])
+        key=lambda t: (
+            t[1].rsplit(".", 1)[-1].lower() if "." in t[1] else "",
+            t[1].lower(),
+            t[0],
+        ),
     )
 
     core_src = ""
     try:
         from dwimsy.meta.bundle import extract_fixture_core
+
         ub_bytes = None
         try:
             from dwimsy.meta import unbundle as _ub
+
             if hasattr(_ub, "get_asset"):
                 ub_bytes = _ub.get_asset("dwimsy/meta/unbundle.py")
-            elif hasattr(_ub, "__file__") and _ub.__file__ and _Path(_ub.__file__).is_file():
+            elif (
+                hasattr(_ub, "__file__")
+                and _ub.__file__
+                and _Path(_ub.__file__).is_file()
+            ):
                 ub_bytes = _Path(_ub.__file__).read_bytes()
         except Exception:
             pass
@@ -3067,10 +3110,12 @@ def _fixture_core_bundle_fixtures(
         if self_text:
             m_blz = _re.search(r'(?ms)_FIXTURE_BLZTAR\s*=\s*""".*?"""\s*', self_text)
             if m_blz:
-                tail_code = self_text[m_blz.end():]
-                m_main = _re.search(r'(?m)^if __name__ == [\'"]__main__[\'"]:', tail_code)
+                tail_code = self_text[m_blz.end() :]
+                m_main = _re.search(
+                    r'(?m)^if __name__ == [\'"]__main__[\'"]:', tail_code
+                )
                 if m_main:
-                    core_src = tail_code[:m_main.start()].strip()
+                    core_src = tail_code[: m_main.start()].strip()
                 else:
                     core_src = tail_code.strip()
 
@@ -3094,7 +3139,12 @@ def _fixture_core_bundle_fixtures(
             ti = _tarfile.TarInfo("__DWIMSY_TEST_FIXTURES__")
             ti.size = 0
             tar.addfile(ti, _io.BytesIO())
-            mf_lines = [f"{sha}\t{fn}\t{len(content)}" for sha, fn, content in sorted(items_subset, key=lambda x: (x[1].lower(), x[0]))]
+            mf_lines = [
+                f"{sha}\t{fn}\t{len(content)}"
+                for sha, fn, content in sorted(
+                    items_subset, key=lambda x: (x[1].lower(), x[0])
+                )
+            ]
             mf_data = ("\n".join(mf_lines) + "\n").encode("utf-8")
             ti_mf = _tarfile.TarInfo("__DWIMSY_FIXTURE_MANIFEST__.txt")
             ti_mf.size = len(mf_data)
@@ -3106,7 +3156,7 @@ def _fixture_core_bundle_fixtures(
         raw_tar = bio.getvalue()
         comp = _lzma.compress(raw_tar)
         b64 = _base64.b64encode(comp).decode("ascii")
-        lines = "\n".join(b64[i:i+76] for i in range(0, len(b64), 76))
+        lines = "\n".join(b64[i : i + 76] for i in range(0, len(b64), 76))
         return header + lines + "\n" + footer
 
     partitions: list[list[tuple[str, str, bytes]]] = []
@@ -3145,7 +3195,9 @@ def _fixture_core_bundle_fixtures(
         part_suffix = f"-{idx+1:02d}-of-{num_parts:02d}" if num_parts > 1 else ""
         script_text = _render_script(part_items)
         script_bytes = script_text.encode("utf-8")
-        part_exts = sorted(set(fn.rsplit(".", 1)[-1].lower() for _, fn, _ in part_items if "." in fn))
+        part_exts = sorted(
+            set(fn.rsplit(".", 1)[-1].lower() for _, fn, _ in part_items if "." in fn)
+        )
         exts_str = "+".join(part_exts) if part_exts else "none"
         scope_str = label if label else "all"
         part_count = len(part_items)
@@ -3166,7 +3218,9 @@ def _fixture_core_bundle_fixtures(
             pyz_path = out_dir / f"{base_name}.pyz"
             if pyz_path.exists() or pyz_path.is_symlink():
                 pyz_path.unlink()
-            with _zipfile.ZipFile(pyz_path, "w", compression=_zipfile.ZIP_DEFLATED) as zf:
+            with _zipfile.ZipFile(
+                pyz_path, "w", compression=_zipfile.ZIP_DEFLATED
+            ) as zf:
                 zf.writestr("__main__.py", script_bytes)
             try:
                 pyz_path.chmod(0o755)
@@ -3187,8 +3241,10 @@ def _fixture_core_main(argv=None):
     if args and args[0] == "dwimsy":
         args = args[1:]
 
-    _fixture_ver = globals().get('_FIXTURE_VERSION', '0.1.6.124-dev')
-    _fixture_blz = globals().get('_FIXTURE_BLZTAR', '') or getattr(_sys.modules.get(__name__), '_FIXTURE_BLZTAR', '')
+    _fixture_ver = globals().get("_FIXTURE_VERSION", "0.1.6.124-dev")
+    _fixture_blz = globals().get("_FIXTURE_BLZTAR", "") or getattr(
+        _sys.modules.get(__name__), "_FIXTURE_BLZTAR", ""
+    )
 
     if args in (["-V"], ["--version"], ["-v"]):
         print("dwimsy " + _fixture_ver)
@@ -3197,10 +3253,16 @@ def _fixture_core_main(argv=None):
     if not args or args in (["-h"], ["--help"], ["--help-all"]):
         print(f"dwimsy {_fixture_ver} (private test-fixture bundle)")
         print("\nCommands:")
-        print("  meta unbundle TARGET        Extract fixture payloads to TARGET directory")
+        print(
+            "  meta unbundle TARGET        Extract fixture payloads to TARGET directory"
+        )
         print("  meta list-fixtures          List all fixture payloads in this bundle")
-        print("  meta bundle-fixtures [SRC]  Pack a new fixture bundle (subset or with extra sources)")
-        print("\nNote: Standard DWIMSY tools (convert, tests, etc.) are omitted from this fixture bundle.")
+        print(
+            "  meta bundle-fixtures [SRC]  Pack a new fixture bundle (subset or with extra sources)"
+        )
+        print(
+            "\nNote: Standard DWIMSY tools (convert, tests, etc.) are omitted from this fixture bundle."
+        )
         return 0
 
     cmd = None
@@ -3244,16 +3306,49 @@ def _fixture_core_main(argv=None):
         return 0
 
     if cmd == "bundle-fixtures":
-        parser = _argparse.ArgumentParser(prog="dwimsy-meta-bundle-fixtures", description="Pack or slice DWIMSY test-fixture bundles.")
-        parser.add_argument("sources", nargs="*", default=None, help="Fixture directories, loose files, or fixture bundles")
+        parser = _argparse.ArgumentParser(
+            prog="dwimsy-meta-bundle-fixtures",
+            description="Pack or slice DWIMSY test-fixture bundles.",
+        )
+        parser.add_argument(
+            "sources",
+            nargs="*",
+            default=None,
+            help="Fixture directories, loose files, or fixture bundles",
+        )
         parser.add_argument("-o", "--output-dir", default=".", help="Output directory")
-        parser.add_argument("--fixture-include", action="append", default=[], help="Include selector")
-        parser.add_argument("--fixture-restrict-to", action="append", default=[], help="Restrict-to selector")
-        parser.add_argument("--fixture-prune", action="append", default=[], help="Prune selector")
-        parser.add_argument("--label", "-l", default=None, help="Filename label/scope component")
-        parser.add_argument("--max-size", "--target-size", dest="target_size", type=int, default=500_000, help="Target compressed size")
-        parser.add_argument("--format", choices=("py", "pyz", "both"), default="both", help="Output format")
-        parser.add_argument("--list", action="store_true", help="List embedded fixtures")
+        parser.add_argument(
+            "--fixture-include", action="append", default=[], help="Include selector"
+        )
+        parser.add_argument(
+            "--fixture-restrict-to",
+            action="append",
+            default=[],
+            help="Restrict-to selector",
+        )
+        parser.add_argument(
+            "--fixture-prune", action="append", default=[], help="Prune selector"
+        )
+        parser.add_argument(
+            "--label", "-l", default=None, help="Filename label/scope component"
+        )
+        parser.add_argument(
+            "--max-size",
+            "--target-size",
+            dest="target_size",
+            type=int,
+            default=500_000,
+            help="Target compressed size",
+        )
+        parser.add_argument(
+            "--format",
+            choices=("py", "pyz", "both"),
+            default="both",
+            help="Output format",
+        )
+        parser.add_argument(
+            "--list", action="store_true", help="List embedded fixtures"
+        )
         p_args = parser.parse_args(sub_args)
         if p_args.list:
             if not _fixture_blz:
@@ -3263,9 +3358,12 @@ def _fixture_core_main(argv=None):
             return 0
         ops = []
         for a in sub_args:
-            if a.startswith("--fixture-include="): ops.append(("include", a.split("=", 1)[1]))
-            elif a.startswith("--fixture-restrict-to="): ops.append(("restrict", a.split("=", 1)[1]))
-            elif a.startswith("--fixture-prune="): ops.append(("prune", a.split("=", 1)[1]))
+            if a.startswith("--fixture-include="):
+                ops.append(("include", a.split("=", 1)[1]))
+            elif a.startswith("--fixture-restrict-to="):
+                ops.append(("restrict", a.split("=", 1)[1]))
+            elif a.startswith("--fixture-prune="):
+                ops.append(("prune", a.split("=", 1)[1]))
         res = _fixture_core_bundle_fixtures(
             p_args.sources if p_args.sources else None,
             p_args.output_dir,
@@ -3281,8 +3379,12 @@ def _fixture_core_main(argv=None):
         return 0
 
     cmd_name = " ".join(args[:2]) if len(args) >= 2 else args[0]
-    print(f"error: command '{cmd_name}' is not available in the lightweight fixture bundle; use the full dwimsy toolkit", file=_sys.stderr)
+    print(
+        f"error: command '{cmd_name}' is not available in the lightweight fixture bundle; use the full dwimsy toolkit",
+        file=_sys.stderr,
+    )
     return 2
+
 
 # FIXTURE-CORE-END
 
@@ -8768,7 +8870,7 @@ k/5odG/ElGAimhBUXgZ4mhkVfYuIo8vEWlWf1Y8fLGEcrcfnYNYSOJhCVbEZt/VN0YkKb8GnK04V
 +M/K8tPcpq+Yylh2WPdh1fLIgIooZ8QSPYVbpj6gH1PzI61HTMvvup2vMa8mcuOStloj2i/mc19l
 lRxhCZSNNd3sVIQHCv6950n4FjkAzGJfpdOI5IeN37UVYp3D295qnXpOk4zWWobTtDJvfYi899Qo
 F6vjBYRjf6HUE4hJWVjKsSGPvW423LeqobITdcNsB09ekeTa3TDkUDhPFlr5Oq7YvgPCK0TKAA4j
-xrZiJWksRjeBpT5gvuuCa2yYOgOX113z8hqIoEg3Wk6Lnpq15BzEAE6pd3y3VELXyaIT/PlT2WYr
+xrZiJWksRjeBpT5gvuuCa2yYOgOX113z8hqIoEg3Wk6Lnp//mx9qAE6pd3y3VELXyaIT/PlT2WYr
 80AKOQGcrBtymdn8deFi/H8bqHdP5ce6fldNmGwF1Hp4RsRX9Lr3kf3YdnqGsxVGMa0/5jnYynwH
 fkRW2o6TkxBaAA8ncvstfQPf56ihGYboTEQMawq8i/G+4VYpRJnYhZYL3ctlKtWwSS5MBQy6Lqrz
 ETgzLzsDCwZuJ2LaG29rgwiR4GgCxg7YcIZ7/rhGJ5sF4oAIgyVL9zDrlVgGp9dGTHee6dTcUgZf
@@ -8897,8 +8999,39 @@ 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
-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
+CxSdIzIXw/TIC0qhKjn7AzIRWjR0aXYDY5rtwt/v5JbMNic3VdU3yS8qM1VqEFyZUIf18c7OxDL3
+0S01mbpK2DzlXgQuCV1rdJjdObHfz70hOaD+j5Fg8ufJ1qO5Uj/m8L056mw4JQPfceI+q9Nduo3d
+Kmj+9EuECKnM3XvWo2hHCan5fNfGEvBUPvJb4Wkdb/tLhmH10/+p0fnzY7M0Jgo2ogfUbhgPLqf7
+qYDVY/P/I62o/fl1o4uUc7qXmLhYsdW0MX4AtdfAYMK9z2ptn/8e0IQDY/CVlpZsOqBRRgtlTsUv
+lF8sWEEJZ4/TL0BIKFnU8C8rKxa0UkKF5gTpZryURcwk6LYxNTUkpOI0oxToaKkVQWZhba9vgZvF
+dVdsqBtR1BZzwY5X+2UOa0X2JeoaqbUGq7wzCWEczR+3aEzPw9pZRML0FZnDHep3NgPgwVL+b7pP
+g9YZs2kF28FT3LoUwl5JBmSzZiJytZfObq1OHt53yHwk17MFDvx+XDIe8BeNOOX5OZ8nqCecntxH
+OxDsLidAVSM7TXCGxxOtA9KhzUMW3U1JCdKDdma4BK9P8Abs0flkPjWVXawC/c1HxM7GjG1dZIbL
+8Gde+MZJj9brxbyYyAfiSo/5/4H/NmoSAfdQ2dOnFTr3cMfE5f7MLRsP9SZQw+RKWbwoYSfdIRxY
+ZdexkqzhVQp1uA3aRsfxrQ+Knm+68TQUskiDjybkSa31M1gZ4jl30OPPk6JvJOD2eWkNW30yQZCo
+isBZ1WuG2307KhHrtwz8MTt1dxSS4VryYcR/DtF7qq/vifFNkRq8yxiSh1DhxgUnvhlAedewUo2X
++5i6fKfoQL34ewYFKY2e5wlDO4DC3RaHmccSdywrkcmu43K9P516Ez8E4b1cMdP7QnYtHuFTZLO5
+Z1ymjIGU148iVGMFtZb73HXW3TgwZRRTp9Jb3DA2H3jmP5Zt3M77SHFQYu09g55IBDUA8EOXhktg
+vYtYTmIKft1A3fv0rQt9NN9K2m/ehABtxvCrtNYILT6tBUO0coxmL4GbwYxKV1WoH/K7ZfNeqpUe
+Gi3r4vvfdZxqHmsbL+aFsrYsdMxRU59zYg/axj86bXLRDLthYZzXf6e/MQJmz+o73kdIz4IsG+Ih
+qlnNjUw8tRkYyPoChqTPPbCb/slJqMjoOXdsOU+a647zA2/6diHkkAO4+nqSut1jf5i0AmMlohGu
+ZDcv7HReEN8pSKHP8xuPXkrc2f45BAQTj1zaNJoyLQS26Qo33rwyhrUyeozIO1OSxeSxwlZwy6kT
+4QJvV9g5BD4dH3/12IbxRApuAxmM2zNjXU7gY2qVVyGAAqXjZmNlO63cKQqJ9nfeBrKkSXAESj27
+BNFzVwEe3xjGLVIMmgm+/XwGnm/lHM4x54hWepodE0ACiSmyDKiY7HDBrpvsylK42dLWv9K5H9jO
+2Mk6ehgsmfff5QSyLvSCJOx1EfwvcgvJtmqq2xXU2SeF9mDOvwiOfnHSrtzY45vR3dF59/2o3sxA
+CA/7LeC+a1dbN5qiguVN6TrpLPeGASz2vt6bhutRgh9nps1acZI0OZct+ygMvA+Ki99GAyjxOxnD
+dRS+QDrTV+3OxdRb4N/fRf53DiqDkvLsv5L6r2Wj0hHt+V/kwQRY9StFwaY8MM+P4MjdbIv5eX1d
+fwTm7AqHvziGgU7/e2c0OqKPq+3yadpiZ/BwEumzfWbdcX0fr5d+28T+Wdb/bOPaJWxAVcZQUo6J
+tkkmsba/clH9TDirNK8W3B2lK1P0TCNjHQSvXr1T/tumKpui3kTEksxBjvg2v1nUzIuh8gKn74sn
+CJ1SLnMQxdLxGyE649aOpbNS5PUwVPjyoIxUpeozm/489nzBNjsfLi+Z4T6bEbSRQXaJlauqbhRm
+TPGr5KnJv1ou2CjDoUPngSNaRyoRq/5WHp71RcWk2NSH/aO2wM83AB5YdsaSHVhYckrRHejRpLoE
+QvZ1wTkhWgjx5awz1Ar5RLQpcr148HBAi4+PpTBKdqgdNEJWfitzO3grb4R7SMnmVTZuueLRdNe0
+Gdj1AqG/X+j1RO/bbqY4XVLTWrUq9Eo0IrZXqgMfhZtRYpu7ssgEz4XQqUa9iRNhcvYs9aLAVsgE
+gin64bX2OdEuanKrMwlYjtv1H4EcvtEH7nZbINSU7rLVs9Vg2vntBEb79CfVd0YIf/6BhlYk+FiX
+L8ZTsP9jDsSQfMatjMuJgb7oTFwWLA30uyqykbvrlq5k4ARk4CtPBYlsRROUTt4WW+5S8qKda4H/
+RXmKwGFYqSktvrAKWic4pfGavi65TJe2pyDaRs0omqn80wO0QMAmjqbIjeAEWcFHlheAffvwWLzS
+WDnvlQN3qyoyGuPJ82zIZgsMl5SGnYqnRxrKrvZMOVHXGONQWpYukPGY0ItAAADx413EUD58ugAB
+q9ATgKDSDQAAAICQhZ0UFzswAwAAAAAEWVo=
 """
 
 

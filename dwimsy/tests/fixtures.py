@@ -486,6 +486,7 @@ def _calc_sha1(path: Path) -> str:
 
 class FixturePool:
     """Content-addressed fixture discovery pool with lazy fixture-bundle materialization."""
+
     def __init__(self, search_dirs=None, registry=None):
         self._registry = registry if registry is not None else FIXTURE_REGISTRY
         self._explicit_dirs = [Path(d) for d in search_dirs] if search_dirs else []
@@ -500,12 +501,14 @@ class FixturePool:
     def rescan(self):
         candidate_dirs = []
         for d in self._explicit_dirs:
-            if d.exists() and d not in candidate_dirs: candidate_dirs.append(d)
+            if d.exists() and d not in candidate_dirs:
+                candidate_dirs.append(d)
         env_dir = os.environ.get("DWIMSY_TEST_FIXTURES")
         if env_dir:
             for raw in env_dir.split(os.pathsep):
                 p = Path(raw)
-                if p.exists() and p not in candidate_dirs: candidate_dirs.append(p)
+                if p.exists() and p not in candidate_dirs:
+                    candidate_dirs.append(p)
         test_repo_root = os.environ.get("DWIMSY_TEST_REPO_ROOT")
         if test_repo_root:
             roots = [Path(test_repo_root).resolve()]
@@ -518,9 +521,16 @@ class FixturePool:
                 if p.exists() and p not in candidate_dirs:
                     candidate_dirs.append(p)
         self._scanned_dirs = candidate_dirs
-        self._by_sha1.clear(); self._by_filename.clear(); self._bundle_records.clear(); self._bundle_paths.clear()
+        self._by_sha1.clear()
+        self._by_filename.clear()
+        self._bundle_records.clear()
+        self._bundle_paths.clear()
         for c_dir in candidate_dirs:
-            paths = [c_dir] if c_dir.is_file() else [Path(root)/f for root, _ds, fs in os.walk(c_dir) for f in fs]
+            paths = (
+                [c_dir]
+                if c_dir.is_file()
+                else [Path(root) / f for root, _ds, fs in os.walk(c_dir) for f in fs]
+            )
             for fpath in paths:
                 try:
                     if fpath.suffix.lower() in (".py", ".pyz"):
@@ -529,11 +539,17 @@ class FixturePool:
                             if fpath.suffix.lower() == ".pyz":
                                 with zipfile.ZipFile(io.BytesIO(data)) as zf:
                                     data = zf.read("__main__.py")
-                            m = re.search(rb'_FIXTURE_BLZTAR\s*=\s*"""\n([\s\S]*?)\n"""', data)
+                            m = re.search(
+                                rb'_FIXTURE_BLZTAR\s*=\s*"""\n([\s\S]*?)\n"""', data
+                            )
                             if m:
                                 raw = base64.b64decode(b"".join(m.group(1).split()))
-                                with tarfile.open(fileobj=io.BytesIO(lzma.decompress(raw)), mode="r:") as tar:
-                                    mf = tar.extractfile("__DWIMSY_FIXTURE_MANIFEST__.txt")
+                                with tarfile.open(
+                                    fileobj=io.BytesIO(lzma.decompress(raw)), mode="r:"
+                                ) as tar:
+                                    mf = tar.extractfile(
+                                        "__DWIMSY_FIXTURE_MANIFEST__.txt"
+                                    )
                                     if mf is None:
                                         raise ValueError
                                     for line in mf.read().decode().splitlines():
@@ -541,11 +557,24 @@ class FixturePool:
                                         if len(parts) >= 2:
                                             sha1 = parts[0].strip().lower()
                                             filename = parts[1].strip()
-                                            member = parts[2].strip() if len(parts) >= 3 else f"test-fixtures/{sha1}"
+                                            member = (
+                                                parts[2].strip()
+                                                if len(parts) >= 3
+                                                else f"test-fixtures/{sha1}"
+                                            )
                                             if not member.startswith("test-fixtures/"):
                                                 member = f"test-fixtures/{sha1}"
-                                            self._bundle_records[sha1] = (fpath, {"name": filename, "sha1": sha1, "member": member})
-                                            self._by_filename.setdefault(Path(filename).name.casefold(), sha1)
+                                            self._bundle_records[sha1] = (
+                                                fpath,
+                                                {
+                                                    "name": filename,
+                                                    "sha1": sha1,
+                                                    "member": member,
+                                                },
+                                            )
+                                            self._by_filename.setdefault(
+                                                Path(filename).name.casefold(), sha1
+                                            )
                                 continue
                         except Exception:
                             pass
@@ -556,55 +585,77 @@ class FixturePool:
                     pass
 
     def _materialize_bundle(self, sha1):
-        if sha1 in self._materialized and self._materialized[sha1].is_file(): return self._materialized[sha1]
+        if sha1 in self._materialized and self._materialized[sha1].is_file():
+            return self._materialized[sha1]
         item = self._bundle_records.get(sha1)
-        if item is None: return None
+        if item is None:
+            return None
         path, record = item
         data = path.read_bytes()
         if path.suffix.lower() == ".pyz":
-            with zipfile.ZipFile(io.BytesIO(data)) as zf: data = zf.read("__main__.py")
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                data = zf.read("__main__.py")
         m = re.search(rb'_FIXTURE_BLZTAR\s*=\s*"""\n([\s\S]*?)\n"""', data)
-        if not m: return None
+        if not m:
+            return None
         raw = base64.b64decode(b"".join(m.group(1).split()))
         with tarfile.open(fileobj=io.BytesIO(lzma.decompress(raw)), mode="r:") as tar:
-            mem = record["member"] if str(record["member"]).startswith("test-fixtures/") else f"test-fixtures/{sha1}"
+            mem = (
+                record["member"]
+                if str(record["member"]).startswith("test-fixtures/")
+                else f"test-fixtures/{sha1}"
+            )
             f = tar.extractfile(mem)
-            if f is None: return None
+            if f is None:
+                return None
             dest = Path(tempfile.gettempdir()) / "dwimsy-fixtures" / sha1
             dest.parent.mkdir(parents=True, exist_ok=True)
-            if not dest.exists(): dest.write_bytes(f.read())
-        self._materialized[sha1] = dest; self._by_sha1[sha1] = dest
+            if not dest.exists():
+                dest.write_bytes(f.read())
+        self._materialized[sha1] = dest
+        self._by_sha1[sha1] = dest
         return dest
 
     def get(self, key):
         spec = get_fixture_spec(key)
         if spec is not None:
             s1 = spec.sha1.lower()
-            if s1 in self._by_sha1: return self._by_sha1[s1]
-            if s1 in self._bundle_records: return self._materialize_bundle(s1)
+            if s1 in self._by_sha1:
+                return self._by_sha1[s1]
+            if s1 in self._bundle_records:
+                return self._materialize_bundle(s1)
             cand = self._by_filename.get(spec.filename.lower())
-            if isinstance(cand, str) and cand in self._bundle_records: return self._materialize_bundle(cand)
+            if isinstance(cand, str) and cand in self._bundle_records:
+                return self._materialize_bundle(cand)
             if cand:
                 try:
-                    if _calc_sha1(cand) == s1: return cand
-                except OSError: pass
+                    if _calc_sha1(cand) == s1:
+                        return cand
+                except OSError:
+                    pass
         elif isinstance(key, str):
             k = key.casefold()
-            if k in self._by_sha1: return self._by_sha1[k]
-            if k in self._bundle_records: return self._materialize_bundle(k)
+            if k in self._by_sha1:
+                return self._by_sha1[k]
+            if k in self._bundle_records:
+                return self._materialize_bundle(k)
             cand = self._by_filename.get(k)
-            if isinstance(cand, str) and cand in self._bundle_records: return self._materialize_bundle(cand)
-            if cand: return cand
+            if isinstance(cand, str) and cand in self._bundle_records:
+                return self._materialize_bundle(cand)
+            if cand:
+                return cand
         return None
 
     def require(self, key):
         path = self.get(key)
-        if path is None: raise unittest.SkipTest(self.skip_reason(key))
+        if path is None:
+            raise unittest.SkipTest(self.skip_reason(key))
         return path
 
     def skip_reason(self, key):
         spec = get_fixture_spec(key)
-        if spec is not None: return f'Fixture "{spec.display_title}" (SHA1: {spec.sha1}) not found in fixture pool.'
+        if spec is not None:
+            return f'Fixture "{spec.display_title}" (SHA1: {spec.sha1}) not found in fixture pool.'
         return f'Fixture "{key}" not found in fixture pool.'
 
 

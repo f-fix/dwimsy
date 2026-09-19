@@ -507,7 +507,6 @@ class Layer:
         return self.tar_bytes
 
 
-
 _LZMA_COMPRESS_CACHE: Dict[Tuple[str, int], bytes] = {}
 
 
