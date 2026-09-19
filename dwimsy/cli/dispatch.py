@@ -17,10 +17,13 @@ def early_dispatch(
         VERSION_SPACE_HELP,
     )
 
-    pipeline, remaining = parse_early_pipeline_flags(list(argv))
-    raw_argv0 = pipeline["argv0"] or (
-        sys.argv[0] if use_process_argv0 and sys.argv else "dwimsy"
+    init_argv0 = (
+        sys.argv[0] if use_process_argv0 and sys.argv and sys.argv[0] else "dwimsy"
     )
+    pipeline, remaining = parse_early_pipeline_flags(
+        list(argv), initial_argv0=init_argv0
+    )
+    raw_argv0 = pipeline["argv0"] if pipeline.get("argv0_overridden") else init_argv0
     argv0 = get_invocation_path(raw_argv0) if raw_argv0 else ""
     target = resolve_argv0_command(argv0)
 

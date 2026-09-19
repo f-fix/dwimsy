@@ -6,8 +6,12 @@ from __future__ import annotations
 LAST_VERIFICATION_PATH: str = "subprocess"
 
 import argparse
+import hashlib
+import zipfile
 import base64
 import io
+import json
+import hashlib
 import lzma
 import os
 import re
@@ -90,8 +94,15 @@ def _canonical_layer_mtimes(root: Path, names) -> tuple[int, dict[str, int]]:
     return layer_mtime, {name: layer_mtime for name in names}
 
 
-def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, bytes]:
-    """Return the deterministic portable file tree used by bundle creation."""
+def create_tree_state(repo_root: Path, include_deps: bool = True, *, with_deps: Optional[bool] = None) -> dict[str, bytes]:
+    """Return the deterministic portable file tree used by bundle creation.
+
+    ``include_deps`` is an internal compatibility parameter; normal bundle
+    construction always passes True. Dependency materialization at unbundle
+    time is controlled separately by ``--deps``.
+    """
+    if with_deps is not None:
+        include_deps = with_deps
     result: dict[str, bytes] = {}
     invalid_paths: list[tuple[str, str]] = []
     seen_case_keys: dict[str, str] = {}
@@ -103,7 +114,7 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
             parts = rel.parts
             if any(part in (".git", "__pycache__", ".pytest_cache") for part in parts):
                 continue
-            if not with_deps and parts and parts[0] == "deps":
+            if not include_deps and parts and parts[0] == "deps":
                 continue
             rel_name = rel.as_posix()
             if p.is_file() and not integrity._manifest_matches(rel_name, manifest):
@@ -144,7 +155,7 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
             clean_k = (
                 k[len("<dwimsy-bundle>/") :] if k.startswith("<dwimsy-bundle>/") else k
             )
-            if not with_deps and (clean_k == "deps" or clean_k.startswith("deps/")):
+            if not include_deps and (clean_k == "deps" or clean_k.startswith("deps/")):
                 continue
             if not integrity._manifest_matches(clean_k, manifest):
                 continue
@@ -153,7 +164,7 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
             if clean_k == "dwimsy/meta/unbundle.py":
                 v = elide_blztar_bytes(v)
             result[clean_k] = v
-    if with_deps and not any(k.startswith("deps/") for k in result):
+    if include_deps and not any(k.startswith("deps/") for k in result):
         embedded_assets = unbundle.materialize_stream0_assets()
         for k, v in embedded_assets.items():
             clean_k = (
@@ -169,7 +180,7 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
         raise ValueError("Cannot bundle non-portable paths:\n" + details)
 
     # If deps are absent on disk, use the embedded dependency shadow.
-    if with_deps and not any(k == "deps" or k.startswith("deps/") for k in result):
+    if include_deps and not any(k == "deps" or k.startswith("deps/") for k in result):
         # In a checkout, only shadow dependencies explicitly declared by
         # .gitmodules may be restored from the embedded bundle. Standalone
         # bundles have no live .gitmodules and may use the embedded copy.
@@ -201,8 +212,14 @@ def create_tree_state(repo_root: Path, with_deps: bool = True) -> dict[str, byte
     return result
 
 
-def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
-    """Create a deterministic in-memory TAR byte stream of the repository tree."""
+def create_tar_archive(repo_root: Path, include_deps: bool = True, *, with_deps: Optional[bool] = None) -> bytes:
+    """Create a deterministic in-memory TAR byte stream of the repository tree.
+
+    ``include_deps`` refers only to bundle construction; it is unrelated to
+    the unbundle-time ``--deps`` materialization switch.
+    """
+    if with_deps is not None:
+        include_deps = with_deps
     buf = io.BytesIO()
     gitignore = GitIgnoreMatcher(repo_root)
     manifest = integrity.canonical_manifest(repo_root)
@@ -214,7 +231,7 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
 
             if any(part in (".git", "__pycache__", ".pytest_cache") for part in parts):
                 continue
-            if not with_deps and parts and parts[0] == "deps":
+            if not include_deps and parts and parts[0] == "deps":
                 continue
             rel_name = rel.as_posix()
             if p.is_file() and not integrity._manifest_matches(rel_name, manifest):
@@ -235,7 +252,7 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
         fallback_entries = {}
         fallback_data = {}
         has_disk_deps = any(arc.startswith("./deps/") for arc in disk_entries.keys())
-        if with_deps and not has_disk_deps:
+        if include_deps and not has_disk_deps:
             try:
                 with unbundle._open_bundle_tar() as src_tar:
                     for m in src_tar.getmembers():
@@ -364,11 +381,14 @@ def create_tar_archive(repo_root: Path, with_deps: bool = True) -> bytes:
 
 def build_bundle_script(
     repo_root: Optional[Path] = None,
-    with_deps: bool = True,
+    include_deps: bool = True,
     preset: Optional[int] = None,
     version_space: Optional[VersionSpace] = None,
+    with_deps: Optional[bool] = None,
 ) -> str:
     """Pack the repository or supplied VersionSpace into a standalone bundle."""
+    if with_deps is not None:
+        include_deps = with_deps
     root = find_repo_root(repo_root)
     if preset is None:
         preset = (
@@ -380,7 +400,7 @@ def build_bundle_script(
             else (9 | lzma.PRESET_EXTREME)
         )
     if version_space is None:
-        tar_bytes = create_tar_archive(root, with_deps=with_deps)
+        tar_bytes = create_tar_archive(root, include_deps=include_deps)
         lzma_bytes = lzma.compress(tar_bytes, preset=preset)
         b64_str = base64.b64encode(lzma_bytes).decode("ascii")
     else:
@@ -425,7 +445,7 @@ def verify_bundle_roundtrip(script_text: str, repo_root: Optional[Path] = None) 
         unbundle.safe_unbundle(
             b64_string=cand_vspace.to_blztar(),
             output_dir=extracted,
-            with_deps=True,
+            materialize_deps=True,
             force=True,
             quiet=True,
         )
@@ -433,7 +453,7 @@ def verify_bundle_roundtrip(script_text: str, repo_root: Optional[Path] = None) 
         prev_env = os.environ.get("DWIMSY_REBUNDLE_VERIFYING")
         os.environ["DWIMSY_REBUNDLE_VERIFYING"] = "1"
         try:
-            rebuilt = build_bundle_script(extracted, with_deps=True)
+            rebuilt = build_bundle_script(extracted, include_deps=True)
         finally:
             if prev_env is None:
                 os.environ.pop("DWIMSY_REBUNDLE_VERIFYING", None)
@@ -441,7 +461,7 @@ def verify_bundle_roundtrip(script_text: str, repo_root: Optional[Path] = None) 
                 os.environ["DWIMSY_REBUNDLE_VERIFYING"] = prev_env
 
         candidate_canonical = _integrity._canonical_bytes(
-            script_text.encode("utf-8"), "dwimsy/meta/unbundle.py"
+            (script_text if isinstance(script_text, bytes) else script_text.encode("utf-8")), "dwimsy/meta/unbundle.py"
         )
         rebuilt_canonical = _integrity._canonical_bytes(
             rebuilt.encode("utf-8"), "dwimsy/meta/unbundle.py"
@@ -530,7 +550,7 @@ def write_pyz_bundle(
 def get_default_bundle_name(
     repo_root: Optional[Path] = None,
     tag: Optional[str] = None,
-    with_deps: bool = True,
+    include_deps: bool = True,
     is_baseline: bool = False,
 ) -> str:
     """Derive standard bundle filename."""
@@ -706,7 +726,7 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     head = primary.get_head_version()
     current_tag = integrity.version(root=root)
     baseline = bool(getattr(args, "baseline", False))
-    new_state = create_tree_state(root, with_deps=True)
+    new_state = create_tree_state(root, include_deps=True)
 
     head_is_mod = bool(head and "+mod." in head.tag.lower())
 
@@ -766,7 +786,7 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
                 )
             )
 
-    script_text = build_bundle_script(root, with_deps=True, version_space=vspace)
+    script_text = build_bundle_script(root, include_deps=True, version_space=vspace)
     out_name = getattr(args, "output", None) or vspace.composite_bundle_name(".py")
 
     global LAST_VERIFICATION_PATH
@@ -1084,7 +1104,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             old_state = primary.materialize_layer_state(head.ordinal - 1)
         else:
             old_state = primary.materialize_layer_state(head.ordinal) if head else {}
-        new_state = create_tree_state(root, with_deps=True)
+        new_state = create_tree_state(root, include_deps=True)
         delta = compute_tree_delta(old_state, new_state) if head else new_state
         if "dwimsy/_version.py" in new_state:
             delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
@@ -1191,3 +1211,104 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+# ---------------------------------------------------------------------------
+# Fixture-subset bundles
+# ---------------------------------------------------------------------------
+
+_FIXTURE_BEGIN = b"# FIXTURE-CORE-BEGIN:"
+_FIXTURE_END = b"# FIXTURE-CORE-END"
+
+
+def extract_fixture_core(unbundle_source: bytes) -> str:
+    """Extract all marked fixture-core source regions and verify references."""
+    import ast
+    text = unbundle_source.decode("utf-8")
+    lines = text.splitlines(keepends=True)
+    regions = []
+    active = False
+    buf = []
+    for line in lines:
+        if line.startswith("# FIXTURE-CORE-BEGIN:"):
+            if active:
+                raise ValueError("Nested FIXTURE-CORE-BEGIN marker")
+            active = True
+            buf = []
+            continue
+        if line.startswith("# FIXTURE-CORE-END"):
+            if not active:
+                raise ValueError("FIXTURE-CORE-END without BEGIN")
+            regions.append("".join(buf))
+            active = False
+            continue
+        if active:
+            buf.append(line)
+    if active:
+        raise ValueError("Unterminated FIXTURE-CORE region")
+    if not regions:
+        raise ValueError("unbundle.py contains no FIXTURE-CORE regions")
+
+    core_text = "".join(regions).rstrip() + "\n"
+
+    # AST self-containment check
+    core_ast = ast.parse(core_text, filename="<fixture-core>")
+    full_ast = ast.parse(text, filename="<unbundle.py>")
+
+    unbundle_defs = set()
+    for node in full_ast.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            unbundle_defs.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    unbundle_defs.add(t.id)
+
+    core_defs = set()
+    for node in ast.walk(core_ast):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            core_defs.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    core_defs.add(t.id)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                core_defs.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                core_defs.add(alias.asname or alias.name)
+        elif isinstance(node, ast.arg):
+            core_defs.add(node.arg)
+
+    builtins = set(dir(__builtins__)) if isinstance(__builtins__, dict) else set(dir(__builtins__))
+    for node in ast.walk(core_ast):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
+            name = node.id
+            if name in unbundle_defs and name not in core_defs and name not in builtins:
+                raise ValueError(f"FIXTURE-CORE contains unmarked dependency '{name}' from unbundle.py")
+
+    return core_text
+
+
+def build_fixture_bundles(
+    sources: list[Path],
+    output_dir: Path,
+    *,
+    operations: list[tuple[str, str]] | None = None,
+    label: str | None = None,
+    target_size: int = 500_000,
+    formats: str = "both",
+    version: str | None = None,
+) -> list[Path]:
+    """Build deterministic subsetted one-version fixture bundles."""
+    from dwimsy.meta import unbundle as _ub
+    base_ver = version or integrity.version().split("+")[0]
+    return _ub._fixture_core_bundle_fixtures(
+        [str(s) for s in sources],
+        str(output_dir),
+        operations=operations,
+        label=label,
+        target_size=target_size,
+        formats=formats,
+        version=base_ver,
+    )

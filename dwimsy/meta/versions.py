@@ -507,6 +507,26 @@ class Layer:
         return self.tar_bytes
 
 
+
+_LZMA_COMPRESS_CACHE: Dict[Tuple[str, int], bytes] = {}
+
+
+def cached_lzma_compress(data: bytes, preset: int = (9 | lzma.PRESET_EXTREME)) -> bytes:
+    """Compress data using LZMA with process-global content-addressed and preset-keyed memoization."""
+    if not data:
+        return lzma.compress(b"")
+    data_sha = hashlib.sha256(data).hexdigest()
+    key = (data_sha, int(preset))
+    cached = _LZMA_COMPRESS_CACHE.get(key)
+    if cached is not None:
+        return cached
+    compressed = lzma.compress(data, preset=preset)
+    if len(_LZMA_COMPRESS_CACHE) > 32:
+        _LZMA_COMPRESS_CACHE.clear()
+    _LZMA_COMPRESS_CACHE[key] = compressed
+    return compressed
+
+
 class Stream:
     """A stream representing a line of history (primary or altN)."""
 
@@ -891,7 +911,7 @@ class Stream:
             )
             else (9 | lzma.PRESET_EXTREME)
         )
-        self.raw_lzma_bytes = lzma.compress(concat_tars, preset=preset)
+        self.raw_lzma_bytes = cached_lzma_compress(concat_tars, preset=preset)
         return self.raw_lzma_bytes
 
 

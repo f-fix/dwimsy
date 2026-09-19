@@ -288,12 +288,12 @@ class PlaceholderHelpTests(unittest.TestCase):
         self.assertIn("Milestone 4.0", out)
         self.assertIn("Forensic bit/pulse recovery engine", out)
 
-    def test_bundle_fixtures_help_advertises_unimplemented_status_and_milestone(self):
+    def test_bundle_fixtures_help_advertises_implemented_interface(self):
         rc, out = self._run_cli(["meta", "bundle-fixtures", "--help"])
         self.assertEqual(rc, 0)
-        self.assertIn("NOT IMPLEMENTED", out)
-        self.assertIn("Milestone 1.6", out)
-        self.assertIn("Package private test fixtures", out)
+        self.assertIn("fixture", out.lower())
+        self.assertIn("sources", out)
+        self.assertIn("--fixture-include", out)
 
     def test_top_level_help_lists_unimplemented_placeholders(self):
         rc, out = self._run_cli(["--help"])

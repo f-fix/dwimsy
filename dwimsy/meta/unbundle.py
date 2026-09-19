@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.120-dev (2026-09-17)
+Version: 0.1.6.126-dev (2026-09-19)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.120-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.126-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.120-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.120-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.120-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.120-dev.py dwimsy license
-  python3 dwimsy_0.1.6.120-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.126-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.126-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.126-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.126-dev.py dwimsy license
+  python3 dwimsy_0.1.6.126-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.120-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.126-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -425,8 +425,8 @@ def _open_bundle_tar(b64_string: Optional[str] = None) -> tarfile.TarFile:
     decomp = lzma.LZMADecompressor()
     try:
         data = decomp.decompress(raw_bytes)
-    except lzma.LZMAError:
-        return tarfile.open(fileobj=io.BytesIO(b"\x00" * 1024), mode="r:")
+    except lzma.LZMAError as exc:
+        raise RuntimeError("Primary stream LZMA corruption while opening bundle") from exc
     if not data:
         return tarfile.open(fileobj=io.BytesIO(b"\x00" * 1024), mode="r:")
     return tarfile.open(fileobj=io.BytesIO(data), mode="r:*")
@@ -839,8 +839,9 @@ def _is_protected_target_path(name: str, ignored: Set[str]) -> bool:
 def safe_unbundle(
     b64_string: Optional[str] = None,
     output_dir: str | Path = ".",
-    with_deps: bool = False,
+    materialize_deps: bool = False,
     force: bool = False,
+    with_deps: Optional[bool] = None,
     dry_run: bool = False,
     quiet: bool = False,
     stdout=None,
@@ -850,6 +851,8 @@ def safe_unbundle(
     preserve_previous_history: bool = False,
 ) -> None:
     """Smart destination verification and delta unpacking engine adhering to Spec Section2.1, Section3, Section3.1."""
+    if with_deps is not None:
+        materialize_deps = with_deps
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
     out_path = Path(output_dir).resolve()
@@ -962,7 +965,7 @@ def safe_unbundle(
     # 1. Type Collision Guard (Spec Section3.1)
     if out_path.exists() and not force:
         for norm_name in assets:
-            if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+            if not materialize_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
                 continue
             if _is_protected_target_path(norm_name, ignored_target):
                 continue
@@ -1027,13 +1030,13 @@ def safe_unbundle(
         clean_disk = {
             name: _safe_canonical_bytes(data, name)
             for name, data in disk_files.items()
-            if with_deps or not (name == "deps" or name.startswith("deps/"))
+            if materialize_deps or not (name == "deps" or name.startswith("deps/"))
         }
 
         clean_assets = {
             name: _safe_canonical_bytes(data, name)
             for name, data in assets.items()
-            if (with_deps or not (name == "deps" or name.startswith("deps/")))
+            if (materialize_deps or not (name == "deps" or name.startswith("deps/")))
             and not (
                 any(part == ".git" for part in Path(name).parts)
                 or any(part == "__pycache__" for part in Path(name).parts)
@@ -1050,7 +1053,7 @@ def safe_unbundle(
                         name: _safe_canonical_bytes(data, name)
                         for name, data in st.items()
                         if (
-                            with_deps
+                            materialize_deps
                             or not (name == "deps" or name.startswith("deps/"))
                         )
                         and not (
@@ -1105,7 +1108,7 @@ def safe_unbundle(
                         continue
                     if _is_protected_target_path(name, ignored_disk):
                         continue
-                    if (name == "deps" or name.startswith("deps/")) and not with_deps:
+                    if (name == "deps" or name.startswith("deps/")) and not materialize_deps:
                         continue
                     if (
                         Path(name).parent == Path(".")
@@ -1233,7 +1236,7 @@ def safe_unbundle(
     for norm_name, content in sorted(assets.items()):
         if norm_name.startswith("<dwimsy-bundle>/"):
             norm_name = norm_name[len("<dwimsy-bundle>/") :]
-        if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+        if not materialize_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
             continue
         if _is_protected_target_path(norm_name, ignored_target):
             continue
@@ -1286,7 +1289,7 @@ def safe_unbundle(
     for norm_name in sorted(removals):
         if norm_name.startswith("<dwimsy-bundle>/"):
             norm_name = norm_name[len("<dwimsy-bundle>/") :]
-        if not with_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
+        if not materialize_deps and (norm_name == "deps" or norm_name.startswith("deps/")):
             continue
         if _is_protected_target_path(norm_name, ignored_target):
             continue
@@ -1310,7 +1313,7 @@ def safe_unbundle(
     # bytes must never be rewritten merely to update its embedded payload.
     target_unbundle = out_path / "dwimsy" / "meta" / "unbundle.py"
     if "dwimsy/meta/unbundle.py" in assets or (
-        not with_deps and "dwimsy/meta/unbundle.py" in assets
+        not materialize_deps and "dwimsy/meta/unbundle.py" in assets
     ):
         try:
             if "dwimsy/meta/unbundle.py" in assets:
@@ -1421,13 +1424,18 @@ def extract_b64_lzma_tar(
     b64_string: Optional[str] = None,
     output_dir: str | Path = ".",
     self_path: Optional[str | Path] = None,
-    with_deps: bool = False,
+    materialize_deps: bool = False,
+    with_deps: Optional[bool] = None,
 ) -> None:
-    """Extract base64 bundle archive forwarding to safe_unbundle."""
+    """Extract base64 bundle archive; ``with_deps`` is a compatibility alias.
+
+    The semantic switch is unbundle-time dependency materialization, not
+    bundle-time dependency inclusion.
+    """
     safe_unbundle(
         b64_string=b64_string,
         output_dir=output_dir,
-        with_deps=with_deps,
+        materialize_deps=materialize_deps if with_deps is None else with_deps,
         force=True,
         quiet=True,
     )
@@ -1699,6 +1707,8 @@ def parse_early_pipeline_flags(
     )
     argv0_effective = get_invocation_path(current_argv0)
     is_chk, r_root = detect_self_location(argv0_effective)
+    if not is_chk:
+        is_chk, r_root = detect_self_location(None)
     if is_chk and r_root and str(r_root) not in sys.path:
         sys.path.insert(0, str(r_root))
     if not any(isinstance(finder, BundleFinder) for finder in sys.meta_path):
@@ -1769,11 +1779,11 @@ def parse_early_pipeline_flags(
                 raw_k, raw_v = raw_arg.split("=", 1)
             else:
                 raw_k, raw_v = raw_arg.split("\uff1d", 1)
-            opt_key = unicodedata.normalize("NFKC", raw_k).lower()
+            opt_key = unicodedata.normalize("NFKC", raw_k).casefold()
             opt_val = raw_v
             has_val = True
         else:
-            opt_key = norm_arg.lower()
+            opt_key = norm_arg.casefold()
             opt_val = None
             has_val = False
 
@@ -2119,6 +2129,7 @@ META_SUBCOMMANDS = {
     "version-bump",
     "fetch-deps",
     "bundle-fixtures",
+    "list-fixtures",
 }
 TOP_COMMANDS = {
     "convert",
@@ -2144,6 +2155,8 @@ _SUBCOMMAND_CANONICAL_MAP = {
     "version_bump": "version-bump",
     "bundle-fixtures": "bundle-fixtures",
     "bundle_fixtures": "bundle-fixtures",
+    "list-fixtures": "list-fixtures",
+    "list_fixtures": "list-fixtures",
     "fetch-deps": "fetch-deps",
     "fetch_deps": "fetch-deps",
 }
@@ -2265,7 +2278,7 @@ def _tree_state_for_bundle(root: Path) -> Dict[str, bytes]:
     """Read the portable project tree in the same form used by bundle creation."""
     from dwimsy.meta.bundle import create_tree_state
 
-    return create_tree_state(root, with_deps=True)
+    return create_tree_state(root, materialize_deps=True)
 
 
 def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
@@ -2421,7 +2434,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
             if is_meta_unbundle and len(positional) > 2
             else (positional[0] if is_direct and positional else None)
         )
-        with_deps = any(a == "--deps" for a in remaining_args)
+        materialize_deps = any(a == "--deps" for a in remaining_args)
         force = pipeline.get("force", False) or any(
             a in ("--force", "-f") for a in remaining_args
         )
@@ -2438,7 +2451,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
                 safe_unbundle(
                     b64_string=vspace.to_blztar(),
                     output_dir=target,
-                    with_deps=with_deps,
+                    materialize_deps=materialize_deps,
                     force=force,
                     dry_run=dry_run,
                     quiet=quiet,
@@ -2542,7 +2555,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
     safe_unbundle(
         b64_string=effective_blztar,
         output_dir=target_dir,
-        with_deps=("--deps" in remaining_args),
+        materialize_deps=("--deps" in remaining_args),
         force=pipeline.get("force", False),
         dry_run=("--dry-run" in remaining_args),
         quiet=("--quiet" in remaining_args or "-q" in remaining_args),
@@ -2733,7 +2746,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         safe_unbundle(
             b64_string=_get_active_blztar(),
             output_dir=args.target_directory,
-            with_deps=args.deps,
+            materialize_deps=args.deps,
             force=args.force,
             dry_run=args.dry_run,
             quiet=args.quiet,
@@ -2747,6 +2760,532 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 
 # embedded payload placeholder / generated by dwimsy.meta.bundle
+
+# FIXTURE-CORE-BEGIN: blztar decode/materialize
+
+def _fixture_core_decode_payload(b64_text: str):
+    """Decode and decompress base64 LZMA tar payload."""
+    import base64 as _base64
+    import io as _io
+    import lzma as _lzma
+    import tarfile as _tarfile
+    raw = _base64.b64decode(b"".join(str(b64_text).encode("ascii").split()))
+    if not raw:
+        raise RuntimeError("Fixture bundle contains no payload")
+    out = bytearray()
+    pending = raw
+    while pending:
+        dec = _lzma.LZMADecompressor(format=_lzma.FORMAT_AUTO)
+        out.extend(dec.decompress(pending))
+        if not dec.eof:
+            raise RuntimeError("Incomplete fixture-bundle LZMA stream")
+        pending = dec.unused_data
+    if not out:
+        raise RuntimeError("Fixture bundle contains no decoded payload")
+    return bytes(out), _io, _tarfile
+
+
+def _fixture_core_get_manifest(blztar_text: str) -> list[tuple[str, str, int]]:
+    """Return list of (sha1, filename, size) from manifest."""
+    data, _io, _tarfile = _fixture_core_decode_payload(blztar_text)
+    manifest = []
+    with _tarfile.open(fileobj=_io.BytesIO(data), mode="r:") as tar:
+        mf = tar.extractfile("__DWIMSY_FIXTURE_MANIFEST__.txt")
+        if mf is not None:
+            for line in mf.read().decode("utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    try:
+                        sz = int(parts[2])
+                    except ValueError:
+                        sz = 0
+                    manifest.append((parts[0].lower(), parts[1], sz))
+    return manifest
+
+
+def _fixture_core_materialize(blztar_text: str, output_dir: str | Path, names: list[str] | None = None) -> list[str]:
+    """Extract fixture payloads to output directory with path traversal safety."""
+    import os as _os
+    from pathlib import Path as _Path
+    data, _io, _tarfile = _fixture_core_decode_payload(blztar_text)
+    out = _Path(output_dir).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    extracted = []
+    with _tarfile.open(fileobj=_io.BytesIO(data), mode="r:") as tar:
+        member_names = {m.name.lstrip("./") for m in tar.getmembers()}
+        if "__DWIMSY_TEST_FIXTURES__" not in member_names:
+            raise RuntimeError("Not a DWIMSY test-fixture bundle")
+        manifest = {}
+        mf = tar.extractfile("__DWIMSY_FIXTURE_MANIFEST__.txt")
+        if mf is not None:
+            for line in mf.read().decode("utf-8").splitlines():
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    manifest[parts[0].lower()] = parts[1]
+        for member in tar.getmembers():
+            name = member.name.lstrip("./")
+            if not member.isfile() or not name.startswith("test-fixtures/"):
+                continue
+            sha = name.split("/", 1)[1]
+            leaf = manifest.get(sha.lower(), sha)
+            if not leaf or "/" in leaf or leaf in (".", "..") or "\\" in leaf:
+                raise RuntimeError(f"Unsafe fixture path: {name}")
+            if names is not None and leaf not in names and sha.lower() not in names:
+                continue
+            dest = (out / leaf).resolve()
+            if out != dest and out not in dest.parents:
+                raise RuntimeError(f"Unsafe fixture path: {name}")
+            src = tar.extractfile(member)
+            if src is None:
+                raise RuntimeError(f"Fixture payload is unreadable: {name}")
+            if dest.exists() or dest.is_symlink():
+                dest.unlink()
+            dest.write_bytes(src.read())
+            extracted.append(leaf)
+    return extracted
+
+
+def _fixture_core_list_manifest(blztar_text: str, verbose: bool = False, out_stream=None) -> None:
+    """Print formatted manifest listing to output stream."""
+    import sys as _sys
+    if out_stream is None:
+        out_stream = _sys.stdout
+    manifest = _fixture_core_get_manifest(blztar_text)
+    lines = []
+    lines.append(f"Fixture Bundle Manifest ({len(manifest)} fixtures):")
+    lines.append(f"{'SHA-1':<40}  {'SIZE':>10}  FILENAME")
+    lines.append("-" * 72)
+    for sha, fn, sz in manifest:
+        sha_str = sha if verbose else sha[:12]
+        lines.append(f"{sha_str:<40}  {sz:>8} B  {fn}")
+    text = "\n".join(lines) + "\n"
+    out_stream.write(text)
+
+# FIXTURE-CORE-END
+# FIXTURE-CORE-BEGIN: packaging and dispatch
+
+def _fixture_core_candidates(source_path: str | Path) -> dict[str, tuple[str, bytes]]:
+    """Scan directory, file, or fixture bundle and return {sha1: (filename, bytes)}."""
+    import hashlib as _hashlib
+    from pathlib import Path as _Path
+    p = _Path(source_path).resolve()
+    items = {}
+    if p.is_file():
+        data = p.read_bytes()
+        if p.name.endswith(".pyz") or data[:4] == b"PK\x03\x04":
+            import zipfile as _zipfile
+            try:
+                with _zipfile.ZipFile(p, "r") as zf:
+                    if "__main__.py" in zf.namelist():
+                        data = zf.read("__main__.py")
+            except Exception:
+                pass
+        if b"_FIXTURE_BLZTAR" in data:
+            import re as _re
+            m = _re.search(rb'(?s)_FIXTURE_BLZTAR\s*=\s*"""(.*?)"""', data)
+            if m:
+                b64_str = m.group(1).decode("ascii")
+                raw_data, _io, _tarfile = _fixture_core_decode_payload(b64_str)
+                with _tarfile.open(fileobj=_io.BytesIO(raw_data), mode="r:") as tar:
+                    manifest = {}
+                    mf = tar.extractfile("__DWIMSY_FIXTURE_MANIFEST__.txt")
+                    if mf is not None:
+                        for line in mf.read().decode("utf-8").splitlines():
+                            parts = line.split("\t")
+                            if len(parts) >= 3:
+                                manifest[parts[0].lower()] = parts[1]
+                    for member in tar.getmembers():
+                        name = member.name.lstrip("./")
+                        if member.isfile() and name.startswith("test-fixtures/"):
+                            sha = name.split("/", 1)[1].lower()
+                            leaf = manifest.get(sha, sha)
+                            f = tar.extractfile(member)
+                            if f is not None:
+                                f_bytes = f.read()
+                                items[sha] = (leaf, f_bytes)
+                return items
+        sha = _hashlib.sha1(data).hexdigest()
+        items[sha] = (p.name, data)
+    elif p.is_dir():
+        for fp in p.rglob("*"):
+            if fp.is_file() and not fp.name.startswith("."):
+                data = fp.read_bytes()
+                sha = _hashlib.sha1(data).hexdigest()
+                items[sha] = (fp.name, data)
+    return items
+
+
+def _fixture_core_match_selector(selector: str, sha: str, filename: str) -> bool:
+    """Match fixture against bare, ext:, or sha1: selector."""
+    sel = selector.strip()
+    sel_fold = sel.casefold()
+    if sel_fold.startswith("ext:"):
+        ext = sel_fold[4:].lstrip(".")
+        fn_ext = filename.rsplit(".", 1)[-1].casefold() if "." in filename else ""
+        return fn_ext == ext
+    if sel_fold.startswith("sha1:"):
+        prefix = sel_fold[5:]
+        return sha.casefold().startswith(prefix)
+    if sel_fold == sha.casefold() or sha.casefold().startswith(sel_fold):
+        return True
+    if sel_fold == filename.casefold():
+        return True
+    return False
+
+
+def _fixture_core_bundle_fixtures(
+    sources: list[str | Path] | None,
+    output_dir: str | Path = ".",
+    *,
+    operations: list[tuple[str, str]] | None = None,
+    label: str | None = None,
+    target_size: int = 500_000,
+    formats: str = "both",
+    version: str = "0.1.6.124-dev",
+    self_blztar: str | None = None,
+    runtime_template: str | None = None,
+) -> list[Path]:
+    """Pack or slice deterministic subsetted fixture bundles."""
+    import base64 as _base64
+    import hashlib as _hashlib
+    import io as _io
+    import lzma as _lzma
+    from pathlib import Path as _Path
+    import re as _re
+    import sys as _sys
+    import tarfile as _tarfile
+    import zipfile as _zipfile
+
+    all_items: dict[str, tuple[str, bytes]] = {}
+    if sources:
+        for s in sources:
+            all_items.update(_fixture_core_candidates(s))
+    elif self_blztar:
+        data, _io, _tarfile = _fixture_core_decode_payload(self_blztar)
+        with _tarfile.open(fileobj=_io.BytesIO(data), mode="r:") as tar:
+            manifest = {}
+            mf = tar.extractfile("__DWIMSY_FIXTURE_MANIFEST__.txt")
+            if mf is not None:
+                for line in mf.read().decode("utf-8").splitlines():
+                    parts = line.split("\t")
+                    if len(parts) >= 3:
+                        manifest[parts[0].lower()] = parts[1]
+            for member in tar.getmembers():
+                name = member.name.lstrip("./")
+                if member.isfile() and name.startswith("test-fixtures/"):
+                    sha = name.split("/", 1)[1].lower()
+                    leaf = manifest.get(sha, sha)
+                    f = tar.extractfile(member)
+                    if f is not None:
+                        all_items[sha] = (leaf, f.read())
+
+    if not all_items:
+        raise ValueError("No fixture files found in the supplied sources")
+
+    def _matches(sel: str, items: dict[str, tuple[str, bytes]]) -> set[str]:
+        hits = {sha for sha, (fn, _) in items.items() if _fixture_core_match_selector(sel, sha, fn)}
+        if sel.casefold().startswith("sha1:") and len(hits) > 1:
+            raise ValueError(f"Ambiguous SHA-1 selector '{sel}': {', '.join(sorted(hits))}")
+        return hits
+
+    selected = set(all_items.keys())
+    for op, sel in (operations or []):
+        hit = _matches(sel, all_items)
+        if sel.casefold().startswith("sha1:") and len(hit) > 1:
+            raise ValueError(f"Ambiguous SHA-1 selector '{sel}': {', '.join(sorted(hit))}")
+        if not hit and op not in ("prune", "fixture-prune"):
+            raise ValueError(f"Fixture selector matched no fixtures: {sel}")
+        if op in ("include", "fixture-include"):
+            selected |= hit
+        elif op in ("restrict", "fixture-restrict-to"):
+            selected &= hit
+        elif op in ("prune", "fixture-prune"):
+            selected -= hit
+
+    selected = {s for s in selected if s in all_items}
+    if not selected:
+        raise ValueError("Fixture selection is empty")
+
+    sorted_selected_shas = sorted(selected)
+    fixture_id = _hashlib.sha256("\n".join(sorted_selected_shas).encode("utf-8")).hexdigest()[:12]
+    base_version = version.split("+")[0]
+
+    sorted_items = sorted(
+        [(sha, all_items[sha][0], all_items[sha][1]) for sha in selected],
+        key=lambda t: (t[1].rsplit(".", 1)[-1].lower() if "." in t[1] else "", t[1].lower(), t[0])
+    )
+
+    core_src = ""
+    try:
+        from dwimsy.meta.bundle import extract_fixture_core
+        ub_bytes = None
+        try:
+            from dwimsy.meta import unbundle as _ub
+            if hasattr(_ub, "get_asset"):
+                ub_bytes = _ub.get_asset("dwimsy/meta/unbundle.py")
+            elif hasattr(_ub, "__file__") and _ub.__file__ and _Path(_ub.__file__).is_file():
+                ub_bytes = _Path(_ub.__file__).read_bytes()
+        except Exception:
+            pass
+        if ub_bytes is None:
+            _ga = globals().get("get_asset")
+            if callable(_ga):
+                try:
+                    ub_bytes = _ga("dwimsy/meta/unbundle.py")
+                except Exception:
+                    pass
+        if ub_bytes is not None:
+            core_src = extract_fixture_core(ub_bytes)
+    except (ImportError, ModuleNotFoundError):
+        pass
+
+    if not core_src:
+        self_text = ""
+        if runtime_template:
+            self_text = runtime_template
+        else:
+            candidates = [
+                getattr(_sys.modules.get("__main__"), "__file__", None),
+                getattr(_sys.modules.get("dwimsy.meta.unbundle"), "__file__", None),
+                globals().get("__file__"),
+                _sys.argv[0] if _sys.argv and _sys.argv[0] else None,
+            ]
+            for cand in candidates:
+                if cand:
+                    try:
+                        p = _Path(cand).resolve()
+                        if p.is_file():
+                            txt = p.read_text(encoding="utf-8")
+                            if "_FIXTURE_BLZTAR" in txt or "FIXTURE-CORE-BEGIN" in txt:
+                                self_text = txt
+                                break
+                    except Exception:
+                        pass
+        if self_text:
+            m_blz = _re.search(r'(?ms)_FIXTURE_BLZTAR\s*=\s*""".*?"""\s*', self_text)
+            if m_blz:
+                tail_code = self_text[m_blz.end():]
+                m_main = _re.search(r'(?m)^if __name__ == [\'"]__main__[\'"]:', tail_code)
+                if m_main:
+                    core_src = tail_code[:m_main.start()].strip()
+                else:
+                    core_src = tail_code.strip()
+
+    header = (
+        "#!/usr/bin/env python3\n"
+        '"""DWIMSY standalone private test-fixture bundle."""\n'
+        "from __future__ import annotations\n"
+        "import base64, sys\nfrom pathlib import Path\n"
+        f'_FIXTURE_VERSION = "{base_version}+test-fixtures_{fixture_id}"\n'
+        '_FIXTURE_BLZTAR = """\n'
+    )
+    footer = (
+        '"""\n\n'
+        + core_src.rstrip()
+        + "\n\nif __name__ == '__main__':\n    raise SystemExit(_fixture_core_main())\n"
+    )
+
+    def _render_script(items_subset: list[tuple[str, str, bytes]]) -> str:
+        bio = _io.BytesIO()
+        with _tarfile.open(fileobj=bio, mode="w:") as tar:
+            ti = _tarfile.TarInfo("__DWIMSY_TEST_FIXTURES__")
+            ti.size = 0
+            tar.addfile(ti, _io.BytesIO())
+            mf_lines = [f"{sha}\t{fn}\t{len(content)}" for sha, fn, content in sorted(items_subset, key=lambda x: (x[1].lower(), x[0]))]
+            mf_data = ("\n".join(mf_lines) + "\n").encode("utf-8")
+            ti_mf = _tarfile.TarInfo("__DWIMSY_FIXTURE_MANIFEST__.txt")
+            ti_mf.size = len(mf_data)
+            tar.addfile(ti_mf, _io.BytesIO(mf_data))
+            for sha, fn, content in items_subset:
+                ti_p = _tarfile.TarInfo(f"test-fixtures/{sha}")
+                ti_p.size = len(content)
+                tar.addfile(ti_p, _io.BytesIO(content))
+        raw_tar = bio.getvalue()
+        comp = _lzma.compress(raw_tar)
+        b64 = _base64.b64encode(comp).decode("ascii")
+        lines = "\n".join(b64[i:i+76] for i in range(0, len(b64), 76))
+        return header + lines + "\n" + footer
+
+    partitions: list[list[tuple[str, str, bytes]]] = []
+    current_part: list[tuple[str, str, bytes]] = []
+
+    for item in sorted_items:
+        single_script = _render_script([item])
+        single_size = len(single_script.encode("utf-8"))
+        if single_size > target_size:
+            if current_part:
+                partitions.append(current_part)
+                current_part = []
+            partitions.append([item])
+            continue
+
+        if not current_part:
+            current_part = [item]
+        else:
+            cand_script = _render_script(current_part + [item])
+            cand_size = len(cand_script.encode("utf-8"))
+            if cand_size <= target_size:
+                current_part.append(item)
+            else:
+                partitions.append(current_part)
+                current_part = [item]
+
+    if current_part:
+        partitions.append(current_part)
+
+    num_parts = len(partitions)
+    out_dir = _Path(output_dir).resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    generated_paths: list[Path] = []
+
+    for idx, part_items in enumerate(partitions):
+        part_suffix = f"-{idx+1:02d}-of-{num_parts:02d}" if num_parts > 1 else ""
+        script_text = _render_script(part_items)
+        script_bytes = script_text.encode("utf-8")
+        part_exts = sorted(set(fn.rsplit(".", 1)[-1].lower() for _, fn, _ in part_items if "." in fn))
+        exts_str = "+".join(part_exts) if part_exts else "none"
+        scope_str = label if label else "all"
+        part_count = len(part_items)
+        base_name = f"test_fixtures_{scope_str}_{exts_str}_{part_count}f_{fixture_id}_dwimsy_{base_version}{part_suffix}"
+
+        if formats in ("py", "both"):
+            py_path = out_dir / f"{base_name}.py"
+            if py_path.exists() or py_path.is_symlink():
+                py_path.unlink()
+            py_path.write_bytes(script_bytes)
+            try:
+                py_path.chmod(0o755)
+            except OSError:
+                pass
+            generated_paths.append(py_path)
+
+        if formats in ("pyz", "both"):
+            pyz_path = out_dir / f"{base_name}.pyz"
+            if pyz_path.exists() or pyz_path.is_symlink():
+                pyz_path.unlink()
+            with _zipfile.ZipFile(pyz_path, "w", compression=_zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("__main__.py", script_bytes)
+            try:
+                pyz_path.chmod(0o755)
+            except OSError:
+                pass
+            generated_paths.append(pyz_path)
+
+    return generated_paths
+
+
+def _fixture_core_main(argv=None):
+    """Central entry point and dispatcher for standalone fixture bundle."""
+    import argparse as _argparse
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    args = list(_sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "dwimsy":
+        args = args[1:]
+
+    _fixture_ver = globals().get('_FIXTURE_VERSION', '0.1.6.124-dev')
+    _fixture_blz = globals().get('_FIXTURE_BLZTAR', '') or getattr(_sys.modules.get(__name__), '_FIXTURE_BLZTAR', '')
+
+    if args in (["-V"], ["--version"], ["-v"]):
+        print("dwimsy " + _fixture_ver)
+        return 0
+
+    if not args or args in (["-h"], ["--help"], ["--help-all"]):
+        print(f"dwimsy {_fixture_ver} (private test-fixture bundle)")
+        print("\nCommands:")
+        print("  meta unbundle TARGET        Extract fixture payloads to TARGET directory")
+        print("  meta list-fixtures          List all fixture payloads in this bundle")
+        print("  meta bundle-fixtures [SRC]  Pack a new fixture bundle (subset or with extra sources)")
+        print("\nNote: Standard DWIMSY tools (convert, tests, etc.) are omitted from this fixture bundle.")
+        return 0
+
+    cmd = None
+    sub_args = []
+
+    if args:
+        a0 = args[0].replace("_", "-").lower()
+        if a0 in ("meta", "dwimsy-meta") and len(args) >= 2:
+            a1 = args[1].replace("_", "-").lower()
+            if a1 in ("unbundle", "list-fixtures", "bundle-fixtures"):
+                cmd = a1
+                sub_args = args[2:]
+        elif a0 in ("dwimsy-meta-unbundle", "meta-unbundle"):
+            cmd = "unbundle"
+            sub_args = args[1:]
+        elif a0 in ("dwimsy-meta-list-fixtures", "meta-list-fixtures"):
+            cmd = "list-fixtures"
+            sub_args = args[1:]
+        elif a0 in ("dwimsy-meta-bundle-fixtures", "meta-bundle-fixtures"):
+            cmd = "bundle-fixtures"
+            sub_args = args[1:]
+
+    if cmd == "unbundle":
+        target = sub_args[0] if sub_args else None
+        if not target:
+            print("usage: dwimsy meta unbundle TARGET", file=_sys.stderr)
+            return 2
+        if not _fixture_blz:
+            print("error: fixture bundle contains no payload", file=_sys.stderr)
+            return 1
+        _fixture_core_materialize(_fixture_blz, target)
+        print(f"Successfully extracted fixtures to {target}")
+        return 0
+
+    if cmd == "list-fixtures":
+        if not _fixture_blz:
+            print("error: fixture bundle contains no payload", file=_sys.stderr)
+            return 1
+        verbose = "-v" in sub_args or "--verbose" in sub_args
+        _fixture_core_list_manifest(_fixture_blz, verbose=verbose)
+        return 0
+
+    if cmd == "bundle-fixtures":
+        parser = _argparse.ArgumentParser(prog="dwimsy-meta-bundle-fixtures", description="Pack or slice DWIMSY test-fixture bundles.")
+        parser.add_argument("sources", nargs="*", default=None, help="Fixture directories, loose files, or fixture bundles")
+        parser.add_argument("-o", "--output-dir", default=".", help="Output directory")
+        parser.add_argument("--fixture-include", action="append", default=[], help="Include selector")
+        parser.add_argument("--fixture-restrict-to", action="append", default=[], help="Restrict-to selector")
+        parser.add_argument("--fixture-prune", action="append", default=[], help="Prune selector")
+        parser.add_argument("--label", "-l", default=None, help="Filename label/scope component")
+        parser.add_argument("--max-size", "--target-size", dest="target_size", type=int, default=500_000, help="Target compressed size")
+        parser.add_argument("--format", choices=("py", "pyz", "both"), default="both", help="Output format")
+        parser.add_argument("--list", action="store_true", help="List embedded fixtures")
+        p_args = parser.parse_args(sub_args)
+        if p_args.list:
+            if not _fixture_blz:
+                print("error: fixture bundle contains no payload", file=_sys.stderr)
+                return 1
+            _fixture_core_list_manifest(_fixture_blz)
+            return 0
+        ops = []
+        for a in sub_args:
+            if a.startswith("--fixture-include="): ops.append(("include", a.split("=", 1)[1]))
+            elif a.startswith("--fixture-restrict-to="): ops.append(("restrict", a.split("=", 1)[1]))
+            elif a.startswith("--fixture-prune="): ops.append(("prune", a.split("=", 1)[1]))
+        res = _fixture_core_bundle_fixtures(
+            p_args.sources if p_args.sources else None,
+            p_args.output_dir,
+            operations=ops if ops else None,
+            label=p_args.label,
+            target_size=p_args.target_size,
+            formats=p_args.format,
+            version=_fixture_ver,
+            self_blztar=_fixture_blz,
+        )
+        for rp in res:
+            print(f"Generated: {rp}")
+        return 0
+
+    cmd_name = " ".join(args[:2]) if len(args) >= 2 else args[0]
+    print(f"error: command '{cmd_name}' is not available in the lightweight fixture bundle; use the full dwimsy toolkit", file=_sys.stderr)
+    return 2
+
+# FIXTURE-CORE-END
+
 blztar = """
 /Td6WFoAAATm1rRGAgAhARwAAAAQz1jM427S7/5dABcLwhr+kntgzDkusD21Pasys46txexZXFCm
 qmVc+IotHR6eXWkRcsD/HDSaxSqaMhlzdxK5/eZ89ZObc51ZXssDfuQfUkGoEfTMUPTxqgb2q3Rc
@@ -8024,7 +8563,7 @@ lUStH180oxgPhiAkxfJjLFSMPWF5L/41oOn0UCmx++BOwmkzADMHZuGTfXcJFGWFhM0l7WA8vSTR
 6+bu3XmQXL22rXoLJkddfqT+hMXDaL5ZunBqGvmOMmN4a1D5oDICKlLp1L9+WZ7DMkyKma/flmUW
 YfHkodCg+O3/pELmk08WMZoIqDe+nAP092WoUq73GR51ZP9sxucvHTf2S/FQZL9/oDVy9uMF0hfR
 uYGzA1/HtyMgvskILmoWVos3Nc5W/lFI1UVs0OYl6+o8FOc5Uqynfu+ciepjfsUGip3gEwwWIL3t
-qP18M4AGN846Ke2TpPMZQgDsvYUdg6T/r2NbhQoCgCGRP41g7hREAQgH1ixaUUFqrfexKk0itdrq
+qP18M4AGN846Ke2f/w4ttgDsvYUdg6T/r2NbhQoCgCGRP41g7hREAQgH1ixaUUFqrfexKk0itdrq
 YD381hkEkEixSed0DG3xFjpYrOpyRtmKUWWDSbWzZrCr9oKkiK9ynNyWeWoal9t1KGSiBWG6K1Hr
 WcBO1dYv/TM4e9Ya9zDCp890vHb3wKfI8/L7R1gPavg9ZCOzlR2YV7FS5rQ9AHTYT16YwyGa+qib
 PSY6zcWiZqRq79D9eb/qcw/NjIzGk1CNVqsoX6PgLf1Php+UXAJyp1xOLl5P5dCY6o1G589CkuRl
@@ -8137,8 +8676,229 @@ IDtiv7M8irxAD5Wi92kJIwniL56mBU4EI49/V11SBJZtO94wDVoom6muhcw8luxjZ8a2ZNEl0NFJ
 jUMihwUSgCM3KswCEJZOADNAfSaUopGiQEnROrNRUj8EyZ/NGGZjfbaRQ1Cx582bH6LXN7KyBqIN
 bfTzLzQg0vrPKIpWRkdyj7xEqa6tAxPxAEEbM72yNJ4eklCR/VDM8mKIVMof944WG4rEKERKdiwx
 Amj1bbgCXdiZvdi70gwvNNVNQ/7xlNmZw8evhtpbOOrshkiuVx9PebeQUfu4DXuXwtCfnPXwv9Ej
-pK+srlXLQ8HtSUDf4PJTKeZ2O3j59p0XL1gFAl0oHuWUGMiksblFdf4xAAtohTGGlcoPAAGM4BKA
-sJIMAAAA0nUGMRQXOzADAAAAAARZWg==
+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
 """
 
 

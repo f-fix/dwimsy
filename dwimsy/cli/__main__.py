@@ -589,7 +589,9 @@ def main(
 
     effective_argv = sys.argv[1:] if argv is None else list(argv)
     initial_argv0 = entrypoint_file or (
-        sys.argv[0] if sys.argv and sys.argv[0] else "dwimsy"
+        (sys.argv[0] if sys.argv and sys.argv[0] else "dwimsy")
+        if argv is None
+        else "dwimsy"
     )
 
     try:
@@ -744,6 +746,7 @@ def main(
         action="store_true",
         help="Show full detailed help for all subcommands at once and exit",
     )
+    parser.add_argument("--test-fixtures", action="append", default=[], metavar="PATH", help="Add a private fixture directory or fixture bundle to the test-fixture pool (repeatable)")
 
     subparsers = parser.add_subparsers(
         dest="command", metavar="<command>", parser_class=PagedArgumentParser
@@ -1368,11 +1371,29 @@ def main(
         "--help-all", action="store_true", help="Show full help documentation and exit"
     )
 
-    meta_subparsers.add_parser(
-        "bundle-fixtures",
-        help="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
-        description="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
+    p_meta_list_fixtures = meta_subparsers.add_parser(
+        "list-fixtures",
+        help="List all fixture payloads in a fixture bundle or repository.",
+        description="Inspect and list fixture bundle manifest contents.",
     )
+    p_meta_list_fixtures.add_argument("sources", nargs="*", default=None, help="Fixture bundles to inspect")
+    p_meta_list_fixtures.add_argument("-v", "--verbose", action="store_true", help="Display full 40-character SHA-1 hashes")
+    p_meta_list_fixtures.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
+
+    p_meta_fixtures = meta_subparsers.add_parser(
+        "bundle-fixtures",
+        help="Build a subsetted one-version fixture bundle from fixture sources.",
+        description="Build deterministic DWIMSY test-fixture bundles.",
+    )
+    p_meta_fixtures.add_argument("sources", nargs="+", help="Fixture directories or .py/.pyz fixture bundles")
+    p_meta_fixtures.add_argument("-o", "--output-dir", default=".", help="Directory for generated fixture bundles")
+    p_meta_fixtures.add_argument("--fixture-include", action="append", default=[], help="Add fixtures matching SELECTOR")
+    p_meta_fixtures.add_argument("--fixture-restrict-to", action="append", default=[], help="Restrict fixtures to SELECTOR")
+    p_meta_fixtures.add_argument("--fixture-prune", action="append", default=[], help="Remove fixtures matching SELECTOR")
+    p_meta_fixtures.add_argument("--label", "-l", default=None, help="Filename label/scope component")
+    p_meta_fixtures.add_argument("--target-size", type=int, default=500_000, help="Approximate maximum bundle size")
+    p_meta_fixtures.add_argument("--format", choices=("py", "pyz", "both"), default="both", help="Output format")
+    p_meta_fixtures.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
 
     # Roadmap placeholders
     for pl, h in [
@@ -1423,7 +1444,14 @@ def main(
         else:
             remaining = ["-h" if a == "--help-all" else a for a in remaining]
 
+    # Delegate meta subcommands to meta_main
+    if len(remaining) >= 2 and remaining[0] == "meta" and remaining[1] in ("bundle-fixtures", "bundle_fixtures", "list-fixtures", "list_fixtures"):
+        from dwimsy.meta import __main__ as meta_main
+        return meta_main.main(remaining[1:])
+
     args = parser.parse_args(remaining)
+    if getattr(args, "test_fixtures", None):
+        os.environ["DWIMSY_TEST_FIXTURES"] = os.pathsep.join(args.test_fixtures)
 
     if getattr(args, "help_all", False):
         safe_page(format_all_help(parser))
@@ -1505,7 +1533,7 @@ def main(
             target = getattr(args, "target", None)
             if not target:
                 print(
-                    "error: 'help api' requires a dotted module, class, or function target.",
+                    "error: 'help api' requires a dotted module, class, or function target.\nExample: dwimsy help api dwimsy",
                     file=sys.stderr,
                 )
                 return 1

@@ -5,6 +5,40 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.126-dev] - 2026-09-19T08:09:52Z
+
+### Changed
+- Add in-process fallback and Emscripten/WASI guard to test_fixture_bundle_standalone_unbundle
+- Bundle verification: subprocess
+
+## [0.1.6.125-dev] - 2026-09-19T06:48:54Z
+
+### Changed
+- Fix Pyodide in-memory __main__ AttributeError in _fixture_core_bundle_fixtures and early_dispatch initial_argv0 leak
+- Bundle verification: subprocess
+
+## [0.1.6.124-dev] - 2026-09-19T05:16:58Z
+
+### Changed
+- Release v12.3: Adopt canonical fixture bundle planner, list-fixtures, AST self-containment guard, LZMA compression cache, and full 66-layer history.
+- Bundle verification: subprocess
+
+## [0.1.6.123-dev] - 2026-09-18T16:26:52Z
+
+### Changed
+- Repair standalone fixture-bundle core-source fallback.
+
+## [0.1.6.122-dev] - 2026-09-18T16:26:22Z
+
+### Changed
+- Implement deterministic private test-fixture bundles and --test-fixtures discovery.
+
+## [0.1.6.121-dev] - 2026-09-18T06:40:10Z
+
+### Changed
+- Implement v12.1 fixture-bundle and dependency-semantics specification.
+- Bundle verification: subprocess
+
 ## [0.1.6.120-dev] - 2026-09-17T05:28:52Z
 
 ### Changed

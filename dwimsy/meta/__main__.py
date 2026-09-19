@@ -28,6 +28,14 @@ class PagedArgumentParser(argparse.ArgumentParser):
         self.add_argument("-h", "--help", action=PagedHelpAction)
 
 
+class _FixtureOpAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        ops = getattr(namespace, "fixture_ops", None) or []
+        kind = {"--fixture-include":"include", "--fixture-restrict-to":"restrict", "--fixture-prune":"prune"}.get(option_string, "include")
+        ops.append((kind, values))
+        setattr(namespace, "fixture_ops", ops)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="dwimsy meta",
@@ -228,13 +236,30 @@ def build_parser() -> argparse.ArgumentParser:
         "--help-all", action="store_true", help="Show full help documentation and exit"
     )
 
-    # bundle-fixtures (placeholder)
-    subparsers.add_parser(
-        "bundle-fixtures",
-        help="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
-        description="[NOT IMPLEMENTED — Milestone 1.6] Package private test fixtures.",
+    # list-fixtures
+    p_list_fixtures = subparsers.add_parser(
+        "list-fixtures",
+        help="List all fixture payloads in a fixture bundle or repository.",
+        description="Inspect and list fixture bundle manifest contents.",
     )
+    p_list_fixtures.add_argument("sources", nargs="*", default=None, help="Fixture bundles to inspect")
+    p_list_fixtures.add_argument("-v", "--verbose", action="store_true", help="Display full 40-character SHA-1 hashes")
 
+    # bundle-fixtures
+    p_fixtures = subparsers.add_parser(
+        "bundle-fixtures",
+        help="Build a deterministic, portable subset of private test fixtures.",
+        description="Build deterministic DWIMSY test-fixture bundles from directories, loose files, or existing fixture bundles.",
+    )
+    p_fixtures.add_argument("sources", nargs="+", help="Fixture directories, loose files, or fixture bundles")
+    p_fixtures.add_argument("-o", "--output-dir", default=".", help="Directory for generated fixture bundles")
+    p_fixtures.add_argument("--fixture-include", action=_FixtureOpAction, metavar="SELECTOR", help="Union fixtures matching SELECTOR (repeatable, argv order)")
+    p_fixtures.add_argument("--fixture-restrict-to", action=_FixtureOpAction, metavar="SELECTOR", help="Intersect selection with SELECTOR (repeatable, argv order)")
+    p_fixtures.add_argument("--fixture-prune", action=_FixtureOpAction, metavar="SELECTOR", help="Subtract fixtures matching SELECTOR (repeatable, argv order)")
+    p_fixtures.add_argument("--label", "-l", default=None, help="Filename label/scope component")
+    p_fixtures.add_argument("--target-size", type=int, default=500_000, help="Approximate maximum compressed bundle size before splitting")
+    p_fixtures.add_argument("--format", choices=("py", "pyz", "both"), default="both", help="Output format")
+    p_fixtures.add_argument("--help-all", action="store_true", help="Show full help documentation and exit")
     return parser
 
 
@@ -257,6 +282,8 @@ def format_meta_help_all(parser: argparse.ArgumentParser) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     effective = sys.argv[1:] if argv is None else list(argv)
+    if effective[:1] == ["meta"]:
+        effective = effective[1:]
     from dwimsy.cli.dispatch import early_dispatch
 
     handled, effective = early_dispatch(
@@ -341,7 +368,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             unbundle.safe_unbundle(
                 b64_string=unbundle._get_active_blztar(),
                 output_dir=args.target_directory,
-                with_deps=args.deps,
+                materialize_deps=args.deps,
                 force=getattr(args, "force", False),
                 dry_run=getattr(args, "dry_run", False),
                 quiet=getattr(args, "quiet", False),
@@ -455,12 +482,36 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not getattr(args, "quiet", False):
             print("[SUCCESS] All repository lint checks passed cleanly.")
         return 0
+    elif args.meta_command == "list-fixtures":
+        from dwimsy.meta import unbundle as _ub
+        if args.sources:
+            for s in args.sources:
+                items = _ub._fixture_core_candidates(s)
+                print(f"Fixture Manifest for {s} ({len(items)} items):")
+                print(f"{'SHA-1':<40}  {'SIZE':>10}  FILENAME")
+                print("-" * 72)
+                for sha, (fn, data) in sorted(items.items(), key=lambda x: (x[1][0].lower(), x[0])):
+                    sha_str = sha if args.verbose else sha[:12]
+                    print(f"{sha_str:<40}  {len(data):>8} B  {fn}")
+        else:
+            _ub._fixture_core_list_manifest(_ub._get_active_blztar(), verbose=args.verbose)
+        return 0
     elif args.meta_command == "bundle-fixtures":
-        print(
-            "[NOT IMPLEMENTED] 'dwimsy meta bundle-fixtures' is scheduled for Milestone 1.6.",
-            file=sys.stderr,
-        )
-        return 1
+        try:
+            outputs = bundle.build_fixture_bundles(
+                [Path(x).resolve() for x in args.sources],
+                Path(args.output_dir).resolve(),
+                operations=getattr(args, "fixture_ops", []) or [],
+                target_size=args.target_size,
+                formats=args.format,
+                label=getattr(args, "label", None),
+            )
+        except (ValueError, OSError, RuntimeError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        for path in outputs:
+            print(path)
+        return 0
     else:
         parser.print_help(sys.stderr)
         return 0

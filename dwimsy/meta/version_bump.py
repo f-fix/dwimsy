@@ -224,7 +224,7 @@ def sync_bundle_baseline(
     primary = space.streams[0]
     old_head = primary.get_head_version()
     old_state = primary.materialize_layer_state(old_head.ordinal) if old_head else {}
-    new_state = bundle.create_tree_state(root, with_deps=True)
+    new_state = bundle.create_tree_state(root, include_deps=True)
     delta = versions.compute_tree_delta(old_state, new_state)
     if "dwimsy/_version.py" in new_state:
         delta["dwimsy/_version.py"] = new_state["dwimsy/_version.py"]
@@ -290,7 +290,7 @@ def sync_bundle_baseline(
             vpath.write_bytes(sealed_state["_version.py"])
 
     bundle_script = bundle.build_bundle_script(
-        repo_root=root, with_deps=True, version_space=space
+        repo_root=root, include_deps=True, version_space=space
     )
     unbundle_file.write_text(bundle_script, encoding="utf-8")
     try:
