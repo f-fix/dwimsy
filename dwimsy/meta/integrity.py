@@ -608,6 +608,20 @@ def canonical_assets(
     return dict(sorted(candidates.items()))
 
 
+def invalidate_tree_cache(root: Optional[Path] = None) -> None:
+    """Invalidate cached on-disk tree hashes."""
+    if root is None:
+        _HASH_CACHE.clear()
+    else:
+        try:
+            repo_str = str(find_repo_root(root) if root is None else Path(root).resolve())
+        except Exception:
+            repo_str = str(Path(root).resolve())
+        for k in list(_HASH_CACHE.keys()):
+            if k[0] == repo_str:
+                _HASH_CACHE.pop(k, None)
+
+
 def canonical_code_hash(root: Optional[Path] = None, baseline: bool = False) -> str:
     """Calculate the canonical SHA-256 hash of the portable project window."""
     repo = find_repo_root(root) if root is None else Path(root).resolve()

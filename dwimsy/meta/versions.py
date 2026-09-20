@@ -201,10 +201,27 @@ def validate_version_tag(tag: str) -> None:
         raise ValueError(f"Version tag '{tag}' contains invalid characters.")
 
 
+_SEMVER_CACHE: Dict[str, "SemVer"] = {}
+
 class SemVer:
     """Semantic version parser and matcher with partial match support."""
 
-    def __init__(self, tag: str):
+    def __new__(cls, tag: Any):
+        if isinstance(tag, SemVer):
+            return tag
+        tag_str = str(tag)
+        cached = _SEMVER_CACHE.get(tag_str)
+        if cached is not None:
+            return cached
+        instance = super().__new__(cls)
+        instance._init_semver(tag_str)
+        _SEMVER_CACHE[tag_str] = instance
+        return instance
+
+    def __init__(self, tag: Any):
+        pass
+
+    def _init_semver(self, tag: str):
         self.tag = tag
         # Strip prefixes like primary_ or altN_
         t = tag.split("_")[-1] if "_" in tag else tag
@@ -264,7 +281,12 @@ class SemVer:
         return self.tuple() >= other.tuple()
 
     def __eq__(self, other):
-        return self.tuple() == other.tuple()
+        if isinstance(other, SemVer):
+            return self.tuple() == other.tuple()
+        return False
+
+    def __hash__(self):
+        return hash(self.tuple())
 
     def matches(self, pattern: str) -> bool:
         """Check if this version semantically falls within the pattern.
@@ -889,9 +911,9 @@ class Stream:
         self.layers.append(layer)
         self.mark_mutated()
 
-    def encode_lzma_bytes(self) -> bytes:
+    def encode_lzma_bytes(self, preset: Optional[int] = None) -> bytes:
         """Encode this stream into compressed LZMA bytes with memory readback validation."""
-        if self.raw_lzma_bytes is not None:
+        if self.raw_lzma_bytes is not None and preset is None:
             return self.raw_lzma_bytes
         if not self.layers:
             self.raw_lzma_bytes = lzma.compress(b"")
@@ -902,16 +924,19 @@ class Stream:
             tar_buffers.append(lyr.get_tar_bytes())
 
         concat_tars = b"".join(tar_buffers)
-        preset = (
-            1
-            if (
-                os.environ.get("DWIMSY_TEST_MODE")
-                or os.environ.get("DWIMSY_BUNDLE_BUILD")
+        if preset is None:
+            preset = (
+                1
+                if (
+                    os.environ.get("DWIMSY_TEST_MODE")
+                    or os.environ.get("DWIMSY_BUNDLE_BUILD")
+                )
+                else (9 | lzma.PRESET_EXTREME)
             )
-            else (9 | lzma.PRESET_EXTREME)
-        )
-        self.raw_lzma_bytes = cached_lzma_compress(concat_tars, preset=preset)
-        return self.raw_lzma_bytes
+        compressed = cached_lzma_compress(concat_tars, preset=preset)
+        if preset == (9 | lzma.PRESET_EXTREME) or preset is None:
+            self.raw_lzma_bytes = compressed
+        return compressed
 
 
 def compute_tree_delta(
@@ -1397,16 +1422,18 @@ class VersionSpace:
         cls._BLZTAR_PARSE_CACHE[b64_text] = [s.copy() for s in streams]
         return cls([s.copy() for s in streams])
 
-    def to_blztar(self) -> str:
+    def to_blztar(self, preset: Optional[int] = None) -> str:
         """Encode VersionSpace to base64 blztar string with memory readback validation (Section1.3)."""
         compressed_blocks = []
         for s in self.streams:
-            if getattr(s, "raw_lzma_bytes", None) is not None and not getattr(
-                s, "mutated", False
+            if (
+                preset is None
+                and getattr(s, "raw_lzma_bytes", None) is not None
+                and not getattr(s, "mutated", False)
             ):
                 c = s.raw_lzma_bytes
             else:
-                c = s.encode_lzma_bytes()
+                c = s.encode_lzma_bytes(preset=preset)
             compressed_blocks.append(c)
 
         concat_lzma = b"".join(compressed_blocks)
@@ -2085,7 +2112,7 @@ class VersionSpace:
         result.renumber_streams()
         return result
 
-    def composite_bundle_name(self, extension: str = ".py") -> str:
+    def composite_bundle_name(self, extension: str = ".py", preset: Optional[int] = None) -> str:
         """Generate multi-stream composite bundle name with uniform ,altN notation."""
         if not self.streams:
             return f"dwimsy_0.1.6.0-dev{extension}"
@@ -2107,9 +2134,15 @@ class VersionSpace:
                 prev_ver = ver
 
         base_name = "dwimsy_" + "".join(parts)
+        is_low = (
+            preset != (9 | lzma.PRESET_EXTREME)
+            if preset is not None
+            else bool(os.environ.get("DWIMSY_TEST_MODE") or os.environ.get("DWIMSY_BUNDLE_BUILD"))
+        )
+        dnd = " [DO NOT DELIVER]" if is_low else ""
         if not extension.startswith("."):
             extension = f".{extension}"
-        return f"{base_name}{extension}"
+        return f"{base_name}{dnd}{extension}"
 
     def get_layer_timestamp(
         self, layer: Layer, default_time: Optional[str] = None

@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.127-dev (2026-09-19)
+Version: 0.1.6.128-dev (2026-09-20)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.127-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.128-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.127-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.127-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.127-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.127-dev.py dwimsy license
-  python3 dwimsy_0.1.6.127-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.128-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.128-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.128-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.128-dev.py dwimsy license
+  python3 dwimsy_0.1.6.128-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.127-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.128-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -1388,6 +1388,11 @@ def safe_unbundle(
                 timestamp=target_timestamp,
                 content_hash=target_hash,
             )
+            try:
+                from dwimsy.meta import integrity
+                integrity.invalidate_tree_cache(out_path)
+            except Exception:
+                pass
             print(f"Successfully extracted {banner} to {output_dir}", file=stdout)
             if (
                 previous_version_tag is not None
@@ -1676,7 +1681,7 @@ def apply_arg_overrides(
 
     while i < len(argv):
         arg = argv[i]
-        arg_lower = arg.lower()
+        arg_lower = unicodedata.normalize("NFKC", arg).casefold()
         override = None
 
         if arg_lower in ("-a", "--argv0") and i + 1 < len(argv):
@@ -1754,7 +1759,9 @@ def parse_early_pipeline_flags(
     # --force is a safety override, not a version-space transformation.
     # It may appear anywhere in the invocation and never changes semantic
     # version allocation or topology by itself.
-    force_requested = any(a.lower() in ("--force", "-f") for a in args)
+    force_requested = any(
+        unicodedata.normalize("NFKC", a).casefold() in ("--force", "-f") for a in args
+    )
     test_mode = False
     test_pattern = None
     early_exit = None
@@ -1763,20 +1770,25 @@ def parse_early_pipeline_flags(
 
     # Resolve version-list format and verbosity from full invocation
     has_version_list = any(
-        a.lower() == "--version-list" or a.lower().startswith("--version-list=")
+        unicodedata.normalize("NFKC", a).casefold() == "--version-list"
+        or unicodedata.normalize("NFKC", a).casefold().startswith("--version-list=")
         for a in args
     )
     is_full = any(
-        a.lower() in ("--version-list=full", "--version-list=long") for a in args
+        unicodedata.normalize("NFKC", a).casefold() in ("--version-list=full", "--version-list=long")
+        for a in args
     )
     is_short = any(
-        a.lower() in ("--version-list=short", "--version-list=compact") for a in args
+        unicodedata.normalize("NFKC", a).casefold() in ("--version-list=short", "--version-list=compact")
+        for a in args
     )
     has_v_flag = any(
         a.startswith("-") and not a.startswith("--") and any(c in "vV" for c in a[1:])
         for a in args
     )
-    has_verbose_flag = any(a.lower() == "--verbose" for a in args)
+    has_verbose_flag = any(
+        unicodedata.normalize("NFKC", a).casefold() == "--verbose" for a in args
+    )
     version_list_verbose = (has_verbose_flag or has_v_flag or is_full) and not is_short
 
     i = 0
@@ -9011,7 +9023,7 @@ OxDsLidAVSM7TXCGxxOtA9KhzUMW3U1JCdKDdma4BK9P8Abs0flkPjWVXawC/c1HxM7GjG1dZIbL
 ZdexkqzhVQp1uA3aRsfxrQ+Knm+68TQUskiDjybkSa31M1gZ4jl30OPPk6JvJOD2eWkNW30yQZCo
 isBZ1WuG2307KhHrtwz8MTt1dxSS4VryYcR/DtF7qq/vifFNkRq8yxiSh1DhxgUnvhlAedewUo2X
 +5i6fKfoQL34ewYFKY2e5wlDO4DC3RaHmccSdywrkcmu43K9P516Ez8E4b1cMdP7QnYtHuFTZLO5
-Z1ymjIGU148iVGMFtZb73HXW3TgwZRRTp9Jb3DA2H3jmP5Zt3M77SHFQYu09g55IBDUA8EOXhktg
+Z1ymjIGU148iVGMFtZb73HXW3TgwZRRTp9Jb3DA2H3jmP5Zt3M77SHFQYu09i+ZICSEA8EOXhktg
 vYtYTmIKft1A3fv0rQt9NN9K2m/ehABtxvCrtNYILT6tBUO0coxmL4GbwYxKV1WoH/K7ZfNeqpUe
 Gi3r4vvfdZxqHmsbL+aFsrYsdMxRU59zYg/axj86bXLRDLthYZzXf6e/MQJmz+o73kdIz4IsG+Ih
 qlnNjUw8tRkYyPoChqTPPbCb/slJqMjoOXdsOU+a647zA2/6diHkkAO4+nqSut1jf5i0AmMlohGu
@@ -9030,8 +9042,30 @@ Gdj1AqG/X+j1RO/bbqY4XVLTWrUq9Eo0IrZXqgMfhZtRYpu7ssgEz4XQqUa9iRNhcvYs9aLAVsgE
 gin64bX2OdEuanKrMwlYjtv1H4EcvtEH7nZbINSU7rLVs9Vg2vntBEb79CfVd0YIf/6BhlYk+FiX
 L8ZTsP9jDsSQfMatjMuJgb7oTFwWLA30uyqykbvrlq5k4ARk4CtPBYlsRROUTt4WW+5S8qKda4H/
 RXmKwGFYqSktvrAKWic4pfGavi65TJe2pyDaRs0omqn80wO0QMAmjqbIjeAEWcFHlheAffvwWLzS
-WDnvlQN3qyoyGuPJ82zIZgsMl5SGnYqnRxrKrvZMOVHXGONQWpYukPGY0ItAAADx413EUD58ugAB
-q9ATgKDSDQAAAICQhZ0UFzswAwAAAAAEWVo=
+WDnvlQN3qyoyGuPJ82zIZgsMl5SGnYqnRxrKrvZMOVHXGONQWpYukGWMSsc8eq9t3vi+ZbnrnHsq
+cAVr9jYyNW7VlY/38cnk4d9Yus9Tsfp1iabsTeg3WRguj2Y9YFHGhxy9Eo4bJUpCObL89N2vR9KV
+rJMMulZgBXRN38gzk1tXAvHHkNG4VbeIJoqsITbpQPyYeepNIt08zGwPlB6LzayUzwtNhwAsQB/I
+mqUSGQSgDfyT9M+flvN9gqQySCnf8ngHa1tvf7CtI5RENShmdc6x5ALUUhFaPeGdplJr9sZHBLpq
+6PemWbG7zteDPi6+mTE2NLa0WKM7Mkf5lj0kqC5LlkFYuWxsAn038Q8H4+u98adTzUDT4wgjwPrn
+SjdQYiJxKRqs5GFP98ZnJXM0kvXA8YX6ntKpbFWdGgQr3X2+E8o+GxphtwD9tCdA+CaWZTclsyKo
+RmDHg/GF9ZICMzaMFQDDPR6SSHiCI13dr16yjGBALaWcCyrhfKTFfUSpK8hRivnN9A8/utDS9yVq
+bGl6bLlj+lvvWrsnoCM2uStF/69C8geYHHaxXZXr/qMj5ndR8KJ4tjl2rinyt6n94EhKLnn7GE12
+S4wSqrkcxJaGjjv+5zYXOGD9IgtNPL1L8QEXQyIp3HMib3+X4SZ6CSuJdUurb97nhe0VDCBMQ3hr
+op9SL3YdnJkZf2i0wlJ6ZzY2xWBny+er+ZT8tJNFhu0CwrP2MHm13mhIjAAOv7fY+FeD9HvWtanq
+28pqQoFucmhH57yIbNxU2EBY1pkOZLOOjy0AJ0gY20dWsHhpV+x4FawWiZs6qq3p7HIfFKCCr4Rh
+Dr37q3hU2I4THVEmpZlSpM4u2IIOPYqcwFtptK0kfmo9pkjSjo3L6AxklusQV73WVrSidNxZuV+2
+ZJHGVFiNRRPl/05INBExjXoknzXeZkON+MDflHU0em+7yF7WufJF5q3163o9qYqeBVb4BsgBUPbH
+/nl9207Sc9nKx16Q8h99myEusVGytUwKTnN+Tbf0liHr06zVETGs3nKAw1fg8/2/jTqSqTgQL5Pb
+UNpy+eInMiAHjsI6ZqTg4zg9AxQtSGkLCWhacC+/P5TQmCdMfNr1BH+bDH5ChP2dv6R9tAzHQmK3
+wPb7kdXehi/YJ2tdxT/FHRmeRDfESpLV1rgUaQx31wk/w34FtvoV0Qq1LMO3Em+H+27FFy5qw6op
+4KrkOdKx0Io4DD+cn14F4Cax2Ju7ookSYNH/yHu9Kf9V5CVdz0rJ2dC4qj5yrmqQpZ77tjdGpNWx
+k1qLM9afvXP1RRnigGANyIsRf0uqXZhy5Sezr/1+yByL4UQfdhMgs1aLEtcePvoERa9o26mcw1m8
+YqnwUTd6BENK+5ESPvyHkyedkdnonENaaWg/5eju8SgpMqnyyYDSPfsz5naL+vRXbeEOMstsCKuW
+TatsUE0yJY9I8dfIUErWTXfeJgSQ1Wuk0JXq6+t5Or9P57Cqr6Vzp/kLz6lpk/tDaAJnZnI1K8jk
+QhAv0mOkTo5Rv0SHOxqc/V+F3Wy7jMXYiGmM6xbEZHVipVL0u8NJCZzr1w3xR6ETodublSFIzGZk
+YGffs/hB+N+evNY0VpsDTmuX6BUt9x0RpAQ7sOntYtGRzSU4FdvwFthFMOm1Z5B6OzKldbCOFSH7
+2eIcNHc2DRJKde6H23Jer9XS7Q0KMopaKpJtf3nkW6ShGgTfy3uKhyJ43mA6gj3uHI1tAAA9d7rR
++FnI0AABl9oTgLDzDQAAAId8E4UUFzswAwAAAAAEWVo=
 """
 
 

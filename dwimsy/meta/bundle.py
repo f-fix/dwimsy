@@ -408,7 +408,7 @@ def build_bundle_script(
         lzma_bytes = lzma.compress(tar_bytes, preset=preset)
         b64_str = base64.b64encode(lzma_bytes).decode("ascii")
     else:
-        b64_str = version_space.to_blztar()
+        b64_str = version_space.to_blztar(preset=preset)
 
     unbundle_file = root / "dwimsy" / "meta" / "unbundle.py"
     if unbundle_file.is_file():
@@ -556,27 +556,39 @@ def write_pyz_bundle(
         pass
 
 
+def is_low_compression(preset: Optional[int] = None) -> bool:
+    """Return True if the bundle is created with faster test-mode or low compression."""
+    if preset is not None:
+        return preset != (9 | lzma.PRESET_EXTREME)
+    return bool(
+        os.environ.get("DWIMSY_TEST_MODE")
+        or os.environ.get("DWIMSY_BUNDLE_BUILD")
+    )
+
+
 def get_default_bundle_name(
     repo_root: Optional[Path] = None,
     tag: Optional[str] = None,
     include_deps: bool = True,
     is_baseline: bool = False,
+    preset: Optional[int] = None,
 ) -> str:
     """Derive standard bundle filename."""
     from dwimsy.meta import diff
 
     root = find_repo_root(repo_root)
     pkg_ver = integrity.version(root=root)
+    dnd = " [DO NOT DELIVER]" if is_low_compression(preset) else ""
     if is_baseline:
         base_v = pkg_ver.split("+")[0]
-        return f"dwimsy_{base_v}_clean.py"
+        return f"dwimsy_{base_v}_clean{dnd}.py"
     if not diff.render_diff(root):
         base_v = pkg_ver.split("+")[0]
         clean_tag = f"_{re.sub(r'[^a-zA-Z0-9_.-]', '_', tag)}" if tag else ""
-        return f"dwimsy_{base_v}{clean_tag}.py"
+        return f"dwimsy_{base_v}{clean_tag}{dnd}.py"
 
     clean_tag = f"_{re.sub(r'[^a-zA-Z0-9_.-]', '_', tag)}" if tag else ""
-    return f"dwimsy_{pkg_ver}{clean_tag}.py"
+    return f"dwimsy_{pkg_ver}{clean_tag}{dnd}.py"
 
 
 def _set_layer_version_tag(
@@ -704,6 +716,15 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     """Generate a bundle while preserving the current VersionSpace history."""
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
+
+    out_arg = getattr(args, "output", None)
+    if out_arg is not None and out_arg != "-":
+        out_p = Path(out_arg).resolve()
+        if out_p.suffix not in (".py", ".pyz"):
+            raise ValueError(f"Unsupported output extension '{out_p.suffix}'")
+        if out_p.parent.exists() and not os.access(out_p.parent, os.W_OK):
+            raise PermissionError(f"Destination directory '{out_p.parent}' is not writable")
+
     cwd = Path.cwd().resolve()
     if (cwd / "dwimsy" / "__init__.py").is_file():
         root = cwd
@@ -796,7 +817,19 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
             )
 
     script_text = build_bundle_script(root, include_deps=True, version_space=vspace)
-    out_name = getattr(args, "output", None) or vspace.composite_bundle_name(".py")
+    preset_val = 1 if is_low_compression() else (9 | lzma.PRESET_EXTREME)
+    if getattr(args, "output", None) and args.output != "-":
+        out_p = Path(args.output)
+        if is_low_compression(preset_val):
+            stem = out_p.stem
+            if not stem.endswith(" [DO NOT DELIVER]"):
+                out_name = str(out_p.with_name(f"{stem} [DO NOT DELIVER]{out_p.suffix}"))
+            else:
+                out_name = str(out_p)
+        else:
+            out_name = str(out_p)
+    else:
+        out_name = vspace.composite_bundle_name(".py", preset=preset_val)
 
     global LAST_VERIFICATION_PATH
     # Verify the generated bundle before publishing it.

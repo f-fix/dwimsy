@@ -2,6 +2,7 @@
 """dwimsy.meta.version_bump - Automated version bumping, changelog recording, and bundle synchronization."""
 
 from __future__ import annotations
+import lzma
 import subprocess
 
 import argparse
@@ -213,6 +214,7 @@ def sync_bundle_baseline(
     *,
     release: bool = False,
     layer_timestamp: Optional[str] = None,
+    preset: Optional[int] = (9 | lzma.PRESET_EXTREME),
 ) -> Path:
     """Synchronize the embedded VersionSpace with the current working tree."""
     root = integrity.find_repo_root(repo_root)
@@ -290,7 +292,7 @@ def sync_bundle_baseline(
             vpath.write_bytes(sealed_state["_version.py"])
 
     bundle_script = bundle.build_bundle_script(
-        repo_root=root, include_deps=True, version_space=space
+        repo_root=root, include_deps=True, version_space=space, preset=preset
     )
     unbundle_file.write_text(bundle_script, encoding="utf-8")
     try:
@@ -304,7 +306,7 @@ def sync_bundle_baseline(
     integrity.clear_integrity_cache()
 
     pkg_ver = integrity.version(root=root).split("+")[0]
-    bundle_path = root / space.composite_bundle_name(".py")
+    bundle_path = root / space.composite_bundle_name(".py", preset=preset)
     bundle_path.write_text(bundle_script, encoding="utf-8")
     try:
         bundle_path.chmod(0o755)
@@ -318,7 +320,7 @@ def sync_bundle_baseline(
         os.utime(bundle_path, (layer_mtime, layer_mtime))
     except OSError:
         pass
-    pyz_path = root / space.composite_bundle_name(".pyz")
+    pyz_path = root / space.composite_bundle_name(".pyz", preset=preset)
     try:
         bundle.write_pyz_bundle(bundle_script, pyz_path, timestamp=layer_timestamp)
         try:
