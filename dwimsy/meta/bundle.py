@@ -820,17 +820,10 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
     script_text = build_bundle_script(root, include_deps=True, version_space=vspace)
     preset_val = 1 if is_low_compression() else (9 | lzma.PRESET_EXTREME)
     if getattr(args, "output", None) and args.output != "-":
-        out_p = Path(args.output)
-        if is_low_compression(preset_val):
-            stem = out_p.stem
-            if not stem.endswith(" [DO NOT DELIVER]"):
-                out_name = str(
-                    out_p.with_name(f"{stem} [DO NOT DELIVER]{out_p.suffix}")
-                )
-            else:
-                out_name = str(out_p)
-        else:
-            out_name = str(out_p)
+        # Explicit -o: use exactly what the caller asked for, never inject
+        # [DO NOT DELIVER] -- the caller explicitly named the output and is
+        # responsible for knowing it may be low-compression.
+        out_name = str(Path(args.output))
     else:
         out_name = vspace.composite_bundle_name(".py", preset=preset_val)
 
