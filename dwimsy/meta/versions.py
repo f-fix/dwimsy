@@ -203,6 +203,7 @@ def validate_version_tag(tag: str) -> None:
 
 _SEMVER_CACHE: Dict[str, "SemVer"] = {}
 
+
 class SemVer:
     """Semantic version parser and matcher with partial match support."""
 
@@ -2112,7 +2113,9 @@ class VersionSpace:
         result.renumber_streams()
         return result
 
-    def composite_bundle_name(self, extension: str = ".py", preset: Optional[int] = None) -> str:
+    def composite_bundle_name(
+        self, extension: str = ".py", preset: Optional[int] = None
+    ) -> str:
         """Generate multi-stream composite bundle name with uniform ,altN notation."""
         if not self.streams:
             return f"dwimsy_0.1.6.0-dev{extension}"
@@ -2137,7 +2140,10 @@ class VersionSpace:
         is_low = (
             preset != (9 | lzma.PRESET_EXTREME)
             if preset is not None
-            else bool(os.environ.get("DWIMSY_TEST_MODE") or os.environ.get("DWIMSY_BUNDLE_BUILD"))
+            else bool(
+                os.environ.get("DWIMSY_TEST_MODE")
+                or os.environ.get("DWIMSY_BUNDLE_BUILD")
+            )
         )
         dnd = " [DO NOT DELIVER]" if is_low else ""
         if not extension.startswith("."):

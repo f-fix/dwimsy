@@ -561,8 +561,7 @@ def is_low_compression(preset: Optional[int] = None) -> bool:
     if preset is not None:
         return preset != (9 | lzma.PRESET_EXTREME)
     return bool(
-        os.environ.get("DWIMSY_TEST_MODE")
-        or os.environ.get("DWIMSY_BUNDLE_BUILD")
+        os.environ.get("DWIMSY_TEST_MODE") or os.environ.get("DWIMSY_BUNDLE_BUILD")
     )
 
 
@@ -723,7 +722,9 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
         if out_p.suffix not in (".py", ".pyz"):
             raise ValueError(f"Unsupported output extension '{out_p.suffix}'")
         if out_p.parent.exists() and not os.access(out_p.parent, os.W_OK):
-            raise PermissionError(f"Destination directory '{out_p.parent}' is not writable")
+            raise PermissionError(
+                f"Destination directory '{out_p.parent}' is not writable"
+            )
 
     cwd = Path.cwd().resolve()
     if (cwd / "dwimsy" / "__init__.py").is_file():
@@ -823,7 +824,9 @@ def run_meta_bundle(args, stdout=None, stderr=None) -> int:
         if is_low_compression(preset_val):
             stem = out_p.stem
             if not stem.endswith(" [DO NOT DELIVER]"):
-                out_name = str(out_p.with_name(f"{stem} [DO NOT DELIVER]{out_p.suffix}"))
+                out_name = str(
+                    out_p.with_name(f"{stem} [DO NOT DELIVER]{out_p.suffix}")
+                )
             else:
                 out_name = str(out_p)
         else:

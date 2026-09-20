@@ -614,7 +614,9 @@ def invalidate_tree_cache(root: Optional[Path] = None) -> None:
         _HASH_CACHE.clear()
     else:
         try:
-            repo_str = str(find_repo_root(root) if root is None else Path(root).resolve())
+            repo_str = str(
+                find_repo_root(root) if root is None else Path(root).resolve()
+            )
         except Exception:
             repo_str = str(Path(root).resolve())
         for k in list(_HASH_CACHE.keys()):
