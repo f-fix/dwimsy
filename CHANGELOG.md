@@ -5,6 +5,24 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.136-dev] - 2026-09-21T06:50:32Z
+
+### Changed
+- Wire Tier-1 -q/--quiet to safe_unbundle and unbundle main parser
+- Bundle verification: in-process
+
+## [0.1.6.135-dev] - 2026-09-21T05:52:16Z
+
+### Changed
+- Fix verbose parameter in diff.py render_diff
+- Bundle verification: in-process
+
+## [0.1.6.134-dev] - 2026-09-21T04:56:50Z
+
+### Changed
+- Promote -q/--quiet to Tier 1, support quiet version list, and clean diff summaries
+- Bundle verification: in-process
+
 ## [0.1.6.133-dev] - 2026-09-21T04:37:58Z
 
 ### Changed

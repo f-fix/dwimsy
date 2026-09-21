@@ -742,6 +742,13 @@ def main(
         help="Increase test or command verbosity",
     )
     parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        default=False,
+        help="Suppress non-error output; with --version-list, emit compact quiet version rows",
+    )
+    parser.add_argument(
         "--help-all",
         action="store_true",
         help="Show full detailed help for all subcommands at once and exit",

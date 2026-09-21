@@ -1,4 +1,5 @@
-"""tests.test_meta_diff - Verify standalone diff isolation rules."""
+#!/usr/bin/env python3
+"""tests.test_meta_diff - Verify standalone diff isolation rules and render_diff."""
 
 from __future__ import annotations
 
@@ -22,3 +23,17 @@ class TestStandaloneDiffIsolation(unittest.TestCase):
                 with patch.object(diff.Path, "cwd", return_value=cwd):
                     with self.assertRaisesRegex(ValueError, "could not be resolved"):
                         diff.render_diff()
+
+    def test_render_diff_checkout_vs_primary(self):
+        repo_root = Path(__file__).resolve().parent.parent
+        res = diff.render_diff(root=repo_root, v1_sel=".", v2_sel="primary", verbose=False)
+        self.assertIsInstance(res, str)
+
+    def test_render_diff_verbose_full_hashes(self):
+        repo_root = Path(__file__).resolve().parent.parent
+        res = diff.render_diff(root=repo_root, v1_sel="0.1.6.130-dev", v2_sel="primary", verbose=True)
+        self.assertIsInstance(res, str)
+
+
+if __name__ == "__main__":
+    unittest.main()

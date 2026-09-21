@@ -2246,6 +2246,7 @@ class VersionSpace:
         selected: Optional[SelectionSet] = None,
         verbose: bool = False,
         bundle_name: Optional[str] = None,
+        quiet: bool = False,
     ) -> str:
         """Format the output of --list-versions according to the complete specification."""
         from dwimsy.meta import integrity
@@ -2313,9 +2314,12 @@ class VersionSpace:
                 except Exception:
                     pass
             unb_h_str = unbundled_hash if verbose else unbundled_hash[:12]
-            lines.append(
-                f"  [unbundled] {unbundled_tag:<20} {unb_ts}  {unb_h_str}  {ann_str:<34} [=unbundled: .]"
-            )
+            if quiet:
+                lines.append(f"  [unbundled] {unbundled_tag:<20} {unb_ts}  {unb_h_str}")
+            else:
+                lines.append(
+                    f"  [unbundled] {unbundled_tag:<20} {unb_ts}  {unb_h_str}  {ann_str:<34} [=unbundled: .]"
+                )
 
         for s in self.streams:
             versions = sorted(
@@ -2467,8 +2471,11 @@ class VersionSpace:
 
                 ts = self.get_layer_timestamp(lyr)
                 h_str = v.content_hash if verbose else v.content_hash[:12]
-                lines.append(
-                    f"  {display_tag:<24} {ts}  {h_str}  {ann_str:<34} {prov_str}"
-                )
+                if quiet:
+                    lines.append(f"  {display_tag:<24} {ts}  {h_str}")
+                else:
+                    lines.append(
+                        f"  {display_tag:<24} {ts}  {h_str}  {ann_str:<34} {prov_str}"
+                    )
 
         return "\n".join(lines)

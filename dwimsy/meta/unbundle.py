@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.133-dev (2026-09-21)
+Version: 0.1.6.136-dev (2026-09-21)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.133-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.136-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.133-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.133-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.133-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.133-dev.py dwimsy license
-  python3 dwimsy_0.1.6.133-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.136-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.136-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.136-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.136-dev.py dwimsy license
+  python3 dwimsy_0.1.6.136-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.133-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.136-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -1792,7 +1792,7 @@ def parse_early_pipeline_flags(
     has_verbose_flag = any(
         unicodedata.normalize("NFKC", a).casefold() == "--verbose" for a in args
     )
-    version_list_verbose = (has_verbose_flag or has_v_flag or is_full) and not is_short
+    version_list_verbose = (has_verbose_flag or (has_v_flag and not is_short) or is_full)
 
     i = 0
     while i < len(args):
@@ -1811,6 +1811,12 @@ def parse_early_pipeline_flags(
             opt_key = norm_arg.casefold()
             opt_val = None
             has_val = False
+
+        # Tier-1 -q / --quiet
+        if opt_key in ("-q", "--quiet"):
+            operations.append(("quiet", True))
+            i += 1
+            continue
 
         # -D NAME[=VALUE] / -d / --env-set[=NAME[=VALUE]]
         if opt_key in ("-d", "--env-set"):
@@ -1970,10 +1976,12 @@ def parse_early_pipeline_flags(
         if opt_key == "--version-list":
             if version_list_snapshot is None:
                 is_chk, r_root = detect_self_location(current_argv0)
+                has_quiet_early = any(unicodedata.normalize("NFKC", a).casefold() in ("-q", "--quiet") for a in args)
                 version_list_snapshot = vspace.format_list_versions(
                     on_disk_root=r_root if is_chk else None,
                     selected=active_selection,
                     verbose=version_list_verbose,
+                    quiet=has_quiet_early,
                 )
                 if early_exit is None:
                     early_exit = "version-list"
@@ -2119,6 +2127,7 @@ def parse_early_pipeline_flags(
         "early_exit": early_exit,
         "version_list_snapshot": version_list_snapshot,
         "version_list_verbose": version_list_verbose,
+        "quiet": any(op == "quiet" for op, _ in operations),
         "include": [val for op, val in operations if op.startswith("include")],
         "restrict_to": next(
             (val for op, val in reversed(operations) if op == "restrict_to"), None
@@ -2406,6 +2415,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
             on_disk_root=repo_root if is_checkout else None,
             selected=selected,
             verbose=pipeline.get("version_list_verbose", False),
+            quiet=pipeline.get("quiet", False),
         )
         safe_page(output)
         sys.exit(0)
@@ -2464,7 +2474,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
             a in ("--force", "-f") for a in remaining_args
         )
         dry_run = any(a == "--dry-run" for a in remaining_args)
-        quiet = any(a in ("--quiet", "-q") for a in remaining_args)
+        quiet = pipeline.get("quiet", False) or any(a in ("--quiet", "-q") for a in remaining_args)
         verbose = any(a in ("--verbose", "-v") for a in remaining_args) or bool(
             pipeline.get("verbosity", 0)
         )
@@ -2583,7 +2593,7 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
         materialize_deps=("--deps" in remaining_args),
         force=pipeline.get("force", False),
         dry_run=("--dry-run" in remaining_args),
-        quiet=("--quiet" in remaining_args or "-q" in remaining_args),
+        quiet=pipeline.get("quiet", False) or ("--quiet" in remaining_args or "-q" in remaining_args),
         target_version=ver_sel,
         verbose=bool(pipeline.get("verbosity", 0)),
         preserve_previous_history=any(op == "alt" for op, _ in pipeline["operations"]),
@@ -2643,6 +2653,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 on_disk_root=repo_root if is_checkout else None,
                 selected=pipeline.get("selected_ref"),
                 verbose=pipeline.get("version_list_verbose", False),
+                quiet=pipeline.get("quiet", False),
             )
         )
         return 0
@@ -2774,7 +2785,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             materialize_deps=args.deps,
             force=args.force,
             dry_run=args.dry_run,
-            quiet=args.quiet,
+            quiet=pipeline.get("quiet", False) or args.quiet,
             target_version=target_ver,
             verbose=is_verbose,
         )
@@ -9144,7 +9155,7 @@ PS9mBsyZ2SkZ7SrGU0jQt7tph38EDDhCCuqW993Jbe7ewcYs6D/+Idjti5SJYgO77OzPMDb0ZEYI
 Oh+1XNsIX84XwayTkjgUvhBsz8Z6kcWmX2BD13rgnQqmQX4YkcbfB/hF9TODTA/rcMSSFQAB+ja+
 AslQzJUF2bsdwAyk84ox0/znQ6/nx7/NbTkMxGtmeSGQBazV1WUm/7HL4LPLezbRqkpk0MYKe5uL
 HLJKyjuvgCkmxqbXUXhZORzhVbUkIjkDE6Hzx50Jv3No8QrgFVsDKkopuBUCZI96NLIKFD101cC4
-Y4yPSRfyAMk52iHKc7cALu0++hSGYxyqhAaC3NMDh4eA8nURPIXCyXv1aP7C5It1S/z+IBEabRYw
+Y57/SR0EAMk52iHKc7cALu0++hSGYxyqhAaC3NMDh4eA8nURPIXCyXv1aP7C5It1S/z+IBEabRYw
 pkQaQSBxyy2+OE4AMiQHZWYb+I+HVuZ4mHDhEUiN8sQ92vklbz2e7DEclQsO5CI33qZQht7ZlaHW
 DpnxRclAP8iVBlhe5dHRKJLOGriIjYgkgAgZ+gghZkg2lsiPHXOv4MWLO8QhGKpqdExmyWdnx62I
 5eMCOM+MJfQ19IwOudUrMLGgfThr60qRKRPRKEXQzcBQqkhqG39VamS+BXS25QbNFJSAT8kNmdwn
@@ -9251,8 +9262,31 @@ OSsIc9si/GmDurgD+tm8juOEwdjogIHO/skvuO8eDNqnT6x7DNWGwXQMDHW69J6f4oYBFQ/PLJ5O
 +A+fC3vIzNpBUis4nxoBTO72+EbfYEggU2D5A152i4o73tYQzBmuey9XWifScXTbsmw4GUNEgYAT
 lhSJmd4Zw98iCC/suXZH9OPbEUwU1IlLk7Vg5fSMvrXcn7yR4r20wxoXNziuw4mkAO5lCqFc4L5T
 U24p8NUSR69EsmHr1EiaPaxdvffu3jaI5Q7vfWLWBhye9o4YfH4OtVcRrE7AbpTeOJXjvVrgeKhe
-MLTSslCAKGGImjI/63jhMJnRc7cz5rGpsb1U5Yx2NZA2KSOG1gAAAADjzQdjgDmnPgAB0pYUgID2
-DgAAAFpuzBEUFzswAwAAAAAEWVo=
+MLTSslCAKGGImjI/63jhMJnRc7cz5rGpsb1U5Yx2NZA0CYvbnCYYdPWwKvdZW4sEiUyKwHPWmBH1
+cfYONql8ZvoP3OAucgBQQnXFVR2A4syvCE5NUaxT2Gdvv2GxZOF6DXQsuKCaAk48iwqIs1bPx+yd
+Zj1KsUXnyYJYAwCgmoIjoVaqemsn/zd97lkwHARz5i9yTu1625tytR2ejHUzMoA76BMBdwPxrOio
+kpSBd58Xwb/BdN1z2u/XolQ0RfQuFo4KmgZCob9bSTJ8W7oEDAefIdYtssvB2fCf12VcSFb1ov1N
+QOPeJrSn99n8M2Xi6tbIqoe/O0/UZgfS4quei48m/2Oa33VcIAfiZhOB2uVWRTeV55MSO/0vrQLv
+0QbMNsWbBC3zhijWK8B4rk/DD7o7IK4ldhG89zw2hcJ7nym08L8jtvh1saNyknFg5KwbLUXo51St
+Vx5WVXEiHJoK3J59EN2rpi4UsJF44uznBgYq5n6+1R5xziCVAPEHe8QhaBBWvxOv74Ds51Jk81WJ
+fQ5YZ4pGTmpAKd3Tl0qXcbP9xMh5KM9NUafBF9HpkR+ORV4iaVLS/bS7cG5MyQyrCMXWji2MUJza
+R6nd6jlrGbe3QjSrfc6jTeb5oe8X7G3QgfrlVcvi7CQMvV8YdD3jLhSayQezKGTRLNXS/CkZVhkl
+EYUCgqNx86F48fxGbpPCjTf1VJFa/JYniEWpX8oTJe6+sclsJtR+i/81vF75QFdX/77okHhZX9bD
+hPkd0/+2/OlWhgwf1i1Doe5DrR4VBvDo06DzMX3hoyTYIc93n+xGSNLwKJvWscMYTwmtKN8DdcBr
+UQnPSrxYBlTno4nRe4hUnsU0cEPsqaoXal36x50IgX9at0EB5vsuKfqsZ+21EypEB16hPR45/NH8
+pvvWh0X+Sjd6lrPZ1nzmVqDKX+1UyGyx7UuWKQWsSdIHcNSV80UB1rXpZUyqyVEk92e+FrOq59BY
+nAfz6uvaaXxWH2ZjJNmTxns3TiF/Cx5DPVE8/FNqJMCiN+AQkvbwX+bm4aixouwhqZg5rtRNxCvN
+VUd3WV8LQ9fwLqh6/g6XZ9yz5mHX9TH4wZDZ5eoKmAvxWoPbFyHcpYMzbkdLarkIRHsi/AzzFrbN
+BqhQKoVxAIXhHqty/1GT17pxaV3glB34V/+h2c531V01nx5sU8KX9qVTxy6p1U/hSOv2rli1MvLa
+cdCOG6w9d3RDwaWmYd5ngykw5JFXWicGiZBsYIMQMKOrZPKIBhk5tL3136TOUpFbu/MPdhdtmLvz
+kp9Pb1wnowrTkAIdziNl4ffRhJLbJ2ECl9Y0R7w2Eeb5A/vgQpATDv8Qk/hZrDl4px2vmcYLt+zV
+9WdDfrO0k/gCzkAZ4MUvaZ0EkiLJtjd7RJDrTRsivdclZCBUOXUkSsTco+i2nqLJeMlyD46tx9at
+jrX/b5Tw+x/Lda2DBg4joGHdMmYYhKgBeKrHIR4Do+4IPGnPb5tPzHQQRvz0Xq9NbsUHedmZRdRK
+2WCSeR3Fz+GE+uoPiSF9uzJL3X5R9J8/98O8LS5B49ADcPFNIStibSBsn9Afe1qiK/XQnnQ8iTfB
+uz/K12bnIhoyFQY6LdEsHFLyjlQqJ6YEJz4Q5HbYZDJgeHnrTrbSAmPX2k7nUuKSZpAaZSqzKsrf
+Sv94pSl4KUsGgeY7Oah57taFP5gfulKohlkvVes/dwyIUVMY42/6XCHZK/rl9zmyzrLa7TuLeX1T
+5JXBFljqewPk/L/8zc0XI60cLLOgHUDIkwDEMxxdvyVtngAB5KAUgOC/DwAAAHp3ocwUFzswAwAA
+AAAEWVo=
 """
 
 
