@@ -298,7 +298,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--target-size",
         type=int,
         default=500_000,
-        help="Approximate maximum compressed bundle size before splitting",
+        help="Maximum final .py wrapper size before splitting",
     )
     p_fixtures.add_argument(
         "--format", choices=("py", "pyz", "both"), default="both", help="Output format"

@@ -1258,32 +1258,66 @@ _FIXTURE_BEGIN = b"# FIXTURE-CORE-BEGIN:"
 _FIXTURE_END = b"# FIXTURE-CORE-END"
 
 
-def extract_fixture_core(unbundle_source: bytes) -> str:
-    """Extract all marked fixture-core source regions and verify references."""
+def extract_fixture_core(
+    unbundle_source: bytes, fixtures_source: Optional[bytes] = None
+) -> str:
+    """Extract all marked fixture-core source regions from fixtures.py and unbundle.py."""
     import ast
 
-    text = unbundle_source.decode("utf-8")
-    lines = text.splitlines(keepends=True)
-    regions = []
-    active = False
-    buf = []
-    for line in lines:
-        if line.startswith("# FIXTURE-CORE-BEGIN:"):
+    if fixtures_source is None:
+        here = Path(__file__).resolve().parent.parent / "tests" / "fixtures.py"
+        if here.is_file():
+            fixtures_source = here.read_bytes()
+        else:
+            try:
+                from dwimsy.meta import unbundle as _ub
+                if hasattr(_ub, "get_asset"):
+                    fixtures_source = _ub.get_asset("dwimsy/tests/fixtures.py")
+            except Exception:
+                pass
+
+    def _extract_from(source_bytes: bytes) -> list[str]:
+        text = source_bytes.decode("utf-8")
+        lines = text.splitlines(keepends=True)
+        regions = []
+        active = False
+        buf = []
+        for line in lines:
+            if line.startswith("# FIXTURE-CORE-BEGIN:"):
+                if active:
+                    raise ValueError("Nested FIXTURE-CORE-BEGIN marker")
+                active = True
+                buf = []
+                continue
+            if line.startswith("# FIXTURE-CORE-END"):
+                if not active:
+                    raise ValueError("FIXTURE-CORE-END without BEGIN")
+                regions.append("".join(buf))
+                active = False
+                continue
             if active:
-                raise ValueError("Nested FIXTURE-CORE-BEGIN marker")
-            active = True
-            buf = []
-            continue
-        if line.startswith("# FIXTURE-CORE-END"):
-            if not active:
-                raise ValueError("FIXTURE-CORE-END without BEGIN")
-            regions.append("".join(buf))
-            active = False
-            continue
+                buf.append(line)
         if active:
-            buf.append(line)
-    if active:
-        raise ValueError("Unterminated FIXTURE-CORE region")
+            raise ValueError("Unterminated FIXTURE-CORE region")
+        return regions
+
+    regions = []
+    if fixtures_source is not None:
+        regions.extend(_extract_from(fixtures_source))
+        module_injection = """
+import sys as _sys, types as _types
+if "dwimsy.tests.fixtures" not in _sys.modules:
+    _m = _types.ModuleType("dwimsy.tests.fixtures")
+    _m.FixtureSpec = FixtureSpec
+    _m.FIXTURE_REGISTRY = FIXTURE_REGISTRY
+    _m.FIXTURES_BY_FILENAME = FIXTURES_BY_FILENAME
+    _m.FIXTURES_BY_SHA1 = FIXTURES_BY_SHA1
+    _m.get_fixture_spec = get_fixture_spec
+    _sys.modules["dwimsy.tests.fixtures"] = _m
+"""
+        regions.append(module_injection)
+
+    regions.extend(_extract_from(unbundle_source))
     if not regions:
         raise ValueError("unbundle.py contains no FIXTURE-CORE regions")
 
@@ -1291,7 +1325,7 @@ def extract_fixture_core(unbundle_source: bytes) -> str:
 
     # AST self-containment check
     core_ast = ast.parse(core_text, filename="<fixture-core>")
-    full_ast = ast.parse(text, filename="<unbundle.py>")
+    full_ast = ast.parse(unbundle_source.decode("utf-8"), filename="<unbundle.py>")
 
     unbundle_defs = set()
     for node in full_ast.body:
@@ -1331,10 +1365,7 @@ def extract_fixture_core(unbundle_source: bytes) -> str:
                 raise ValueError(
                     f"FIXTURE-CORE contains unmarked dependency '{name}' from unbundle.py"
                 )
-
     return core_text
-
-
 def build_fixture_bundles(
     sources: list[Path],
     output_dir: Path,

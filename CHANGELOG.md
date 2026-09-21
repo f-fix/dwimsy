@@ -5,6 +5,24 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.133-dev] - 2026-09-21T04:37:58Z
+
+### Changed
+- Implement dwimsy spec v12.6 fixture bundles and canonical timestamps
+- Bundle verification: subprocess
+
+## [0.1.6.132-dev] - 2026-09-20T22:59:44Z
+
+### Changed
+- Implement dwimsy spec v12.6 fixture bundles and canonical timestamps
+- Bundle verification: in-process
+
+## [0.1.6.131-dev] - 2026-09-20T08:55:14Z
+
+### Changed
+- Rebase fixture bundle fixes onto 0.1.6.130-dev
+- Bundle verification: subprocess
+
 ## [0.1.6.130-dev] - 2026-09-20T08:07:24Z
 
 ### Changed
