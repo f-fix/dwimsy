@@ -1271,6 +1271,7 @@ def extract_fixture_core(
         else:
             try:
                 from dwimsy.meta import unbundle as _ub
+
                 if hasattr(_ub, "get_asset"):
                     fixtures_source = _ub.get_asset("dwimsy/tests/fixtures.py")
             except Exception:
@@ -1366,6 +1367,8 @@ if "dwimsy.tests.fixtures" not in _sys.modules:
                     f"FIXTURE-CORE contains unmarked dependency '{name}' from unbundle.py"
                 )
     return core_text
+
+
 def build_fixture_bundles(
     sources: list[Path],
     output_dir: Path,

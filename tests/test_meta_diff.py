@@ -26,12 +26,16 @@ class TestStandaloneDiffIsolation(unittest.TestCase):
 
     def test_render_diff_checkout_vs_primary(self):
         repo_root = Path(__file__).resolve().parent.parent
-        res = diff.render_diff(root=repo_root, v1_sel=".", v2_sel="primary", verbose=False)
+        res = diff.render_diff(
+            root=repo_root, v1_sel=".", v2_sel="primary", verbose=False
+        )
         self.assertIsInstance(res, str)
 
     def test_render_diff_verbose_full_hashes(self):
         repo_root = Path(__file__).resolve().parent.parent
-        res = diff.render_diff(root=repo_root, v1_sel="0.1.6.130-dev", v2_sel="primary", verbose=True)
+        res = diff.render_diff(
+            root=repo_root, v1_sel="0.1.6.130-dev", v2_sel="primary", verbose=True
+        )
         self.assertIsInstance(res, str)
 
 

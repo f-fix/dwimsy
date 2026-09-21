@@ -26,7 +26,12 @@ class TestMetaBundleFixtures(unittest.TestCase):
             FIXTURES_BY_SHA1,
             FIXTURES_BY_FILENAME,
         )
-        for fname, data in [("one.wav", b"one"), ("two.t88", b"two"), ("three.txt", b"three")]:
+
+        for fname, data in [
+            ("one.wav", b"one"),
+            ("two.t88", b"two"),
+            ("three.txt", b"three"),
+        ]:
             sha = hashlib.sha1(data).hexdigest().lower()
             spec = FixtureSpec(
                 id=fname.split(".")[0],
@@ -152,8 +157,25 @@ if __name__ == "__main__":
     def test_v12_6_flat_tar_sentinel_and_unique_filename(self):
         """Verify v12.6 flat SHA-1 tar, mtime=0 sentinel, unique_filename, and move-aside."""
         from dwimsy.tests.fixtures import FixtureSpec, _compute_unique_filenames
-        s1 = FixtureSpec(id="s1", filename="dup.bin", sha1="1111111111111111111111111111111111111111", size=4, crc32="a", md5="b", timestamp="2020-01-01T00:00:00Z")
-        s2 = FixtureSpec(id="s2", filename="dup.bin", sha1="2222222222222222222222222222222222222222", size=4, crc32="c", md5="d", timestamp="2021-01-01T00:00:00Z")
+
+        s1 = FixtureSpec(
+            id="s1",
+            filename="dup.bin",
+            sha1="1111111111111111111111111111111111111111",
+            size=4,
+            crc32="a",
+            md5="b",
+            timestamp="2020-01-01T00:00:00Z",
+        )
+        s2 = FixtureSpec(
+            id="s2",
+            filename="dup.bin",
+            sha1="2222222222222222222222222222222222222222",
+            size=4,
+            crc32="c",
+            md5="d",
+            timestamp="2021-01-01T00:00:00Z",
+        )
         res = _compute_unique_filenames([s1, s2])
         self.assertEqual(res[s1.sha1], "dup.bin")
         self.assertEqual(res[s2.sha1], "dup.22222222.bin")

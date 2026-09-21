@@ -5,6 +5,12 @@ All notable changes to the dwimsy project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6.137-dev] - 2026-09-21T07:39:50Z
+
+### Changed
+- Reformatted
+- Bundle verification: subprocess
+
 ## [0.1.6.136-dev] - 2026-09-21T06:50:32Z
 
 ### Changed

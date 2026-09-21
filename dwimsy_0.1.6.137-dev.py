@@ -2,23 +2,23 @@
 """dwimsy.meta.unbundle - Standalone self-extracting payload and in-memory asset provider.
 
 Project Homepage: https://github.com/f-fix/dwimsy
-Version: 0.1.6.136-dev (2026-09-21)
+Version: 0.1.6.137-dev (2026-09-21)
 
 dwimsy - retrocomputing media preservation, demodulation, restoration, and preparation.
 A modular toolkit for vintage computer tapes, disks, ROMs, and audio captures.
 
-This standalone script is also distributed as dwimsy_0.1.6.136-dev.py.
+This standalone script is also distributed as dwimsy_0.1.6.137-dev.py.
 
 Bundle Basics:
 To use the embedded dwimsy CLI directly from the bundle:
-  python3 dwimsy_0.1.6.136-dev.py dwimsy --help
-  python3 dwimsy_0.1.6.136-dev.py dwimsy --version
-  python3 dwimsy_0.1.6.136-dev.py dwimsy readme
-  python3 dwimsy_0.1.6.136-dev.py dwimsy license
-  python3 dwimsy_0.1.6.136-dev.py dwimsy changelog
+  python3 dwimsy_0.1.6.137-dev.py dwimsy --help
+  python3 dwimsy_0.1.6.137-dev.py dwimsy --version
+  python3 dwimsy_0.1.6.137-dev.py dwimsy readme
+  python3 dwimsy_0.1.6.137-dev.py dwimsy license
+  python3 dwimsy_0.1.6.137-dev.py dwimsy changelog
 
 To extract the repository tree to disk:
-  python3 dwimsy_0.1.6.136-dev.py meta unbundle /path/to/target --deps
+  python3 dwimsy_0.1.6.137-dev.py meta unbundle /path/to/target --deps
 """
 
 from __future__ import annotations
@@ -1792,7 +1792,7 @@ def parse_early_pipeline_flags(
     has_verbose_flag = any(
         unicodedata.normalize("NFKC", a).casefold() == "--verbose" for a in args
     )
-    version_list_verbose = (has_verbose_flag or (has_v_flag and not is_short) or is_full)
+    version_list_verbose = has_verbose_flag or (has_v_flag and not is_short) or is_full
 
     i = 0
     while i < len(args):
@@ -1976,7 +1976,10 @@ def parse_early_pipeline_flags(
         if opt_key == "--version-list":
             if version_list_snapshot is None:
                 is_chk, r_root = detect_self_location(current_argv0)
-                has_quiet_early = any(unicodedata.normalize("NFKC", a).casefold() in ("-q", "--quiet") for a in args)
+                has_quiet_early = any(
+                    unicodedata.normalize("NFKC", a).casefold() in ("-q", "--quiet")
+                    for a in args
+                )
                 version_list_snapshot = vspace.format_list_versions(
                     on_disk_root=r_root if is_chk else None,
                     selected=active_selection,
@@ -2474,7 +2477,9 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
             a in ("--force", "-f") for a in remaining_args
         )
         dry_run = any(a == "--dry-run" for a in remaining_args)
-        quiet = pipeline.get("quiet", False) or any(a in ("--quiet", "-q") for a in remaining_args)
+        quiet = pipeline.get("quiet", False) or any(
+            a in ("--quiet", "-q") for a in remaining_args
+        )
         verbose = any(a in ("--verbose", "-v") for a in remaining_args) or bool(
             pipeline.get("verbosity", 0)
         )
@@ -2593,7 +2598,8 @@ def bootstrap_in_memory_cli(argv: Optional[List[str]] = None) -> None:
         materialize_deps=("--deps" in remaining_args),
         force=pipeline.get("force", False),
         dry_run=("--dry-run" in remaining_args),
-        quiet=pipeline.get("quiet", False) or ("--quiet" in remaining_args or "-q" in remaining_args),
+        quiet=pipeline.get("quiet", False)
+        or ("--quiet" in remaining_args or "-q" in remaining_args),
         target_version=ver_sel,
         verbose=bool(pipeline.get("verbosity", 0)),
         preserve_previous_history=any(op == "alt" for op, _ in pipeline["operations"]),
@@ -2799,12 +2805,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 # FIXTURE-CORE-BEGIN: blztar decode/materialize
 
+
 def _fixture_core_decode_payload(b64_text: str):
     """Decode and decompress base64 LZMA tar payload."""
     import base64 as _base64
     import io as _io
     import lzma as _lzma
     import tarfile as _tarfile
+
     raw = _base64.b64decode(b"".join(str(b64_text).encode("ascii").split()))
     if not raw:
         raise RuntimeError("Fixture bundle contains no payload")
@@ -2824,6 +2832,7 @@ def _fixture_core_decode_payload(b64_text: str):
 def _fixture_core_get_members(blztar_text: str) -> list[tuple[str, int]]:
     """Return list of (sha1, size) from flat SHA-1 tar payload."""
     import re as _re
+
     data, _io, _tarfile = _fixture_core_decode_payload(blztar_text)
     members = []
     with _tarfile.open(fileobj=_io.BytesIO(data), mode="r:") as tar:
@@ -2839,6 +2848,7 @@ def _fixture_core_get_spec(sha1: str, filename: str = ""):
     """Resolve FixtureSpec for sha1 from bundled registry or create synthetic fallback."""
     try:
         from dwimsy.tests.fixtures import FIXTURES_BY_SHA1
+
         spec = FIXTURES_BY_SHA1.get(sha1.lower())
         if spec is not None:
             return spec
@@ -2847,6 +2857,7 @@ def _fixture_core_get_spec(sha1: str, filename: str = ""):
     fn = filename or sha1.lower()
     try:
         from dwimsy.tests.fixtures import FixtureSpec
+
         return FixtureSpec(
             id=sha1[:12],
             filename=fn,
@@ -2915,8 +2926,15 @@ def _fixture_core_materialize(
                 continue
             sha = name.lower()
             spec = _fixture_core_get_spec(sha)
-            dest_name = getattr(spec, "unique_filename", None) or getattr(spec, "filename", sha)
-            if wanted is not None and dest_name not in wanted and getattr(spec, "filename", sha) not in wanted and sha not in wanted:
+            dest_name = getattr(spec, "unique_filename", None) or getattr(
+                spec, "filename", sha
+            )
+            if (
+                wanted is not None
+                and dest_name not in wanted
+                and getattr(spec, "filename", sha) not in wanted
+                and sha not in wanted
+            ):
                 continue
             src = tar.extractfile(member)
             if src is None:
@@ -2929,7 +2947,9 @@ def _fixture_core_materialize(
             action = "write"
             if dest.exists() or dest.is_symlink():
                 if dest.is_dir() and not dest.is_symlink():
-                    raise RuntimeError(f"Fixture destination is a directory: {dest_name}")
+                    raise RuntimeError(
+                        f"Fixture destination is a directory: {dest_name}"
+                    )
                 existing = dest.read_bytes()
                 if _hashlib.sha1(existing).hexdigest().lower() == sha:
                     action = "same"
@@ -2948,7 +2968,9 @@ def _fixture_core_materialize(
         ts = getattr(spec, "timestamp", None)
         if ts:
             try:
-                raw_ep = _datetime.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+                raw_ep = _datetime.datetime.fromisoformat(
+                    ts.replace("Z", "+00:00")
+                ).timestamp()
                 exp_epoch = float(int(round(raw_ep / 2.0) * 2))
             except Exception:
                 pass
@@ -2991,13 +3013,20 @@ def _fixture_core_materialize(
     return extracted
 
 
-def _fixture_core_list_manifest(blztar_text: str, verbose: bool = False, out_stream=None) -> None:
+def _fixture_core_list_manifest(
+    blztar_text: str, verbose: bool = False, out_stream=None
+) -> None:
     """Print formatted manifest listing to output stream."""
     import sys as _sys
+
     if out_stream is None:
         out_stream = _sys.stdout
     members = _fixture_core_get_members(blztar_text)
-    lines = [f"Fixture Bundle Payload ({len(members)} fixtures):", f"{'ID':<14} {'FILENAME':<24} {'SIZE':>10}  {'SHA-1':<40}", "-" * 92]
+    lines = [
+        f"Fixture Bundle Payload ({len(members)} fixtures):",
+        f"{'ID':<14} {'FILENAME':<24} {'SIZE':>10}  {'SHA-1':<40}",
+        "-" * 92,
+    ]
     for sha, sz in members:
         spec = _fixture_core_get_spec(sha)
         fid = getattr(spec, "id", sha[:12])
@@ -3005,6 +3034,7 @@ def _fixture_core_list_manifest(blztar_text: str, verbose: bool = False, out_str
         sha_str = sha if verbose else sha[:12]
         lines.append(f"{fid:<14} {fn:<24} {sz:>8} B  {sha_str:<40}")
     out_stream.write("\n".join(lines) + "\n")
+
 
 # FIXTURE-CORE-END
 # FIXTURE-CORE-BEGIN: packaging and dispatch
@@ -3042,7 +3072,9 @@ def _fixture_core_candidates(source_path: str | Path) -> dict[str, tuple[str, by
                             if _re.fullmatch(r"[0-9a-f]{40}", name, _re.I):
                                 sha = name.lower()
                                 spec = _fixture_core_get_spec(sha)
-                                fn = getattr(spec, "unique_filename", None) or getattr(spec, "filename", sha)
+                                fn = getattr(spec, "unique_filename", None) or getattr(
+                                    spec, "filename", sha
+                                )
                                 f = tar.extractfile(member)
                                 if f is not None:
                                     items[sha] = (fn, f.read())
@@ -3115,7 +3147,9 @@ def _fixture_core_bundle_fixtures(
                     if _re.fullmatch(r"[0-9a-f]{40}", name, _re.I):
                         sha = name.lower()
                         spec = _fixture_core_get_spec(sha)
-                        fn = getattr(spec, "unique_filename", None) or getattr(spec, "filename", sha)
+                        fn = getattr(spec, "unique_filename", None) or getattr(
+                            spec, "filename", sha
+                        )
                         f = tar.extractfile(member)
                         if f is not None:
                             all_items[sha] = (fn, f.read())
@@ -3174,14 +3208,20 @@ def _fixture_core_bundle_fixtures(
     # Preferred source order per Section 24.3:
     # 1. Standalone fixture bundle running context: __main__.__file__ if _FIXTURE_BLZTAR present
     main_mod = _sys.modules.get("__main__")
-    if main_mod and hasattr(main_mod, "_FIXTURE_BLZTAR") and getattr(main_mod, "__file__", None):
+    if (
+        main_mod
+        and hasattr(main_mod, "_FIXTURE_BLZTAR")
+        and getattr(main_mod, "__file__", None)
+    ):
         main_file = _Path(main_mod.__file__).resolve()
         if main_file.is_file():
             main_text = main_file.read_text(encoding="utf-8")
             m_blz = _re.search(r'(?ms)_FIXTURE_BLZTAR\s*=\s*""".*?"""\s*', main_text)
             if m_blz:
                 tail_code = main_text[m_blz.end() :]
-                m_main = _re.search(r'(?m)^if __name__ == [\'"]__main__[\'"]:', tail_code)
+                m_main = _re.search(
+                    r'(?m)^if __name__ == [\'"]__main__[\'"]:', tail_code
+                )
                 if m_main:
                     core_src = tail_code[: m_main.start()].strip()
                 else:
@@ -3191,10 +3231,16 @@ def _fixture_core_bundle_fixtures(
     if not core_src:
         try:
             from dwimsy.meta.bundle import extract_fixture_core
+
             ub_bytes = None
             try:
                 from dwimsy.meta import unbundle as _ub
-                if hasattr(_ub, "__file__") and _ub.__file__ and _Path(_ub.__file__).is_file():
+
+                if (
+                    hasattr(_ub, "__file__")
+                    and _ub.__file__
+                    and _Path(_ub.__file__).is_file()
+                ):
                     ub_bytes = _Path(_ub.__file__).read_bytes()
                 elif hasattr(_ub, "get_asset"):
                     ub_bytes = _ub.get_asset("dwimsy/meta/unbundle.py")
@@ -3235,7 +3281,9 @@ def _fixture_core_bundle_fixtures(
             m_blz = _re.search(r'(?ms)_FIXTURE_BLZTAR\s*=\s*""".*?"""\s*', self_text)
             if m_blz:
                 tail_code = self_text[m_blz.end() :]
-                m_main = _re.search(r'(?m)^if __name__ == [\'"]__main__[\'"]:', tail_code)
+                m_main = _re.search(
+                    r'(?m)^if __name__ == [\'"]__main__[\'"]:', tail_code
+                )
                 if m_main:
                     core_src = tail_code[: m_main.start()].strip()
                 else:
@@ -3364,10 +3412,16 @@ def _fixture_core_main(argv=None):
     if not args or args in (["-h"], ["--help"], ["--help-all"]):
         print(f"dwimsy {_fixture_ver} (private test-fixture bundle)")
         print("\nCommands:")
-        print("  meta unbundle TARGET        Extract fixture payloads to TARGET directory")
+        print(
+            "  meta unbundle TARGET        Extract fixture payloads to TARGET directory"
+        )
         print("  meta list-fixtures          List all fixture payloads in this bundle")
-        print("  meta bundle-fixtures [SRC]  Pack a new fixture bundle (subset or with extra sources)")
-        print("\nNote: Standard DWIMSY tools (convert, tests, etc.) are omitted from this fixture bundle.")
+        print(
+            "  meta bundle-fixtures [SRC]  Pack a new fixture bundle (subset or with extra sources)"
+        )
+        print(
+            "\nNote: Standard DWIMSY tools (convert, tests, etc.) are omitted from this fixture bundle."
+        )
         return 0
 
     cmd = None
@@ -3415,15 +3469,45 @@ def _fixture_core_main(argv=None):
             prog="dwimsy-meta-bundle-fixtures",
             description="Pack or slice DWIMSY test-fixture bundles.",
         )
-        parser.add_argument("sources", nargs="*", default=None, help="Fixture directories, loose files, or fixture bundles")
+        parser.add_argument(
+            "sources",
+            nargs="*",
+            default=None,
+            help="Fixture directories, loose files, or fixture bundles",
+        )
         parser.add_argument("-o", "--output-dir", default=".", help="Output directory")
-        parser.add_argument("--fixture-include", action="append", default=[], help="Include selector")
-        parser.add_argument("--fixture-restrict-to", action="append", default=[], help="Restrict-to selector")
-        parser.add_argument("--fixture-prune", action="append", default=[], help="Prune selector")
-        parser.add_argument("--label", "-l", default=None, help="Filename label/scope component")
-        parser.add_argument("--max-size", "--target-size", dest="target_size", type=int, default=500_000, help="Target compressed size")
-        parser.add_argument("--format", choices=("py", "pyz", "both"), default="both", help="Output format")
-        parser.add_argument("--list", action="store_true", help="List embedded fixtures")
+        parser.add_argument(
+            "--fixture-include", action="append", default=[], help="Include selector"
+        )
+        parser.add_argument(
+            "--fixture-restrict-to",
+            action="append",
+            default=[],
+            help="Restrict-to selector",
+        )
+        parser.add_argument(
+            "--fixture-prune", action="append", default=[], help="Prune selector"
+        )
+        parser.add_argument(
+            "--label", "-l", default=None, help="Filename label/scope component"
+        )
+        parser.add_argument(
+            "--max-size",
+            "--target-size",
+            dest="target_size",
+            type=int,
+            default=500_000,
+            help="Target compressed size",
+        )
+        parser.add_argument(
+            "--format",
+            choices=("py", "pyz", "both"),
+            default="both",
+            help="Output format",
+        )
+        parser.add_argument(
+            "--list", action="store_true", help="List embedded fixtures"
+        )
         p_args = parser.parse_args(sub_args)
         if p_args.list:
             if not _fixture_blz:
@@ -3459,6 +3543,7 @@ def _fixture_core_main(argv=None):
         file=_sys.stderr,
     )
     return 2
+
 
 # FIXTURE-CORE-END
 
@@ -9155,7 +9240,7 @@ PS9mBsyZ2SkZ7SrGU0jQt7tph38EDDhCCuqW993Jbe7ewcYs6D/+Idjti5SJYgO77OzPMDb0ZEYI
 Oh+1XNsIX84XwayTkjgUvhBsz8Z6kcWmX2BD13rgnQqmQX4YkcbfB/hF9TODTA/rcMSSFQAB+ja+
 AslQzJUF2bsdwAyk84ox0/znQ6/nx7/NbTkMxGtmeSGQBazV1WUm/7HL4LPLezbRqkpk0MYKe5uL
 HLJKyjuvgCkmxqbXUXhZORzhVbUkIjkDE6Hzx50Jv3No8QrgFVsDKkopuBUCZI96NLIKFD101cC4
-Y57/SR0EAMk52iHKc7cALu0++hSGYxyqhAaC3NMDh4eA8nURPIXCyXv1aP7C5It1S/z+IBEabRYw
+Y5//fx1PAMk52iHKc7cALu0++hSGYxyqhAaC3NMDh4eA8nURPIXCyXv1aP7C5It1S/z+IBEabRYw
 pkQaQSBxyy2+OE4AMiQHZWYb+I+HVuZ4mHDhEUiN8sQ92vklbz2e7DEclQsO5CI33qZQht7ZlaHW
 DpnxRclAP8iVBlhe5dHRKJLOGriIjYgkgAgZ+gghZkg2lsiPHXOv4MWLO8QhGKpqdExmyWdnx62I
 5eMCOM+MJfQ19IwOudUrMLGgfThr60qRKRPRKEXQzcBQqkhqG39VamS+BXS25QbNFJSAT8kNmdwn
@@ -9285,8 +9370,24 @@ jrX/b5Tw+x/Lda2DBg4joGHdMmYYhKgBeKrHIR4Do+4IPGnPb5tPzHQQRvz0Xq9NbsUHedmZRdRK
 2WCSeR3Fz+GE+uoPiSF9uzJL3X5R9J8/98O8LS5B49ADcPFNIStibSBsn9Afe1qiK/XQnnQ8iTfB
 uz/K12bnIhoyFQY6LdEsHFLyjlQqJ6YEJz4Q5HbYZDJgeHnrTrbSAmPX2k7nUuKSZpAaZSqzKsrf
 Sv94pSl4KUsGgeY7Oah57taFP5gfulKohlkvVes/dwyIUVMY42/6XCHZK/rl9zmyzrLa7TuLeX1T
-5JXBFljqewPk/L/8zc0XI60cLLOgHUDIkwDEMxxdvyVtngAB5KAUgOC/DwAAAHp3ocwUFzswAwAA
-AAAEWVo=
+5JXBFljqewPk/L/8zc0XI60cLLOIpsIfvCZgqmaUTrboBtBP0lcC7Vwj5Nsfn4X9f7s7cLjzmOdH
+mrcpxqhoS9WcqPgO4HbFNdUtvdpJiSRZGPuIVpkP81sUwF7cbm/mN3Sl8YZXyQNoAOiJ7UEbGy72
+3rDYvpf1WimP+DctYO7YpjNROjqD2oNv+fUmX55JsJxsuHn1DsCIu+QEHBcVrcg06VWUGzYqX8V7
+Ma4zFujJwwuwN2IxGJ57FWB2QaOpwgkOVK2OdxeczHsYTsAlM21RLyxOjTQeX+7t5Cfpc7A3f7Ze
+1sf36x31cYYlrp/0yyFiiyUtNJJHviC1JvVpF3/FWe+0dgwC2nucqKBauP76KRSglZAzh681m1PS
+DOu5vao9CtlNJtGrhRRqYHgIzKimwv14QQJPO8m6hw66C1fWrfxP8XSgZwajUtwycK5A98Ge9Yd1
+Seped/EbvtXBijQPN9YsJwJ8xvsuVxi8NQIsyJKQFdMRbUia8lU0vG6QmKYfnduy4pancv2uZVFL
+NdOW5TFcWncCJih9l8RZ+72ELzhTBKvTcBtXDe5GZ5ZTim+ku8SoMKhVRYBikOVcKryPhiYXgT0Y
+RkevGQV23loR+3oXpiUSVWFcmx84NkAjpiUapi2lHABoCQohUyXlOJpQv9ERCShW48EtzgU6qRDb
++RYn4MYtRggbxK/mDtMOf0p4NRvtS3UI3MT5fxnyjvLoILB2Fw46vbI8shmLB/dtd/hvUxfUiH6E
+3H3riQgbtL7MFdhXYD9kI4oVjOg2olqfAuJHVaPa9oI4D4SDJF68541UsPgsOIIYVfXqBVKrZmuP
+XkxnX14DxQnRjFbIO6CneCQDofw/OJQ4zK1E/y9JqEV03dctOyChxjgUN6n6I4elQKRjvo0YByET
+cKm87M/q+hSQbMtiNQmHxa6FDoTYz6dWc1/OiyTAjsHAxY4IhDOVILCqNMKORaudB2cPqKkcE0vW
+n8SyO5pk3ATBxuznM1haNb3YTke8LWRJKNYmEue9DBAcgDqtEBkEw+mqCvXyWX/Un9KcV32+XRZB
+N16h2+FUpPuKmQI4zwTk4NCo42RJ7Y7D+4fv92M5f1c5cpC9lpROTmSQj9z2SCcffYYKFlCcEQPq
+S5WKHqIkX4JSOaOYVW8i4f36AlR+oNdTp29pt584SMMDJBrq3XKqB4iGDh/7S40QECUMSL3w218e
+e0GhddZiqoFvpHJl6uHd4Jxb1g3+mXzn5OgcNVkkpI/6JqVmsrytnnSH4hWw0IBc9LycS3V0sSQa
+ZvumikBEjpQ7AAAAAB8MTUgCwpmdAAGdqBSAkN0PAAAA3FL1lRQXOzADAAAAAARZWg==
 """
 
 

@@ -421,12 +421,14 @@ class TestMetaBundle(unittest.TestCase):
             (root / "dwimsy" / "main.py").write_text("")
             (root / "dwimsy" / "meta").mkdir()
             (root / "dwimsy" / "meta" / "unbundle.py").write_text('blztar = """\n"""\n')
-            (root / ".gitignore").write_text("""
+            (root / ".gitignore").write_text(
+                """
 __pycache__/
 *.tmp
 ignored_dir/
 dwimsy/ignored_file.py
-""")
+"""
+            )
             (root / "dwimsy" / "test.tmp").write_text("temp data")
             (root / "ignored_dir").mkdir()
             (root / "ignored_dir" / "file.txt").write_text("ignored")

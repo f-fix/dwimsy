@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 from pathlib import Path
 
+
 @dataclass(frozen=True)
 class FixtureSpec:
     """Specification of a known test fixture artifact."""
@@ -471,6 +472,7 @@ _RAW_FIXTURE_SPECS: List[Tuple[str, str, int, str, str, str, str, Optional[str]]
     ),
 ]
 
+
 def _compute_unique_filenames(specs: Sequence[FixtureSpec]) -> Dict[str, str]:
     groups: Dict[str, List[FixtureSpec]] = {}
     for s in specs:
@@ -480,9 +482,11 @@ def _compute_unique_filenames(specs: Sequence[FixtureSpec]) -> Dict[str, str]:
         if len(group) == 1:
             res[group[0].sha1.lower()] = fname
         else:
+
             def sort_key(item: FixtureSpec):
                 ts_key = (0, item.timestamp) if item.timestamp is not None else (1, "")
                 return (ts_key, item.sha1.lower())
+
             sorted_group = sorted(group, key=sort_key)
             winner = sorted_group[0]
             res[winner.sha1.lower()] = fname
@@ -492,7 +496,10 @@ def _compute_unique_filenames(specs: Sequence[FixtureSpec]) -> Dict[str, str]:
             for other in sorted_group[1:]:
                 prefix_len = 8
                 cand = f"{stem}.{other.sha1[:prefix_len]}{suffix}"
-                while any(s != other and cand == f"{stem}.{s.sha1[:prefix_len]}{suffix}" for s in sorted_group):
+                while any(
+                    s != other and cand == f"{stem}.{s.sha1[:prefix_len]}{suffix}"
+                    for s in sorted_group
+                ):
                     prefix_len += 1
                 res[other.sha1.lower()] = f"{stem}.{other.sha1[:prefix_len]}{suffix}"
     return res
@@ -555,7 +562,9 @@ def get_fixture_spec(key: str) -> Optional[FixtureSpec]:
             return s
     return None
 
+
 # FIXTURE-CORE-END
+
 
 def _calc_sha1(path: Path) -> str:
     h = hashlib.sha1()
@@ -620,17 +629,23 @@ class FixturePool:
                             if fpath.suffix.lower() == ".pyz":
                                 with zipfile.ZipFile(io.BytesIO(data)) as zf:
                                     data = zf.read("__main__.py")
-                            m = re.search(rb'_FIXTURE_BLZTAR\s*=\s*"""\n([\s\S]*?)\n"""', data)
+                            m = re.search(
+                                rb'_FIXTURE_BLZTAR\s*=\s*"""\n([\s\S]*?)\n"""', data
+                            )
                             if m:
                                 raw = base64.b64decode(b"".join(m.group(1).split()))
-                                with tarfile.open(fileobj=io.BytesIO(lzma.decompress(raw)), mode="r:") as tar:
+                                with tarfile.open(
+                                    fileobj=io.BytesIO(lzma.decompress(raw)), mode="r:"
+                                ) as tar:
                                     for member in tar.getmembers():
                                         if not member.isfile():
                                             continue
                                         m_name = member.name.lstrip("./")
                                         if re.fullmatch(r"[0-9a-f]{40}", m_name, re.I):
                                             sha1_val = m_name.lower()
-                                            spec = self._registry.get(sha1_val) or FIXTURES_BY_SHA1.get(sha1_val)
+                                            spec = self._registry.get(
+                                                sha1_val
+                                            ) or FIXTURES_BY_SHA1.get(sha1_val)
                                             if spec is None:
                                                 spec = FixtureSpec(
                                                     id=sha1_val[:12],
@@ -643,9 +658,22 @@ class FixturePool:
                                                     timestamp=None,
                                                     unique_filename=sha1_val,
                                                 )
-                                            self._bundle_records[sha1_val] = (fpath, {"name": spec.unique_filename, "sha1": sha1_val, "member": m_name, "spec": spec})
-                                            self._by_filename.setdefault(spec.unique_filename.casefold(), sha1_val)
-                                            self._by_filename.setdefault(spec.filename.casefold(), sha1_val)
+                                            self._bundle_records[sha1_val] = (
+                                                fpath,
+                                                {
+                                                    "name": spec.unique_filename,
+                                                    "sha1": sha1_val,
+                                                    "member": m_name,
+                                                    "spec": spec,
+                                                },
+                                            )
+                                            self._by_filename.setdefault(
+                                                spec.unique_filename.casefold(),
+                                                sha1_val,
+                                            )
+                                            self._by_filename.setdefault(
+                                                spec.filename.casefold(), sha1_val
+                                            )
                                 continue
                         except Exception:
                             pass
@@ -663,13 +691,19 @@ class FixturePool:
             return None
         path, record = item
         spec = record.get("spec") or get_fixture_spec(sha1_clean)
-        unique_name = getattr(spec, "unique_filename", None) or getattr(spec, "filename", sha1_clean)
+        unique_name = getattr(spec, "unique_filename", None) or getattr(
+            spec, "filename", sha1_clean
+        )
         dest = Path(tempfile.gettempdir()) / "dwimsy-fixtures" / unique_name
 
         from dwimsy.meta.unbundle import _timestamp_epoch
+
         exp_epoch = _timestamp_epoch(getattr(spec, "timestamp", None)) if spec else None
 
-        if dest.is_file() and hashlib.sha1(dest.read_bytes()).hexdigest().lower() == sha1_clean:
+        if (
+            dest.is_file()
+            and hashlib.sha1(dest.read_bytes()).hexdigest().lower() == sha1_clean
+        ):
             if exp_epoch is not None:
                 try:
                     os.utime(dest, (exp_epoch, exp_epoch))
@@ -720,7 +754,9 @@ class FixturePool:
                 return self._by_sha1[s1]
             if s1 in self._bundle_records:
                 return self._materialize_bundle(s1)
-            cand = self._by_filename.get(spec.unique_filename.lower()) or self._by_filename.get(spec.filename.lower())
+            cand = self._by_filename.get(
+                spec.unique_filename.lower()
+            ) or self._by_filename.get(spec.filename.lower())
             if isinstance(cand, str) and cand in self._bundle_records:
                 return self._materialize_bundle(cand)
             if cand:

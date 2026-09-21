@@ -17,9 +17,13 @@ class TestUnbundleNoTopLevelDwimsyImports(unittest.TestCase):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "dwimsy" or alias.name.startswith("dwimsy."):
-                        top_level_dwimsy_imports.append((node.lineno, ast.unparse(node)))
+                        top_level_dwimsy_imports.append(
+                            (node.lineno, ast.unparse(node))
+                        )
             elif isinstance(node, ast.ImportFrom):
-                if node.module == "dwimsy" or (node.module and node.module.startswith("dwimsy.")):
+                if node.module == "dwimsy" or (
+                    node.module and node.module.startswith("dwimsy.")
+                ):
                     top_level_dwimsy_imports.append((node.lineno, ast.unparse(node)))
 
         self.assertEqual(

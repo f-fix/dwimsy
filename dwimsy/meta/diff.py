@@ -232,9 +232,13 @@ def render_diff(
             if not m:
                 return integrity._canonical_bytes(data, name)
             summary = (
-                side_vspace.format_list_versions(on_disk_root=None, selected=None, quiet=True, verbose=verbose)
+                side_vspace.format_list_versions(
+                    on_disk_root=None, selected=None, quiet=True, verbose=verbose
+                )
                 if side_vspace is not None
-                else vspace.format_list_versions(on_disk_root=None, selected=None, quiet=True, verbose=verbose)
+                else vspace.format_list_versions(
+                    on_disk_root=None, selected=None, quiet=True, verbose=verbose
+                )
             )
             ph = (
                 'blztar = """\n'
@@ -375,7 +379,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     v2 = args.versions[1] if len(args.versions) > 1 else None
 
     try:
-        diff_text = render_diff(root=getattr(args, "root", None), v1_sel=v1, v2_sel=v2, verbose=bool(getattr(args, "verbose", False)))
+        diff_text = render_diff(
+            root=getattr(args, "root", None),
+            v1_sel=v1,
+            v2_sel=v2,
+            verbose=bool(getattr(args, "verbose", False)),
+        )
         safe_page(diff_text)
         return 0
     except (ValueError, RuntimeError) as exc:
